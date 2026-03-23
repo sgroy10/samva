@@ -1,0 +1,8 @@
+node_modules/
+data/
+sessions/
+__pycache__/
+*.pyc
+.env
+*.db
+.venv/

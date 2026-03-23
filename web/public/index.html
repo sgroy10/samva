@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Samva — Your Personal Assistant on WhatsApp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0D0C0A;
+  --paper: #F5F2EC;
+  --warm: #F0EBE1;
+  --wa: #25D366;
+  --gold: #C9A84C;
+  --muted: #8A8070;
+  --border: rgba(90,80,60,0.12);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  overflow-x: hidden;
+}
+
+/* NAV */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 48px;
+  background: rgba(245,242,236,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  font-family: 'Fraunces', serif;
+  font-size: 22px; font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+}
+.logo span { color: var(--gold); }
+.nav-cta {
+  background: var(--ink);
+  color: var(--paper);
+  border: none; border-radius: 100px;
+  padding: 10px 24px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-block;
+}
+.nav-cta:hover { background: #2a2620; transform: scale(1.02); }
+
+/* HERO */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+  padding: 120px 24px 80px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -100px; left: 50%; transform: translateX(-50%);
+  width: 800px; height: 600px;
+  background: radial-gradient(ellipse, rgba(201,168,76,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(37,211,102,0.08);
+  border: 1px solid rgba(37,211,102,0.2);
+  border-radius: 100px;
+  padding: 6px 16px;
+  font-size: 13px; font-weight: 500;
+  color: #1a9e50;
+  margin-bottom: 32px;
+  opacity: 0; animation: fadeUp 0.6s 0.2s forwards;
+}
+.wa-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--wa);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.8)} }
+
+.hero h1 {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(44px, 7vw, 88px);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -3px;
+  margin-bottom: 24px;
+  opacity: 0; animation: fadeUp 0.7s 0.3s forwards;
+}
+.hero h1 em {
+  font-style: italic;
+  color: var(--gold);
+}
+.hero h1 .line2 {
+  display: block;
+  font-weight: 600;
+}
+
+.hero-sub {
+  font-size: clamp(16px, 2vw, 19px);
+  color: var(--muted);
+  line-height: 1.7;
+  max-width: 520px;
+  margin: 0 auto 40px;
+  font-weight: 300;
+  opacity: 0; animation: fadeUp 0.7s 0.4s forwards;
+}
+
+.hero-actions {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 64px;
+  opacity: 0; animation: fadeUp 0.7s 0.5s forwards;
+}
+.btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+  border: none; border-radius: 100px;
+  padding: 16px 36px;
+  font-size: 16px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex; align-items: center; gap: 10px;
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+.btn-secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid rgba(13,12,10,0.2);
+  border-radius: 100px;
+  padding: 16px 32px;
+  font-size: 16px; font-weight: 400;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-secondary:hover { border-color: var(--ink); background: rgba(13,12,10,0.04); }
+
+.price-hint {
+  font-size: 13px; color: var(--muted);
+  opacity: 0; animation: fadeUp 0.7s 0.6s forwards;
+}
+.price-hint strong { color: var(--ink); }
+
+/* CHAT DEMO */
+.chat-demo {
+  width: 100%; max-width: 400px;
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.12);
+  margin: 0 auto;
+  opacity: 0; animation: fadeUp 0.8s 0.7s forwards;
+}
+.chat-header {
+  background: #075e54;
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.chat-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--wa);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Fraunces', serif;
+  font-size: 16px; color: white; font-weight: 600;
+}
+.chat-name { color: white; font-size: 15px; font-weight: 500; }
+.chat-status { color: rgba(255,255,255,0.7); font-size: 12px; }
+.chat-body {
+  background: #e5ddd5;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c5b9a8' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  padding: 16px;
+  min-height: 280px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.bubble {
+  max-width: 80%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  position: relative;
+}
+.bubble-in {
+  background: white;
+  align-self: flex-start;
+  border-radius: 4px 8px 8px 8px;
+  color: #1a1a1a;
+}
+.bubble-out {
+  background: #dcf8c6;
+  align-self: flex-end;
+  border-radius: 8px 4px 8px 8px;
+  color: #1a1a1a;
+}
+.bubble-time {
+  font-size: 10px;
+  color: rgba(0,0,0,0.4);
+  display: block; text-align: right;
+  margin-top: 2px;
+}
+.bubble-sam {
+  font-size: 11px; font-weight: 600;
+  color: #075e54;
+  margin-bottom: 2px;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* DIVIDER */
+.section-divider {
+  text-align: center;
+  padding: 16px 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* WHO SECTION */
+.who-section {
+  padding: 80px 48px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.section-label {
+  font-size: 12px; font-weight: 500;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.section-title {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(32px, 4vw, 52px);
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: -1.5px;
+  margin-bottom: 48px;
+}
+.section-title em { font-style: italic; color: var(--gold); }
+
+.personas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.persona {
+  background: var(--paper);
+  padding: 28px 32px;
+  transition: background 0.2s;
+}
+.persona:hover { background: var(--warm); }
+.persona-name {
+  font-family: 'Fraunces', serif;
+  font-size: 20px; font-weight: 600;
+  margin-bottom: 4px;
+}
+.persona-role {
+  font-size: 12px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 14px;
+}
+.persona-pain {
+  font-size: 14px; color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 12px;
+  font-style: italic;
+}
+.persona-value {
+  font-size: 14px; color: var(--ink);
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+/* SKILLS SECTION */
+.skills-section {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 80px 48px;
+}
+.skills-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.skills-section .section-label { color: rgba(245,242,236,0.4); }
+.skills-section .section-title { color: var(--paper); }
+.skills-section .section-title em { color: var(--gold); }
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-top: 48px;
+}
+.skill-card {
+  background: var(--ink);
+  padding: 28px;
+  transition: background 0.2s;
+}
+.skill-card:hover { background: #1a1814; }
+.skill-icon {
+  width: 40px; height: 40px;
+  background: rgba(201,168,76,0.12);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+.skill-name {
+  font-size: 15px; font-weight: 500;
+  color: var(--paper);
+  margin-bottom: 6px;
+}
+.skill-desc {
+  font-size: 13px;
+  color: rgba(245,242,236,0.5);
+  line-height: 1.6;
+}
+
+/* LAYERS */
+.layers-section {
+  padding: 80px 48px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.layers {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+  margin-top: 48px;
+}
+.layer-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+}
+.layer-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.layer-heartbeat::before { background: #E24B4A; }
+.layer-soul::before { background: var(--gold); }
+.layer-skills::before { background: var(--wa); }
+.layer-tag {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.layer-heartbeat .layer-tag { color: #E24B4A; }
+.layer-soul .layer-tag { color: var(--gold); }
+.layer-skills .layer-tag { color: #1a9e50; }
+.layer-title {
+  font-family: 'Fraunces', serif;
+  font-size: 22px; font-weight: 600;
+  margin-bottom: 10px;
+}
+.layer-desc {
+  font-size: 14px; color: var(--muted);
+  line-height: 1.7;
+}
+
+/* JOURNEY */
+.journey-section {
+  background: var(--warm);
+  padding: 80px 48px;
+}
+.journey-inner { max-width: 1100px; margin: 0 auto; }
+.journey-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  margin-top: 48px;
+  align-items: start;
+}
+.journey-steps { display: flex; flex-direction: column; gap: 24px; }
+.step {
+  display: flex; gap: 16px; align-items: flex-start;
+}
+.step-num {
+  width: 32px; height: 32px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 500;
+  flex-shrink: 0;
+}
+.step-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+.step-desc { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+/* PRICING */
+.pricing-section {
+  padding: 80px 48px;
+  max-width: 700px;
+  margin: 0 auto;
+  text-align: center;
+}
+.price-card {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 48px;
+  margin-top: 48px;
+  position: relative;
+  overflow: hidden;
+}
+.price-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--gold), var(--wa));
+}
+.price-amount {
+  font-family: 'Fraunces', serif;
+  font-size: 64px; font-weight: 600;
+  letter-spacing: -3px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.price-period { font-size: 16px; color: var(--muted); margin-bottom: 32px; }
+.price-features {
+  list-style: none;
+  text-align: left;
+  margin-bottom: 36px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.price-features li {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 15px;
+}
+.price-features li::before {
+  content: '\2713';
+  width: 20px; height: 20px;
+  background: rgba(37,211,102,0.1);
+  color: var(--wa);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  flex-shrink: 0;
+}
+.price-cta {
+  width: 100%;
+  background: var(--ink);
+  color: var(--paper);
+  border: none; border-radius: 100px;
+  padding: 18px;
+  font-size: 17px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.price-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+.price-note { font-size: 13px; color: var(--muted); margin-top: 16px; }
+
+.enterprise-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 32px;
+  margin-top: 16px;
+  text-align: left;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+}
+.ent-title { font-size: 16px; font-weight: 500; margin-bottom: 4px; }
+.ent-desc { font-size: 13px; color: var(--muted); }
+.ent-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 10px 20px;
+  font-size: 13px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.ent-btn:hover { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+
+/* FOOTER */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 32px 48px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+}
+.footer-logo {
+  font-family: 'Fraunces', serif;
+  font-size: 18px; font-weight: 700;
+}
+.footer-logo span { color: var(--gold); }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a {
+  font-size: 13px; color: var(--muted);
+  text-decoration: none; transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--ink); }
+.footer-copy { font-size: 12px; color: var(--muted); }
+
+/* MODALS */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: white;
+  border-radius: 24px;
+  padding: 40px;
+  max-width: 440px;
+  width: 100%;
+  position: relative;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+}
+.modal-close {
+  position: absolute;
+  top: 16px; right: 16px;
+  background: none; border: none;
+  font-size: 24px; cursor: pointer;
+  color: var(--muted);
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+.modal-close:hover { background: rgba(0,0,0,0.05); }
+.modal h2 {
+  font-family: 'Fraunces', serif;
+  font-size: 24px; font-weight: 600;
+  margin-bottom: 8px;
+}
+.modal h2 span { color: var(--gold); }
+.modal p.modal-sub {
+  color: var(--muted); font-size: 14px;
+  margin-bottom: 24px; line-height: 1.5;
+}
+.modal label {
+  display: block;
+  font-size: 13px; font-weight: 500;
+  margin-bottom: 6px; color: var(--ink);
+}
+.modal input, .modal textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+  outline: none;
+}
+.modal input:focus, .modal textarea:focus { border-color: var(--gold); }
+.modal textarea { resize: vertical; min-height: 80px; }
+.modal .modal-btn {
+  width: 100%;
+  background: var(--ink);
+  color: var(--paper);
+  border: none; border-radius: 100px;
+  padding: 14px;
+  font-size: 16px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.modal .modal-btn:hover { transform: translateY(-1px); }
+.modal .modal-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.modal .error-msg {
+  color: #E24B4A; font-size: 13px; margin-top: 8px; display: none;
+}
+.modal .success-msg {
+  color: var(--wa); font-size: 14px; font-weight: 500; text-align: center;
+  padding: 20px 0;
+}
+
+/* QR Modal specific */
+#qr-modal .qr-container {
+  min-height: 300px;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+}
+#qr-modal .qr-container img { max-width: 260px; border-radius: 12px; }
+#qr-modal .qr-loading .spinner {
+  width: 40px; height: 40px;
+  border: 3px solid #eee; border-top: 3px solid var(--gold);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#qr-modal .connected-msg {
+  text-align: center; color: var(--wa);
+}
+#qr-modal .connected-msg .check { font-size: 48px; margin-bottom: 12px; }
+
+@media (max-width: 768px) {
+  nav { padding: 16px 20px; }
+  .who-section, .layers-section, .journey-section, .skills-section { padding: 60px 20px; }
+  .pricing-section { padding: 60px 20px; }
+  .layers { grid-template-columns: 1fr; }
+  .journey-grid { grid-template-columns: 1fr; }
+  footer { padding: 24px 20px; flex-direction: column; text-align: center; }
+  .enterprise-card { flex-direction: column; }
+  .personas { grid-template-columns: 1fr; }
+  .modal { padding: 28px; margin: 12px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Sam<span>va</span></div>
+  <a href="javascript:void(0)" class="nav-cta" onclick="openSignup()">Get Sam — &#8377;999/mo</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">
+    <div class="wa-dot"></div>
+    Lives on WhatsApp — no app to download
+  </div>
+
+  <h1>
+    Your personal assistant,
+    <span class="line2">already on <em>WhatsApp.</em></span>
+  </h1>
+
+  <p class="hero-sub">
+    Sam remembers everything you tell it. Answers your customers when you can't. Reads your emails. Captures your meetings. Reminds you what matters. In your language. Every day.
+  </p>
+
+  <div class="hero-actions">
+    <button class="btn-primary" onclick="openSignup()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      Start with Sam
+    </button>
+    <button class="btn-secondary" onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">See how it works</button>
+  </div>
+
+  <p class="price-hint">&#8377;999/month &middot; No app &middot; No setup &middot; Just WhatsApp</p>
+
+  <div style="height: 48px;"></div>
+
+  <div class="chat-demo">
+    <div class="chat-header">
+      <div class="chat-avatar">S</div>
+      <div>
+        <div class="chat-name">Sam</div>
+        <div class="chat-status">online</div>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="bubble bubble-in">
+        <div class="bubble-sam">Sam</div>
+        Good morning Ritu ji! &#127749;<br><br>
+        Yesterday — 14 messages, 3 need your attention:<br>
+        &bull; Priya wants red silk saree<br>
+        &bull; Ahmed asking about bulk COD<br>
+        &bull; Sunita wants a custom blouse<br><br>
+        2 supplier emails. Summarise karein?
+        <span class="bubble-time">9:00 AM &#10003;&#10003;</span>
+      </div>
+      <div class="bubble bubble-out">
+        Haan, email batao
+        <span class="bubble-time">9:02 AM &#10003;&#10003;</span>
+      </div>
+      <div class="bubble bubble-in">
+        <div class="bubble-sam">Sam</div>
+        Rajesh Fabrics — new silk stock, min 50m.<br>
+        Surat Textile — &#8377;45,000 invoice due Friday.<br><br>
+        Kisi ko reply karna hai? Main draft kar deti hoon.
+        <span class="bubble-time">9:02 AM &#10003;&#10003;</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHO IS SAM FOR -->
+<section class="who-section" id="who">
+  <p class="section-label">Who Sam helps</p>
+  <h2 class="section-title">
+    Everyone who lives<br>on <em>WhatsApp.</em>
+  </h2>
+
+  <div class="personas">
+    <div class="persona">
+      <div class="persona-name">Ritu</div>
+      <div class="persona-role">Saree Shop &middot; Surat</div>
+      <div class="persona-pain">"Customers message at 11pm. I'm asleep. They buy from Meesho."</div>
+      <div class="persona-value">Sam answers every customer in Hindi and Gujarati — 24 hours. One missed order pays for 3 months.</div>
+    </div>
+    <div class="persona">
+      <div class="persona-name">Malti</div>
+      <div class="persona-role">Finance Manager &middot; Mumbai</div>
+      <div class="persona-pain">"I spend an hour every morning just reading emails before I can start working."</div>
+      <div class="persona-value">Sam reads overnight emails, sends a 3-line summary at 8am. Ramblo in Hindi — Sam drafts the professional English email.</div>
+    </div>
+    <div class="persona">
+      <div class="persona-name">Sandeep</div>
+      <div class="persona-role">Trade Show &middot; IIJS</div>
+      <div class="persona-pain">"I come back with 50 business cards and forget who said what by Thursday."</div>
+      <div class="persona-value">Snap every card. Voice every meeting. Sam builds a complete searchable database of every contact — forever.</div>
+    </div>
+    <div class="persona">
+      <div class="persona-name">Ramesh</div>
+      <div class="persona-role">Fitness &middot; Pune</div>
+      <div class="persona-pain">"I don't know what's in my food. I can't afford a personal trainer."</div>
+      <div class="persona-value">Photo your meal — Sam estimates calories. Morning target. Daily check-in. Personal trainer for &#8377;999/month.</div>
+    </div>
+    <div class="persona">
+      <div class="persona-name">Geeta</div>
+      <div class="persona-role">Learning English &middot; Jaipur</div>
+      <div class="persona-pain">"I'm embarrassed to write emails in English. I make mistakes."</div>
+      <div class="persona-value">Sam practices English with Geeta every day. One word every morning. She tells Sam in Hindi — Sam writes the English email.</div>
+    </div>
+    <div class="persona">
+      <div class="persona-name">John</div>
+      <div class="persona-role">Spare Parts &middot; Kochi</div>
+      <div class="persona-pain">"Customers call all day. I can't afford a receptionist."</div>
+      <div class="persona-value">Sam answers product queries in English and Malayalam, knows John's catalogue, takes enquiry details automatically.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 22 LANGUAGES -->
+<section style="background:var(--ink);padding:60px 48px;text-align:center;">
+  <div style="max-width:800px;margin:0 auto;">
+    <p style="font-size:12px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:rgba(245,242,236,0.4);margin-bottom:16px;">Speak your language</p>
+    <h2 style="font-family:'Fraunces',serif;font-size:clamp(28px,4vw,48px);font-weight:300;color:var(--paper);letter-spacing:-1.5px;line-height:1.2;margin-bottom:16px;">Sam understands <em style="font-style:italic;color:var(--gold);">22 Indian languages</em><br>and speaks the world's too.</h2>
+    <p style="font-size:16px;color:rgba(245,242,236,0.5);line-height:1.7;max-width:560px;margin:0 auto 32px;">Hindi, Bengali, Gujarati, Marathi, Tamil, Telugu, Kannada, Malayalam, Punjabi, Odia and more. Sam detects your language automatically and responds in kind. Every time.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:32px;">
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">&#2361;&#2367;&#2344;&#2381;&#2342;&#2368;</span>
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">&#2476;&#2494;&#2434;&#2482;&#2494;</span>
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">&#2711;&#2753;&#2716;&#2736;&#2750;&#2724;&#2752;</span>
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">&#2350;&#2352;&#2366;&#2336;&#2368;</span>
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">&#2980;&#2990;&#3007;&#2996;&#3021;</span>
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">&#3108;&#3142;&#3122;&#3137;&#3095;&#3137;</span>
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">&#3221;&#3240;&#3277;&#3240;&#3233;</span>
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">&#3374;&#3378;&#3375;&#3390;&#3379;&#3330;</span>
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">&#2602;&#2672;&#2588;&#2622;&#2604;&#2624;</span>
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">English</span>
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">Espa&ntilde;ol</span>
+      <span style="padding:6px 14px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:13px;color:rgba(245,242,236,0.7);">+ 10 more</span>
+    </div>
+    <p style="font-size:14px;color:rgba(245,242,236,0.4);font-style:italic;">Travelling to Madrid? Sam helps you talk to strangers in Spanish.<br>Meeting a supplier in Dubai? Sam speaks Arabic too.</p>
+  </div>
+</section>
+
+<!-- POWER MOMENTS -->
+<section style="padding:80px 48px;max-width:1100px;margin:0 auto;">
+  <p class="section-label">What makes Sam extraordinary</p>
+  <h2 class="section-title">Moments that <em>change your day.</em></h2>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;margin-top:48px;">
+
+    <div style="border:1px solid var(--border);border-radius:20px;overflow:hidden;">
+      <div style="background:var(--warm);padding:24px;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:12px;">For Jewellers &amp; Traders</div>
+        <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;margin-bottom:8px;">Gold brief at 9am. Every morning.</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6;">24K, 22K, 18K rates. Silver. Platinum. International spot price. USD/INR. Expert view on whether to buy or hold — delivered to your WhatsApp before you open your shop.</div>
+      </div>
+      <div style="background:#0b141a;padding:14px 16px;display:flex;flex-direction:column;gap:6px;">
+        <div style="background:#202c33;border-radius:4px 10px 10px 10px;padding:8px 12px;font-size:12px;color:#e9edef;line-height:1.6;max-width:90%;">
+          <div style="font-size:10px;color:#8696a0;margin-bottom:3px;">Sam &middot; 9:00 AM</div>
+          &#127941; <strong>GOLD TODAY</strong><br>24K &#8377;14,456 &#8595;&#8377;6 &middot; 22K &#8377;13,255<br>Silver &#8377;245/gm &middot; $4,492/oz<br><br>&#128161; Support at &#8377;14,400. BUY selectively for wedding season.
+        </div>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border);border-radius:20px;overflow:hidden;">
+      <div style="background:var(--warm);padding:24px;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#185FA5;margin-bottom:12px;">For Everyone</div>
+        <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;margin-bottom:8px;">Ramble in Hindi. Get a perfect email.</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6;">Voice note or type anything in any language. Sam drafts a professional, polished English email — or in any language you want. Review, say send, it's gone.</div>
+      </div>
+      <div style="background:#0b141a;padding:14px 16px;display:flex;flex-direction:column;gap:6px;">
+        <div style="background:#005c4b;border-radius:10px 4px 10px 10px;padding:8px 12px;font-size:12px;color:#e9edef;line-height:1.6;max-width:90%;align-self:flex-end;">
+          &#127908; "Rajesh ko bolo 50 meter silk chahiye Wednesday tak, NEFT karenge"
+        </div>
+        <div style="background:#202c33;border-radius:4px 10px 10px 10px;padding:8px 12px;font-size:12px;color:#e9edef;line-height:1.6;max-width:95%;">
+          Draft ready &#10003;<br><em style="color:#8696a0;">"Dear Rajesh ji, We confirm order of 50m silk, delivery by Wednesday, payment via NEFT."</em><br>Bhejun?
+        </div>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border);border-radius:20px;overflow:hidden;">
+      <div style="background:var(--warm);padding:24px;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#993556;margin-bottom:12px;">For Professionals</div>
+        <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;margin-bottom:8px;">Voice your meeting. Sam handles the rest.</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6;">Walk out of any meeting, talk naturally for 60 seconds. Sam transcribes, structures who-what-price-next-steps, emails you a summary, and sets all follow-up reminders automatically.</div>
+      </div>
+      <div style="background:#0b141a;padding:14px 16px;display:flex;flex-direction:column;gap:6px;">
+        <div style="background:#005c4b;border-radius:10px 4px 10px 10px;padding:8px 12px;font-size:12px;color:#e9edef;line-height:1.6;max-width:90%;align-self:flex-end;">
+          &#127908; "Booth 1234, ABC Enterprises, Vikram Singh, 8 drones &#8377;45k each, 6 weeks delivery..."
+        </div>
+        <div style="background:#202c33;border-radius:4px 10px 10px 10px;padding:8px 12px;font-size:12px;color:#e9edef;line-height:1.6;">
+          Note saved &#10003; &middot; Contact saved &#10003;<br>&#128230; 8 &times; &#8377;45,000 = &#8377;3,60,000<br>&#9200; Reminder: Tonight — check proforma<br>&#128231; Summary emailed to you
+        </div>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border);border-radius:20px;overflow:hidden;">
+      <div style="background:var(--warm);padding:24px;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#1a9e50;margin-bottom:12px;">For Learners &amp; Travellers</div>
+        <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;margin-bottom:8px;">Learn any language. Talk to anyone, anywhere.</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6;">Sam teaches you English, Spanish, French — one word every morning, daily practice, gentle corrections. Travelling to Madrid? Sam translates in real time so you can talk to strangers confidently.</div>
+      </div>
+      <div style="background:#0b141a;padding:14px 16px;display:flex;flex-direction:column;gap:6px;">
+        <div style="background:#202c33;border-radius:4px 10px 10px 10px;padding:8px 12px;font-size:12px;color:#e9edef;line-height:1.6;max-width:92%;">
+          <div style="font-size:10px;color:#8696a0;margin-bottom:3px;">Sam &middot; 8:00 AM</div>
+          Today's word: <strong>NEGOTIATE</strong><br>"I negotiated a better deal." — Try using it!
+        </div>
+        <div style="background:#005c4b;border-radius:10px 4px 10px 10px;padding:8px 12px;font-size:12px;color:#e9edef;max-width:85%;align-self:flex-end;">
+          "I negotiate with shopkeeper"
+        </div>
+        <div style="background:#202c33;border-radius:4px 10px 10px 10px;padding:8px 12px;font-size:12px;color:#e9edef;line-height:1.6;max-width:92%;">
+          Almost! &rarr; "I <strong>negotiated</strong> with <strong>the</strong> shopkeeper" &#10003; Bahut accha!
+        </div>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border);border-radius:20px;overflow:hidden;">
+      <div style="background:var(--warm);padding:24px;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#854F0B;margin-bottom:12px;">For Investors &amp; Traders</div>
+        <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;margin-bottom:8px;">Your stocks. Your alerts. Your briefing.</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6;">Tell Sam which stocks, commodities, or currencies to watch. Sam sends you a personalised market brief every morning and alerts you immediately when something moves significantly.</div>
+      </div>
+      <div style="background:#0b141a;padding:14px 16px;display:flex;flex-direction:column;gap:6px;">
+        <div style="background:#202c33;border-radius:4px 10px 10px 10px;padding:8px 12px;font-size:12px;color:#e9edef;line-height:1.6;max-width:95%;">
+          <div style="font-size:10px;color:#8696a0;margin-bottom:3px;">Sam &middot; 2:34 PM</div>
+          &#128680; <strong>Alert:</strong> Reliance Industries up 3.2% — crossed your &#8377;1,450 target. Sell or hold?
+        </div>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border);border-radius:20px;overflow:hidden;">
+      <div style="background:var(--warm);padding:24px;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">For Everyone at Events</div>
+        <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;margin-bottom:8px;">Snap a card. Sam remembers forever.</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6;">Come back from any trade show, conference, or meeting with every contact perfectly stored. Ask Sam for anyone's details 6 months later — Sam knows instantly.</div>
+      </div>
+      <div style="background:#0b141a;padding:14px 16px;display:flex;flex-direction:column;gap:6px;">
+        <div style="background:#005c4b;border-radius:10px 4px 10px 10px;padding:8px 12px;font-size:12px;color:#e9edef;max-width:85%;align-self:flex-end;">
+          &#128248; [business card photo]
+        </div>
+        <div style="background:#202c33;border-radius:4px 10px 10px 10px;padding:8px 12px;font-size:12px;color:#e9edef;line-height:1.6;">
+          Saved &#10003; Priya Mehta &middot; Mehta Diamonds<br>&#128222; 98765-43210 &middot; &#9993;&#65039; priya@mehta.com<br>Tag? (client / supplier / partner)
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- THREE LAYERS -->
+<section class="layers-section">
+  <p class="section-label">How Sam works</p>
+  <h2 class="section-title">
+    Three layers.<br><em>One assistant.</em>
+  </h2>
+
+  <div class="layers">
+    <div class="layer-card layer-heartbeat">
+      <div class="layer-tag">Heartbeat</div>
+      <div class="layer-title">Sam reaches out to you</div>
+      <div class="layer-desc">Every morning Sam sends you what matters today — pending follow-ups, important emails, reminders. Sam doesn't wait to be asked. Sam is already thinking about you.</div>
+    </div>
+    <div class="layer-card layer-soul">
+      <div class="layer-tag">Soul</div>
+      <div class="layer-title">Sam knows you personally</div>
+      <div class="layer-desc">Sam learns who you are through a natural conversation when you first connect. Your prices, your rules, your language, your team — Sam remembers forever. Never asks the same thing twice.</div>
+    </div>
+    <div class="layer-card layer-skills">
+      <div class="layer-tag">Skills</div>
+      <div class="layer-title">Sam does things for you</div>
+      <div class="layer-desc">Answer customers. Read emails. Scan business cards. Capture meeting notes. Search the web. Send emails in any language. Sam uses the right skill automatically — you just talk naturally.</div>
+    </div>
+  </div>
+</section>
+
+<!-- SKILLS -->
+<section class="skills-section">
+  <div class="skills-inner">
+    <p class="section-label">What Sam can do</p>
+    <h2 class="section-title">
+      Eight skills.<br><em>All included.</em>
+    </h2>
+
+    <div class="skills-grid">
+      <div class="skill-card">
+        <div class="skill-icon">&#128172;</div>
+        <div class="skill-name">Chat intelligence</div>
+        <div class="skill-desc">Answers any question about your business, your life, your domain — in your language. Knows your prices, your rules, your context.</div>
+      </div>
+      <div class="skill-card">
+        <div class="skill-icon">&#128231;</div>
+        <div class="skill-name">Email read &amp; send</div>
+        <div class="skill-desc">Connects to your inbox. Summarises overnight emails every morning. Drafts professional emails from your Hindi voice notes and sends them.</div>
+      </div>
+      <div class="skill-card">
+        <div class="skill-icon">&#128248;</div>
+        <div class="skill-name">Image reading</div>
+        <div class="skill-desc">Send any photo — food, product, screenshot, document. Sam reads it and responds intelligently based on who you are.</div>
+      </div>
+      <div class="skill-card">
+        <div class="skill-icon">&#128199;</div>
+        <div class="skill-name">Business card OCR</div>
+        <div class="skill-desc">Photograph any business card. Sam extracts every detail and stores it permanently. Ask for any contact 5 months later — Sam remembers.</div>
+      </div>
+      <div class="skill-card">
+        <div class="skill-icon">&#127908;&#65039;</div>
+        <div class="skill-name">Voice meeting notes</div>
+        <div class="skill-desc">Talk naturally after any meeting. Sam transcribes, structures it, stores every contact and deal, emails you a summary, sets follow-up reminders.</div>
+      </div>
+      <div class="skill-card">
+        <div class="skill-icon">&#128276;</div>
+        <div class="skill-name">Reminders forever</div>
+        <div class="skill-desc">Tell Sam once — mother's birthday, rent due, annual audit. Sam reminds you every year, forever. Never forget what matters.</div>
+      </div>
+      <div class="skill-card">
+        <div class="skill-icon">&#127760;</div>
+        <div class="skill-name">Live web search</div>
+        <div class="skill-desc">Ask anything current — gold prices, news, weather, RBI rates. Sam searches the live web and gives you a clean answer instantly.</div>
+      </div>
+      <div class="skill-card">
+        <div class="skill-icon">&#127749;</div>
+        <div class="skill-name">Daily morning brief</div>
+        <div class="skill-desc">Every morning at your chosen time — a personalised message covering what needs your attention today. Sam's heartbeat.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW TO GET STARTED -->
+<section class="journey-section" id="how">
+  <div class="journey-inner">
+    <p class="section-label">Getting started</p>
+    <h2 class="section-title">
+      Live in<br><em>10 minutes.</em>
+    </h2>
+
+    <div class="journey-grid">
+      <div class="journey-steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div>
+            <div class="step-title">Sign up on samva.in</div>
+            <div class="step-desc">No technical setup. Just your phone number and &#8377;999 via UPI, card, or net banking.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div>
+            <div class="step-title">Scan the QR code</div>
+            <div class="step-desc">You get a QR code. Open WhatsApp, scan it. Sam is now connected to your number.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div>
+            <div class="step-title">Sam introduces itself</div>
+            <div class="step-desc">Sam sends you a message and asks about you. Just talk naturally — in any language, voice or text.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div>
+            <div class="step-title">Sam trains itself</div>
+            <div class="step-desc">10 minutes of conversation and Sam understands your world. Your business, your language, your rules. Ready to help.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div>
+            <div class="step-title">Sam goes to work</div>
+            <div class="step-desc">From this moment — Sam answers your WhatsApp, reads your emails, captures your meetings. You focus on your life.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-demo" style="box-shadow: 0 16px 48px rgba(0,0,0,0.1);">
+        <div class="chat-header">
+          <div class="chat-avatar">S</div>
+          <div>
+            <div class="chat-name">Sam</div>
+            <div class="chat-status">Setting up...</div>
+          </div>
+        </div>
+        <div class="chat-body">
+          <div class="bubble bubble-in">
+            <div class="bubble-sam">Sam</div>
+            Hi! I'm Sam — your personal assistant from Samva. &#128075;<br><br>
+            Tell me about yourself. What do you do and what takes up most of your time every day?<br><br>
+            You can type or send a voice note — in any language.
+            <span class="bubble-time">10:00 AM &#10003;&#10003;</span>
+          </div>
+          <div class="bubble bubble-out">
+            Main Surat mein saree ki dukan chalata hoon
+            <span class="bubble-time">10:01 AM &#10003;&#10003;</span>
+          </div>
+          <div class="bubble bubble-in">
+            <div class="bubble-sam">Sam</div>
+            Bahut accha! Main aapke customers ke messages handle kar sakti hoon — Hindi aur Gujarati mein.<br><br>
+            Aapki sarees ki price range kya hai?
+            <span class="bubble-time">10:01 AM &#10003;&#10003;</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing-section" id="pricing">
+  <p class="section-label">Simple pricing</p>
+  <h2 class="section-title" style="font-size: clamp(28px,4vw,44px);">
+    One price.<br><em>Everything included.</em>
+  </h2>
+
+  <div class="price-card">
+    <div class="price-amount">&#8377;999</div>
+    <div class="price-period">per month &middot; cancel anytime</div>
+
+    <ul class="price-features">
+      <li>Sam on your WhatsApp — 24/7</li>
+      <li>Daily morning brief</li>
+      <li>Email read, summary &amp; send</li>
+      <li>Business card scanning &amp; contacts</li>
+      <li>Voice meeting notes</li>
+      <li>Reminders &amp; birthdays — forever</li>
+      <li>Image &amp; document reading</li>
+      <li>Live web search</li>
+      <li>Any language — Hindi, Bengali, Gujarati, English, more</li>
+    </ul>
+
+    <button class="price-cta" onclick="openSignup()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      Get Sam on WhatsApp
+    </button>
+    <p class="price-note">No app to download &middot; Setup in 10 minutes &middot; Cancel anytime</p>
+  </div>
+
+  <div class="enterprise-card">
+    <div>
+      <div class="ent-title">Need Sam connected to your systems?</div>
+      <div class="ent-desc">ERP, Shopify, Tally, CRM, courier tracking — custom API connections for your business.</div>
+    </div>
+    <button class="ent-btn" onclick="openEnterprise()">Talk to us &rarr;</button>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">Sam<span>va</span></div>
+  <div class="footer-links">
+    <a href="#">Privacy</a>
+    <a href="#">Terms</a>
+    <a href="mailto:hello@samva.in">Contact</a>
+  </div>
+  <div class="footer-copy">&copy; 2026 Samva. All rights reserved.</div>
+</footer>
+
+<!-- SIGNUP MODAL -->
+<div class="modal-overlay" id="signup-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('signup-modal')">&times;</button>
+    <h2>Get <span>Sam</span></h2>
+    <p class="modal-sub">Enter your details to get started. Sam will be live on your WhatsApp in 10 minutes.</p>
+    <div id="signup-form">
+      <label for="signup-name">Your name</label>
+      <input type="text" id="signup-name" placeholder="Ritu Patel" autocomplete="name">
+      <label for="signup-phone">WhatsApp number</label>
+      <input type="tel" id="signup-phone" placeholder="+91 98765 43210" autocomplete="tel">
+      <button class="modal-btn" id="signup-btn" onclick="handleSignup()">Continue — &#8377;999/month</button>
+      <div class="error-msg" id="signup-error"></div>
+    </div>
+    <div id="signup-success" style="display:none;">
+      <div class="success-msg">&#10003; Payment successful! Preparing your QR code...</div>
+    </div>
+  </div>
+</div>
+
+<!-- QR MODAL -->
+<div class="modal-overlay" id="qr-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('qr-modal')">&times;</button>
+    <h2>Scan with <span>WhatsApp</span></h2>
+    <p class="modal-sub">Open WhatsApp > Linked Devices > Link a Device > Point camera here</p>
+    <div class="qr-container" id="qr-container">
+      <div class="qr-loading">
+        <div class="spinner"></div>
+        <p style="color:var(--muted);font-size:14px;">Generating QR code...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ENTERPRISE MODAL -->
+<div class="modal-overlay" id="enterprise-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('enterprise-modal')">&times;</button>
+    <h2>Enterprise <span>inquiry</span></h2>
+    <p class="modal-sub">Tell us about your business and what systems you need Sam connected to.</p>
+    <div id="enterprise-form">
+      <label for="ent-name">Your name</label>
+      <input type="text" id="ent-name" placeholder="Vikram Singh">
+      <label for="ent-phone">Phone number</label>
+      <input type="tel" id="ent-phone" placeholder="+91 98765 43210">
+      <label for="ent-company">Company</label>
+      <input type="text" id="ent-company" placeholder="ABC Enterprises">
+      <label for="ent-system">What systems do you need connected?</label>
+      <textarea id="ent-system" placeholder="E.g., Shopify store, Tally accounting, our CRM, courier tracking API..."></textarea>
+      <button class="modal-btn" onclick="handleEnterprise()">Submit inquiry</button>
+      <div class="error-msg" id="enterprise-error"></div>
+    </div>
+    <div id="enterprise-success" style="display:none;">
+      <div class="success-msg">&#10003; Thank you! We'll get back to you within 24 hours.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- State ---
+let currentUserId = null;
+let qrPollInterval = null;
+
+// --- Modal helpers ---
+function openModal(id) {
+  document.getElementById(id).classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('active');
+  document.body.style.overflow = '';
+  if (id === 'qr-modal' && qrPollInterval) {
+    clearInterval(qrPollInterval);
+    qrPollInterval = null;
+  }
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      closeModal(overlay.id);
+    }
+  });
+});
+
+// --- Signup Flow ---
+function openSignup() {
+  // Reset form
+  document.getElementById('signup-form').style.display = 'block';
+  document.getElementById('signup-success').style.display = 'none';
+  document.getElementById('signup-error').style.display = 'none';
+  document.getElementById('signup-name').value = '';
+  document.getElementById('signup-phone').value = '';
+  openModal('signup-modal');
+}
+
+async function handleSignup() {
+  const name = document.getElementById('signup-name').value.trim();
+  const phone = document.getElementById('signup-phone').value.trim();
+  const errorEl = document.getElementById('signup-error');
+  const btn = document.getElementById('signup-btn');
+
+  if (!phone || phone.length < 10) {
+    errorEl.textContent = 'Please enter a valid phone number.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  errorEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Processing...';
+
+  try {
+    const resp = await fetch('/api/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, name }),
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) throw new Error(data.detail || 'Signup failed');
+
+    currentUserId = data.userId;
+
+    if (data.skipPayment) {
+      // No Razorpay — go straight to QR
+      await startQRFlow();
+    } else {
+      // Open Razorpay
+      const options = {
+        key: data.razorpayKey,
+        amount: data.amount * 100,
+        currency: 'INR',
+        name: 'Samva',
+        description: 'Sam Personal Assistant — 1 Month',
+        order_id: data.orderId,
+        handler: async function(response) {
+          // Verify payment
+          try {
+            const verifyResp = await fetch('/api/payment/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                userId: currentUserId,
+              }),
+            });
+            const verifyData = await verifyResp.json();
+            if (verifyData.verified) {
+              await startQRFlow();
+            } else {
+              throw new Error('Payment verification failed');
+            }
+          } catch (err) {
+            errorEl.textContent = 'Payment verification failed. Please contact support.';
+            errorEl.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Continue — \u20B9999/month';
+          }
+        },
+        prefill: { contact: phone, name: name },
+        theme: { color: '#0D0C0A' },
+        modal: {
+          ondismiss: function() {
+            btn.disabled = false;
+            btn.textContent = 'Continue — \u20B9999/month';
+          }
+        }
+      };
+
+      if (typeof Razorpay !== 'undefined') {
+        const rzp = new Razorpay(options);
+        rzp.open();
+      } else {
+        // Razorpay not loaded — skip payment
+        await startQRFlow();
+      }
+    }
+  } catch (err) {
+    errorEl.textContent = err.message || 'Something went wrong. Please try again.';
+    errorEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Continue — \u20B9999/month';
+  }
+}
+
+async function startQRFlow() {
+  // Show success briefly
+  document.getElementById('signup-form').style.display = 'none';
+  document.getElementById('signup-success').style.display = 'block';
+
+  // Create session
+  try {
+    const resp = await fetch('/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUserId }),
+    });
+    const data = await resp.json();
+
+    // Close signup, open QR modal
+    setTimeout(() => {
+      closeModal('signup-modal');
+      openQRModal();
+    }, 1500);
+  } catch (err) {
+    console.error('Session creation error:', err);
+  }
+}
+
+function openQRModal() {
+  const container = document.getElementById('qr-container');
+  container.innerHTML = '<div class="qr-loading"><div class="spinner"></div><p style="color:var(--muted);font-size:14px;">Generating QR code...</p></div>';
+  openModal('qr-modal');
+
+  // Poll for QR code
+  qrPollInterval = setInterval(async () => {
+    try {
+      const resp = await fetch('/sessions/' + currentUserId + '/status');
+      const data = await resp.json();
+
+      if (data.status === 'connected') {
+        container.innerHTML = '<div class="connected-msg"><div class="check">&#10003;</div><p style="font-size:18px;font-weight:600;">Connected!</p><p style="color:var(--muted);margin-top:8px;">Sam is alive on your WhatsApp. Check your messages!</p></div>';
+        clearInterval(qrPollInterval);
+        qrPollInterval = null;
+      } else if (data.hasQR && data.qrDataUrl) {
+        container.innerHTML = '<img src="' + data.qrDataUrl + '" alt="QR Code" style="max-width:260px;border-radius:12px;" />';
+      }
+    } catch (err) {
+      console.error('QR poll error:', err);
+    }
+  }, 3000);
+}
+
+// --- Enterprise Flow ---
+function openEnterprise() {
+  document.getElementById('enterprise-form').style.display = 'block';
+  document.getElementById('enterprise-success').style.display = 'none';
+  document.getElementById('enterprise-error').style.display = 'none';
+  openModal('enterprise-modal');
+}
+
+async function handleEnterprise() {
+  const name = document.getElementById('ent-name').value.trim();
+  const phone = document.getElementById('ent-phone').value.trim();
+  const company = document.getElementById('ent-company').value.trim();
+  const system_needed = document.getElementById('ent-system').value.trim();
+  const errorEl = document.getElementById('enterprise-error');
+
+  if (!name || !phone) {
+    errorEl.textContent = 'Please fill in your name and phone number.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  errorEl.style.display = 'none';
+
+  try {
+    const resp = await fetch('/api/enterprise', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, company, system_needed }),
+    });
+
+    if (!resp.ok) throw new Error('Failed to submit');
+
+    document.getElementById('enterprise-form').style.display = 'none';
+    document.getElementById('enterprise-success').style.display = 'block';
+  } catch (err) {
+    errorEl.textContent = 'Something went wrong. Please try again.';
+    errorEl.style.display = 'block';
+  }
+}
+</script>
+
+<!-- Razorpay SDK (loads only if available) -->
+<script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
+
+</body>
+</html>
