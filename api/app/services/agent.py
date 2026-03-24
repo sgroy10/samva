@@ -99,6 +99,17 @@ async def process_message(
         if not user:
             return {"reply": "I don't recognize this session. Please sign up at samva.in", "actions": []}
 
+        # Subscription check — paused users can't use Sam (admin exempt)
+        if user.status == "paused" and user.plan != "admin":
+            return {
+                "reply": (
+                    "Your Samva subscription has expired. Sam is paused.\n\n"
+                    f"Renew at samva.in/renew?id={user_id} to continue using Sam.\n"
+                    "\u20b9999/month — all features included."
+                ),
+                "actions": [],
+            }
+
         # Get soul
         result = await db.execute(
             select(AgentSoul).where(AgentSoul.user_id == user_id)

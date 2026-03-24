@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-24T15:52:36.430Z"
+    "updatedAt": "2026-03-24T18:22:45.582Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -13,6 +13,14 @@
   },
   "specLock": {
     "items": [
+      {
+        "id": "lock_64112eb81b16",
+        "text": "Admin phone 8928731453 — free access, no payment, no subscription check, plan=admin",
+        "createdAt": "2026-03-24T18:22:45.195Z",
+        "source": "user",
+        "tags": [],
+        "active": true
+      },
       {
         "id": "lock_c668af6ad0f1",
         "text": "Architecture: Node.js bridge + Python FastAPI in single Dockerfile — do not split into separate services",
@@ -146,6 +154,18 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_14d9784d3dd3",
+        "summary": "Admin bypass, complete subscription management (payment confirm, expiry check, renewal, 3-day warning)",
+        "files": [
+          "api/app/main.py",
+          "api/app/services/agent.py",
+          "api/app/config.py",
+          "bridge/src/index.js",
+          "web/public/index.html"
+        ],
+        "at": "2026-03-24T18:22:45.552Z"
+      },
+      {
         "eventId": "evt_aa05d940fe1c",
         "summary": "Three Claude-reviewed fixes: language-aware confidence tags, network match confirmation+intro flow, verified Monday cron",
         "files": [
@@ -229,7 +249,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_53f237e2b5b6",
-    "count": 47
+    "lastEventId": "evt_fd42c3179d53",
+    "count": 51
   }
 }

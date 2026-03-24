@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
     owner_phone: str = ""
+    admin_phone: str = ""  # Admin gets free access, no payment required
     timezone: str = "Asia/Kolkata"
     debug: bool = False
 

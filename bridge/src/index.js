@@ -16,7 +16,13 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Serve landing page
-app.use(express.static(path.resolve(__dirname, '../../web/public')));
+const webDir = path.resolve(__dirname, '../../web/public');
+app.use(express.static(webDir));
+
+// Renewal deep link — serve landing page for /renew route
+app.get('/renew', (req, res) => {
+  res.sendFile(path.join(webDir, 'index.html'));
+});
 
 // --- Health ---
 app.get('/health', (req, res) => {
@@ -217,6 +223,22 @@ app.listen(PORT, async () => {
       }
     } catch (err) {
       console.error('[Cron] Evolution notify error:', err.message);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+
+  // Subscription check: daily 10am IST
+  cron.schedule('0 10 * * *', async () => {
+    console.log('[Cron] Checking subscriptions...');
+    try {
+      const resp = await coreClient.callCron('/cron/check-subscriptions');
+      console.log(`[Cron] Subscriptions: ${resp.expired || 0} expired, ${resp.warned || 0} warned`);
+      if (resp.notifications) {
+        for (const notif of resp.notifications) {
+          await sessionManager.sendAlertToUser(notif.user_id, notif.message);
+        }
+      }
+    } catch (err) {
+      console.error('[Cron] Subscription check error:', err.message);
     }
   }, { timezone: 'Asia/Kolkata' });
 });

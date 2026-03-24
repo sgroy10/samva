@@ -1444,6 +1444,74 @@ async function handleEnterprise() {
     errorEl.style.display = 'block';
   }
 }
+
+// ── Renewal Flow — handles samva.in/renew?id=xxx ──────────────
+async function handleRenewal(userId) {
+  try {
+    const resp = await fetch('/api/renew', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    const data = await resp.json();
+
+    if (data.skipPayment || data.admin) {
+      alert('Your account is active! No payment needed.');
+      return;
+    }
+
+    if (!data.orderId) {
+      alert('Could not create renewal order. Please try again.');
+      return;
+    }
+
+    const options = {
+      key: data.razorpayKey,
+      amount: data.amount * 100,
+      currency: 'INR',
+      order_id: data.orderId,
+      name: 'Samva',
+      description: 'Sam Subscription Renewal — 1 Month',
+      theme: { color: '#0D0C0A' },
+      handler: async function(response) {
+        const verifyResp = await fetch('/api/payment/renew-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            userId: userId,
+          }),
+        });
+        const verifyData = await verifyResp.json();
+        if (verifyData.verified) {
+          alert('Subscription renewed! Sam is back. Valid until ' + verifyData.paidUntil);
+          window.location.href = '/';
+        } else {
+          alert('Payment verification failed. Contact hello@samva.in');
+        }
+      },
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
+  } catch (err) {
+    alert('Something went wrong. Please try again or email hello@samva.in');
+  }
+}
+
+// Check URL for renewal or other deep links on page load
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const renewId = params.get('id');
+  const path = window.location.pathname;
+
+  if (path === '/renew' && renewId) {
+    // Wait for Razorpay SDK to load, then trigger renewal
+    setTimeout(() => handleRenewal(renewId), 1000);
+  }
+})();
 </script>
 
 <!-- Razorpay SDK (loads only if available) -->

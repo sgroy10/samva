@@ -1,0 +1,508 @@
+diff --git a/.speclock/brain.json b/.speclock/brain.json
+index fba584f..386ced0 100644
+--- a/.speclock/brain.json
++++ b/.speclock/brain.json
+@@ -5,7 +5,7 @@
+     "name": "samva",
+     "root": "/Users/gadgetzone/samva",
+     "createdAt": "2026-03-24T01:09:48.668Z",
+-    "updatedAt": "2026-03-24T15:52:36.430Z"
++    "updatedAt": "2026-03-24T18:22:45.249Z"
+   },
+   "goal": {
+     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
+@@ -13,6 +13,14 @@
+   },
+   "specLock": {
+     "items": [
++      {
++        "id": "lock_64112eb81b16",
++        "text": "Admin phone 8928731453 — free access, no payment, no subscription check, plan=admin",
++        "createdAt": "2026-03-24T18:22:45.195Z",
++        "source": "user",
++        "tags": [],
++        "active": true
++      },
+       {
+         "id": "lock_c668af6ad0f1",
+         "text": "Architecture: Node.js bridge + Python FastAPI in single Dockerfile — do not split into separate services",
+@@ -229,7 +237,7 @@
+     "reverts": []
+   },
+   "events": {
+-    "lastEventId": "evt_53f237e2b5b6",
+-    "count": 47
++    "lastEventId": "evt_53d78449e31d",
++    "count": 49
+   }
+ }
+\ No newline at end of file
+diff --git a/.speclock/context/latest.md b/.speclock/context/latest.md
+index a7783b4..6d972b4 100644
+--- a/.speclock/context/latest.md
++++ b/.speclock/context/latest.md
+@@ -1,13 +1,14 @@
+ # SpecLock Context Pack
+-> Generated: 2026-03-24T15:52:36.429Z
++> Generated: 2026-03-24T18:22:45.248Z
+ > Project: **samva**
+-> Repo: branch `main` @ `0b3dfe6`
++> Repo: branch `main` @ `3a7c773`
+ 
+ ## Goal
+ Samva — multi-tenant WhatsApp personal assistant SaaS
+ 
+ ## SpecLock (Non-Negotiables)
+ > **These constraints MUST be followed. Do not violate any lock.**
++- **[LOCK]** Admin phone 8928731453 — free access, no payment, no subscription check, plan=admin _(user, 2026-03-24)_
+ - **[LOCK]** Architecture: Node.js bridge + Python FastAPI in single Dockerfile — do not split into separate services _(user, 2026-03-24)_
+ - **[LOCK]** All Railway management via CLI — never ask user to use dashboard _(user, 2026-03-24)_
+ - **[LOCK]** GitHub repo: sgroy10/samva — git push auto-deploys to Railway _(user, 2026-03-24)_
+diff --git a/.speclock/events.log b/.speclock/events.log
+index 4e27475..0ee3f19 100644
+--- a/.speclock/events.log
++++ b/.speclock/events.log
+@@ -45,3 +45,5 @@
+ {"eventId":"evt_f19338ba95df","type":"context_generated","at":"2026-03-24T15:26:53.800Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+ {"eventId":"evt_aa05d940fe1c","type":"manual_change","at":"2026-03-24T15:52:36.395Z","files":["api/app/services/confidence.py","api/app/services/network.py","api/app/services/agent.py","api/app/models.py"],"summary":"Three Claude-reviewed fixes: language-aware confidence tags, network match confirmation+intro flow, verified Monday cron","patchPath":".speclock/patches/evt_aa05d940fe1c.patch"}
+ {"eventId":"evt_53f237e2b5b6","type":"context_generated","at":"2026-03-24T15:52:36.430Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
++{"eventId":"evt_cc51f4d10755","type":"lock_added","at":"2026-03-24T18:22:45.196Z","files":[],"summary":"Lock added: Admin phone 8928731453 — free access, no payment, no subscription check, plan=ad","patchPath":""}
++{"eventId":"evt_53d78449e31d","type":"context_generated","at":"2026-03-24T18:22:45.249Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+diff --git a/api/app/config.py b/api/app/config.py
+index cd9bdac..5185c72 100644
+--- a/api/app/config.py
++++ b/api/app/config.py
+@@ -11,6 +11,7 @@ class Settings(BaseSettings):
+     razorpay_key_id: str = ""
+     razorpay_key_secret: str = ""
+     owner_phone: str = ""
++    admin_phone: str = ""  # Admin gets free access, no payment required
+     timezone: str = "Asia/Kolkata"
+     debug: bool = False
+ 
+diff --git a/api/app/main.py b/api/app/main.py
+index a573a83..3f7b94e 100644
+--- a/api/app/main.py
++++ b/api/app/main.py
+@@ -121,10 +121,18 @@ async def handle_alerts(req: AlertCheckRequest, db: AsyncSession = Depends(get_d
+     return {"alerts": alerts, "count": len(alerts)}
+ 
+ 
++def _is_admin_phone(phone: str) -> bool:
++    """Check if this phone number is the admin."""
++    admin = settings.admin_phone.replace("+", "").replace(" ", "")
++    clean = phone.replace("+", "").replace(" ", "")
++    if not admin:
++        return False
++    return clean.endswith(admin) or admin.endswith(clean)
++
++
+ @app.post("/signup")
+ async def handle_signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
+-    """Collect phone, create user, and optionally create Razorpay order."""
+-    # Check if user already exists
++    """Collect phone, create user. Admin gets free access, others pay."""
+     result = await db.execute(select(User).where(User.phone == req.phone))
+     existing = result.scalar_one_or_none()
+ 
+@@ -139,28 +147,31 @@ async def handle_signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
+             status="onboarding",
+         )
+         db.add(user)
+-
+-        # Create soul placeholder
+-        soul = AgentSoul(user_id=user_id)
+-        db.add(soul)
+-
+-        # Create session health entry
+-        sh = SessionHealth(user_id=user_id)
+-        db.add(sh)
+-
++        db.add(AgentSoul(user_id=user_id))
++        db.add(SessionHealth(user_id=user_id))
+         await db.commit()
+ 
+-    # Create Razorpay order if configured
++    # Admin bypass — free access, no payment
++    if _is_admin_phone(req.phone):
++        result2 = await db.execute(select(User).where(User.id == user_id))
++        admin_user = result2.scalar_one_or_none()
++        if admin_user:
++            admin_user.plan = "admin"
++            admin_user.paid_until = datetime(2099, 12, 31)
++            await db.commit()
++        logger.info(f"Admin signup: {req.phone} -> {user_id}")
++        return {"userId": user_id, "skipPayment": True, "admin": True}
++
++    # Create Razorpay order for paying users
+     if settings.razorpay_key_id and settings.razorpay_key_secret:
+         try:
+             import httpx
+-            auth = (settings.razorpay_key_id, settings.razorpay_key_secret)
+             async with httpx.AsyncClient() as client:
+                 resp = await client.post(
+                     "https://api.razorpay.com/v1/orders",
+-                    auth=auth,
++                    auth=(settings.razorpay_key_id, settings.razorpay_key_secret),
+                     json={
+-                        "amount": 99900,  # 999 INR in paise
++                        "amount": 99900,
+                         "currency": "INR",
+                         "receipt": f"samva_{user_id[:8]}",
+                         "notes": {"userId": user_id, "phone": req.phone},
+@@ -177,10 +188,8 @@ async def handle_signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
+             }
+         except Exception as e:
+             logger.error(f"Razorpay order creation failed: {e}")
+-            # Skip payment on error
+             return {"userId": user_id, "skipPayment": True}
+     else:
+-        # No Razorpay configured — skip payment
+         return {"userId": user_id, "skipPayment": True}
+ 
+ 
+@@ -188,7 +197,7 @@ async def handle_signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
+ async def handle_payment_verify(
+     req: PaymentVerifyRequest, db: AsyncSession = Depends(get_db)
+ ):
+-    """Verify Razorpay payment signature and activate user."""
++    """Verify Razorpay payment, activate user, send WhatsApp + email confirmation."""
+     if not settings.razorpay_key_secret:
+         return {"verified": True}
+ 
+@@ -206,13 +215,118 @@ async def handle_payment_verify(
+     # Update user
+     result = await db.execute(select(User).where(User.id == req.userId))
+     user = result.scalar_one_or_none()
+-    if user:
+-        user.razorpay_id = req.razorpay_payment_id
+-        user.paid_until = datetime.now() + timedelta(days=30)
+-        user.plan = "standard"
+-        await db.commit()
++    if not user:
++        raise HTTPException(status_code=404, detail="User not found")
+ 
+-    return {"verified": True}
++    paid_until = datetime.now() + timedelta(days=30)
++    user.razorpay_id = req.razorpay_payment_id
++    user.paid_until = paid_until
++    user.plan = "standard"
++    await db.commit()
++
++    # Build WhatsApp confirmation message
++    paid_until_str = paid_until.strftime("%d %b %Y")
++    whatsapp_msg = (
++        "\u2705 *Payment received! Welcome to Samva.*\n\n"
++        "Your Sam is now being set up. You'll receive a QR code "
++        "to scan with WhatsApp in the next 30 seconds.\n\n"
++        f"Subscription: \u20b9999/month\n"
++        f"Valid until: {paid_until_str}\n"
++        f"Receipt: {req.razorpay_payment_id}\n\n"
++        "Questions? Email hello@samva.in"
++    )
++
++    return {
++        "verified": True,
++        "whatsappMessage": whatsapp_msg,
++        "userId": req.userId,
++        "paidUntil": paid_until_str,
++    }
++
++
++class RenewRequest(BaseModel):
++    userId: str
++
++
++@app.post("/renew")
++async def handle_renew(req: RenewRequest, db: AsyncSession = Depends(get_db)):
++    """Renew subscription — extends paid_until by 30 days from current expiry."""
++    result = await db.execute(select(User).where(User.id == req.userId))
++    user = result.scalar_one_or_none()
++    if not user:
++        raise HTTPException(status_code=404, detail="User not found")
++
++    # Admin never needs to renew
++    if user.plan == "admin":
++        return {"skipPayment": True, "admin": True}
++
++    if settings.razorpay_key_id and settings.razorpay_key_secret:
++        try:
++            import httpx
++            async with httpx.AsyncClient() as client:
++                resp = await client.post(
++                    "https://api.razorpay.com/v1/orders",
++                    auth=(settings.razorpay_key_id, settings.razorpay_key_secret),
++                    json={
++                        "amount": 99900,
++                        "currency": "INR",
++                        "receipt": f"renew_{req.userId[:8]}",
++                        "notes": {"userId": req.userId, "type": "renewal"},
++                    },
++                )
++                resp.raise_for_status()
++                order = resp.json()
++
++            return {
++                "userId": req.userId,
++                "orderId": order["id"],
++                "amount": 999,
++                "razorpayKey": settings.razorpay_key_id,
++            }
++        except Exception as e:
++            logger.error(f"Renewal order failed: {e}")
++            raise HTTPException(status_code=500, detail="Payment setup failed")
++    else:
++        return {"skipPayment": True}
++
++
++@app.post("/payment/renew-verify")
++async def handle_renew_verify(
++    req: PaymentVerifyRequest, db: AsyncSession = Depends(get_db)
++):
++    """Verify renewal payment — extend from current paid_until, not from today."""
++    if settings.razorpay_key_secret:
++        message = f"{req.razorpay_order_id}|{req.razorpay_payment_id}"
++        expected = hmac.new(
++            settings.razorpay_key_secret.encode(),
++            message.encode(),
++            hashlib.sha256,
++        ).hexdigest()
++        if expected != req.razorpay_signature:
++            raise HTTPException(status_code=400, detail="Invalid payment signature")
++
++    result = await db.execute(select(User).where(User.id == req.userId))
++    user = result.scalar_one_or_none()
++    if not user:
++        raise HTTPException(status_code=404, detail="User not found")
++
++    # Extend from current paid_until (not today) so users don't lose days
++    base_date = user.paid_until if user.paid_until and user.paid_until > datetime.now() else datetime.now()
++    user.paid_until = base_date + timedelta(days=30)
++    user.status = "active"
++    user.razorpay_id = req.razorpay_payment_id
++    await db.commit()
++
++    paid_until_str = user.paid_until.strftime("%d %b %Y")
++    return {
++        "verified": True,
++        "paidUntil": paid_until_str,
++        "whatsappMessage": (
++            f"\u2705 *Subscription renewed!*\n\n"
++            f"Valid until: {paid_until_str}\n"
++            f"Sam is back and ready to help!"
++        ),
++    }
+ 
+ 
+ @app.post("/enterprise")
+@@ -233,6 +347,69 @@ async def handle_enterprise(
+ 
+ # --- Cron Endpoints (called by bridge scheduler) ---
+ 
++@app.post("/cron/check-subscriptions")
++async def handle_check_subscriptions(db: AsyncSession = Depends(get_db)):
++    """Daily 10am IST — pause expired users + warn 3-day-before users."""
++    now = datetime.now()
++    three_days = now + timedelta(days=3)
++    notifications = []
++
++    # 1. Expired users — pause them
++    expired_result = await db.execute(
++        select(User).where(
++            User.paid_until < now,
++            User.status == "active",
++            User.plan != "admin",
++        )
++    )
++    expired_users = expired_result.scalars().all()
++
++    for user in expired_users:
++        user.status = "paused"
++        expired_date = user.paid_until.strftime("%d %b %Y") if user.paid_until else "?"
++        notifications.append({
++            "user_id": user.id,
++            "message": (
++                f"Your Samva subscription expired on {expired_date}. "
++                f"Sam is paused.\n\n"
++                f"Renew at samva.in/renew?id={user.id} to continue.\n"
++                f"\u20b9999/month."
++            ),
++        })
++        logger.info(f"[Subscription] Paused expired user: {user.id}")
++
++    # 2. Users expiring in 3 days — send warning
++    warning_result = await db.execute(
++        select(User).where(
++            User.paid_until >= now,
++            User.paid_until <= three_days,
++            User.status == "active",
++            User.plan != "admin",
++        )
++    )
++    warning_users = warning_result.scalars().all()
++
++    for user in warning_users:
++        expiry_date = user.paid_until.strftime("%d %b %Y") if user.paid_until else "?"
++        notifications.append({
++            "user_id": user.id,
++            "message": (
++                f"\u23f0 *Sam reminder* -- your subscription renews in 3 days "
++                f"on {expiry_date}.\n\n"
++                f"\u20b9999 will be charged if auto-pay is set up, "
++                f"or renew manually at samva.in/renew?id={user.id}"
++            ),
++        })
++
++    await db.commit()
++
++    return {
++        "expired": len(expired_users),
++        "warned": len(warning_users),
++        "notifications": notifications,
++    }
++
++
+ @app.post("/cron/soul-evolution")
+ async def handle_soul_evolution(db: AsyncSession = Depends(get_db)):
+     """Sunday 11pm IST — evolve all active users' Souls."""
+diff --git a/api/app/services/agent.py b/api/app/services/agent.py
+index a7ffd71..6d0f0de 100644
+--- a/api/app/services/agent.py
++++ b/api/app/services/agent.py
+@@ -99,6 +99,17 @@ async def process_message(
+         if not user:
+             return {"reply": "I don't recognize this session. Please sign up at samva.in", "actions": []}
+ 
++        # Subscription check — paused users can't use Sam (admin exempt)
++        if user.status == "paused" and user.plan != "admin":
++            return {
++                "reply": (
++                    "Your Samva subscription has expired. Sam is paused.\n\n"
++                    f"Renew at samva.in/renew?id={user_id} to continue using Sam.\n"
++                    "\u20b9999/month — all features included."
++                ),
++                "actions": [],
++            }
++
+         # Get soul
+         result = await db.execute(
+             select(AgentSoul).where(AgentSoul.user_id == user_id)
+diff --git a/bridge/src/index.js b/bridge/src/index.js
+index 31af81f..5ce7162 100644
+--- a/bridge/src/index.js
++++ b/bridge/src/index.js
+@@ -16,7 +16,13 @@ app.use(express.json({ limit: '50mb' }));
+ app.use(express.urlencoded({ extended: true }));
+ 
+ // Serve landing page
+-app.use(express.static(path.resolve(__dirname, '../../web/public')));
++const webDir = path.resolve(__dirname, '../../web/public');
++app.use(express.static(webDir));
++
++// Renewal deep link — serve landing page for /renew route
++app.get('/renew', (req, res) => {
++  res.sendFile(path.join(webDir, 'index.html'));
++});
+ 
+ // --- Health ---
+ app.get('/health', (req, res) => {
+@@ -219,4 +225,20 @@ app.listen(PORT, async () => {
+       console.error('[Cron] Evolution notify error:', err.message);
+     }
+   }, { timezone: 'Asia/Kolkata' });
++
++  // Subscription check: daily 10am IST
++  cron.schedule('0 10 * * *', async () => {
++    console.log('[Cron] Checking subscriptions...');
++    try {
++      const resp = await coreClient.callCron('/cron/check-subscriptions');
++      console.log(`[Cron] Subscriptions: ${resp.expired || 0} expired, ${resp.warned || 0} warned`);
++      if (resp.notifications) {
++        for (const notif of resp.notifications) {
++          await sessionManager.sendAlertToUser(notif.user_id, notif.message);
++        }
++      }
++    } catch (err) {
++      console.error('[Cron] Subscription check error:', err.message);
++    }
++  }, { timezone: 'Asia/Kolkata' });
+ });
+diff --git a/web/public/index.html b/web/public/index.html
+index c02c7b2..63b468f 100644
+--- a/web/public/index.html
++++ b/web/public/index.html
+@@ -1444,6 +1444,74 @@ async function handleEnterprise() {
+     errorEl.style.display = 'block';
+   }
+ }
++
++// ── Renewal Flow — handles samva.in/renew?id=xxx ──────────────
++async function handleRenewal(userId) {
++  try {
++    const resp = await fetch('/api/renew', {
++      method: 'POST',
++      headers: { 'Content-Type': 'application/json' },
++      body: JSON.stringify({ userId }),
++    });
++    const data = await resp.json();
++
++    if (data.skipPayment || data.admin) {
++      alert('Your account is active! No payment needed.');
++      return;
++    }
++
++    if (!data.orderId) {
++      alert('Could not create renewal order. Please try again.');
++      return;
++    }
++
++    const options = {
++      key: data.razorpayKey,
++      amount: data.amount * 100,
++      currency: 'INR',
++      order_id: data.orderId,
++      name: 'Samva',
++      description: 'Sam Subscription Renewal — 1 Month',
++      theme: { color: '#0D0C0A' },
++      handler: async function(response) {
++        const verifyResp = await fetch('/api/payment/renew-verify', {
++          method: 'POST',
++          headers: { 'Content-Type': 'application/json' },
++          body: JSON.stringify({
++            razorpay_order_id: response.razorpay_order_id,
++            razorpay_payment_id: response.razorpay_payment_id,
++            razorpay_signature: response.razorpay_signature,
++            userId: userId,
++          }),
++        });
++        const verifyData = await verifyResp.json();
++        if (verifyData.verified) {
++          alert('Subscription renewed! Sam is back. Valid until ' + verifyData.paidUntil);
++          window.location.href = '/';
++        } else {
++          alert('Payment verification failed. Contact hello@samva.in');
++        }
++      },
++    };
++
++    const rzp = new Razorpay(options);
++    rzp.open();
++  } catch (err) {
++    alert('Something went wrong. Please try again or email hello@samva.in');
++  }
++}
++
++// Check URL for renewal or other deep links on page load
++(function() {
++  const params = new URLSearchParams(window.location.search);
++  const renewId = params.get('id');
++  const path = window.location.pathname;
++
++  if (path === '/renew' && renewId) {
++    // Wait for Razorpay SDK to load, then trigger renewal
++    setTimeout(() => handleRenewal(renewId), 1000);
++  }
++})();
+ </script>
+ 
+ <!-- Razorpay SDK (loads only if available) -->
