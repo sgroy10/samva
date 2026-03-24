@@ -6,13 +6,14 @@ from .llm import call_gemini, call_gemini_json
 
 logger = logging.getLogger("samva.onboarding")
 
-FIRST_MESSAGE = """Hi! I'm Sam \u2014 your personal WhatsApp assistant from Samva. \ud83d\udc4b
-
-I'm here to help you every day \u2014 answering messages, reading your emails, remembering your contacts, capturing your meetings, and reminding you of what matters.
-
-To get started \u2014 tell me about yourself. What do you do? What takes up most of your time every day?
-
-You can type or send a voice note \u2014 in any language."""
+FIRST_MESSAGE = (
+    "Hi! I'm Sam -- your personal WhatsApp assistant from Samva.\n\n"
+    "I'm here to help you every day -- answering messages, reading your emails, "
+    "remembering your contacts, capturing your meetings, and reminding you of what matters.\n\n"
+    "To get started -- tell me about yourself. What do you do? "
+    "What takes up most of your time every day?\n\n"
+    "You can type or send a voice note -- in any language."
+)
 
 
 STEP_PROMPTS = {
