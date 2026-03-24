@@ -1,0 +1,65 @@
+diff --git a/bridge/src/sessionManager.js b/bridge/src/sessionManager.js
+index 8711680..7e9b0d8 100644
+--- a/bridge/src/sessionManager.js
++++ b/bridge/src/sessionManager.js
+@@ -1,4 +1,4 @@
+-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage, makeCacheableSignalKeyStore } = require('@whiskeysockets/baileys');
++const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage, makeCacheableSignalKeyStore, Browsers, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+ const pino = require('pino');
+ const path = require('path');
+ const fs = require('fs');
+@@ -17,6 +17,15 @@ const sendTimestamps = new Map();
+ const SEND_INTERVAL_MS = 2000;
+ 
+ async function startSession(userId) {
++  // Preserve reconnect count across restarts
++  const existing = sessions.get(userId);
++  const prevAttempts = existing ? existing.reconnectAttempts : 0;
++
++  // Clean up old socket if exists
++  if (existing && existing.socket) {
++    try { existing.socket.end(); } catch (_) {}
++  }
++
+   console.log(`[sessionManager] Starting session for ${userId}`);
+ 
+   const authDir = path.join(SESSION_DIR, userId);
+@@ -24,23 +33,35 @@ async function startSession(userId) {
+ 
+   const { state, saveCreds } = await useMultiFileAuthState(authDir);
+ 
+-  const socket = makeWASocket({
++  // Fetch latest WA version for compatibility
++  let waVersion;
++  try {
++    const { version } = await fetchLatestBaileysVersion();
++    waVersion = version;
++  } catch (e) {
++    console.log('[sessionManager] Could not fetch WA version, using default');
++  }
++
++  const sockOpts = {
+     auth: {
+       creds: state.creds,
+       keys: makeCacheableSignalKeyStore(state.keys, logger),
+     },
+     printQRInTerminal: false,
+     logger,
+-    browser: ['Samva', 'Chrome', '120.0'],
++    browser: Browsers.ubuntu('Chrome'),
+     generateHighQualityLinkPreview: false,
+     syncFullHistory: false,
+-  });
++  };
++  if (waVersion) sockOpts.version = waVersion;
++
++  const socket = makeWASocket(sockOpts);
+ 
+   const sessionData = {
+     socket,
+     ownJid: null,
+     qrDataUrl: null,
+-    reconnectAttempts: 0,
++    reconnectAttempts: prevAttempts,
+     onboarded: false,
+   };

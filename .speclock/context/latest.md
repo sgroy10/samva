@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-24T01:10:40.461Z
+> Generated: 2026-03-24T01:19:29.637Z
 > Project: **samva**
-> Repo: branch `main` @ `ab9df6f`
+> Repo: branch `main` @ `606fc2f`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -26,6 +26,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-24T01:19:29] Fix Baileys 405 disconnect — use Browsers.ubuntu + fetchLatestBaileysVersion, fix reconnect counter (bridge/src/sessionManager.js)
 - [2026-03-24T01:10:40] Samva v1 deployed to Railway — 28 files, 4274 lines, all endpoints live (Dockerfile, start.sh, bridge/src/index.js, api/app/main.py, web/public/index.html)
 
 ## Pinned Notes

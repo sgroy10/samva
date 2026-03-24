@@ -27,3 +27,5 @@
 {"eventId":"evt_4a5c6c4d3669","type":"context_generated","at":"2026-03-24T01:10:33.143Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
 {"eventId":"evt_258719ad34dd","type":"manual_change","at":"2026-03-24T01:10:40.424Z","files":["Dockerfile","start.sh","bridge/src/index.js","api/app/main.py","web/public/index.html"],"summary":"Samva v1 deployed to Railway — 28 files, 4274 lines, all endpoints live","patchPath":""}
 {"eventId":"evt_beb849df05d2","type":"context_generated","at":"2026-03-24T01:10:40.461Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_58d5181125ba","type":"manual_change","at":"2026-03-24T01:19:29.602Z","files":["bridge/src/sessionManager.js"],"summary":"Fix Baileys 405 disconnect — use Browsers.ubuntu + fetchLatestBaileysVersion, fix reconnect counter","patchPath":".speclock/patches/evt_58d5181125ba.patch"}
+{"eventId":"evt_070adf6535f4","type":"context_generated","at":"2026-03-24T01:19:29.637Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}

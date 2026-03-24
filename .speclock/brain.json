@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-24T01:10:40.461Z"
+    "updatedAt": "2026-03-24T01:19:29.637Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -125,6 +125,14 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_58d5181125ba",
+        "summary": "Fix Baileys 405 disconnect — use Browsers.ubuntu + fetchLatestBaileysVersion, fix reconnect counter",
+        "files": [
+          "bridge/src/sessionManager.js"
+        ],
+        "at": "2026-03-24T01:19:29.602Z"
+      },
+      {
         "eventId": "evt_258719ad34dd",
         "summary": "Samva v1 deployed to Railway — 28 files, 4274 lines, all endpoints live",
         "files": [
@@ -140,7 +148,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_beb849df05d2",
-    "count": 29
+    "lastEventId": "evt_070adf6535f4",
+    "count": 31
   }
 }
