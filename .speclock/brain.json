@@ -1,0 +1,146 @@
+{
+  "version": 2,
+  "project": {
+    "id": "sl_01931644ec80",
+    "name": "samva",
+    "root": "/Users/gadgetzone/samva",
+    "createdAt": "2026-03-24T01:09:48.668Z",
+    "updatedAt": "2026-03-24T01:10:40.461Z"
+  },
+  "goal": {
+    "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
+    "updatedAt": "2026-03-24T01:09:48.689Z"
+  },
+  "specLock": {
+    "items": [
+      {
+        "id": "lock_c668af6ad0f1",
+        "text": "Architecture: Node.js bridge + Python FastAPI in single Dockerfile — do not split into separate services",
+        "createdAt": "2026-03-24T01:10:01.100Z",
+        "source": "user",
+        "tags": [],
+        "active": true
+      },
+      {
+        "id": "lock_a89b42991487",
+        "text": "All Railway management via CLI — never ask user to use dashboard",
+        "createdAt": "2026-03-24T01:10:00.799Z",
+        "source": "user",
+        "tags": [],
+        "active": true
+      },
+      {
+        "id": "lock_69968390d0c2",
+        "text": "GitHub repo: sgroy10/samva — git push auto-deploys to Railway",
+        "createdAt": "2026-03-24T01:10:00.487Z",
+        "source": "user",
+        "tags": [],
+        "active": true
+      },
+      {
+        "id": "lock_2a4de79a73a3",
+        "text": "Railway project: terrific-grace, Service: romantic-generosity, URL: https://romantic-generosity-production.up.railway.app — NEVER change these",
+        "createdAt": "2026-03-24T01:10:00.180Z",
+        "source": "user",
+        "tags": [],
+        "active": true
+      },
+      {
+        "id": "lock_99f43bab3840",
+        "text": "Never touch JewelClaw code — Samva is a completely separate repo at /Users/gadgetzone/samva",
+        "createdAt": "2026-03-24T01:09:59.858Z",
+        "source": "user",
+        "tags": [],
+        "active": true
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "dec_623808d20c0a",
+      "text": "OpenRouter for Gemini 2.5 Flash — all LLM calls go through OpenRouter",
+      "createdAt": "2026-03-24T01:10:32.502Z",
+      "source": "user",
+      "tags": []
+    },
+    {
+      "id": "dec_11a7b2db46a7",
+      "text": "PostgreSQL on Railway, DATABASE_URL auto-injected",
+      "createdAt": "2026-03-24T01:10:32.198Z",
+      "source": "user",
+      "tags": []
+    },
+    {
+      "id": "dec_a1b80ffa66a0",
+      "text": "Razorpay live keys active — rzp_live_6B2TJ6eDeIzIqX",
+      "createdAt": "2026-03-24T01:10:31.891Z",
+      "source": "user",
+      "tags": []
+    },
+    {
+      "id": "dec_37609b75d5ed",
+      "text": "Dockerfile uses node:22-slim + python3 for dual runtime",
+      "createdAt": "2026-03-24T01:10:31.576Z",
+      "source": "user",
+      "tags": []
+    },
+    {
+      "id": "dec_04d4f762b99f",
+      "text": "Samva is standalone repo at sgroy10/samva, NOT inside JewelClaw",
+      "createdAt": "2026-03-24T01:10:31.252Z",
+      "source": "user",
+      "tags": []
+    }
+  ],
+  "notes": [
+    {
+      "id": "note_ad7fe68b8b1f",
+      "text": "Railway env vars: OPENROUTER_API_KEY, GEMINI_API_KEY, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, DATABASE_URL, SAMVA_MODE=true",
+      "createdAt": "2026-03-24T01:10:32.806Z",
+      "pinned": true
+    }
+  ],
+  "facts": {
+    "deploy": {
+      "provider": "Railway",
+      "autoDeploy": false,
+      "branch": "",
+      "url": "",
+      "notes": ""
+    },
+    "repo": {
+      "defaultBranch": "main",
+      "hasGit": true
+    }
+  },
+  "sessions": {
+    "current": null,
+    "history": []
+  },
+  "state": {
+    "head": {
+      "gitBranch": "main",
+      "gitCommit": "ab9df6fe69b8c0d702a0687060a50c17d1fc18f9",
+      "capturedAt": "2026-03-24T01:09:48.687Z"
+    },
+    "recentChanges": [
+      {
+        "eventId": "evt_258719ad34dd",
+        "summary": "Samva v1 deployed to Railway — 28 files, 4274 lines, all endpoints live",
+        "files": [
+          "Dockerfile",
+          "start.sh",
+          "bridge/src/index.js",
+          "api/app/main.py",
+          "web/public/index.html"
+        ],
+        "at": "2026-03-24T01:10:40.424Z"
+      }
+    ],
+    "reverts": []
+  },
+  "events": {
+    "lastEventId": "evt_beb849df05d2",
+    "count": 29
+  }
+}
