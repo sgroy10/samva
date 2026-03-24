@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-24T01:24:59.304Z"
+    "updatedAt": "2026-03-24T01:38:05.984Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -125,6 +125,18 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_fd56e1b3031f",
+        "summary": "Wired IMAP email reading, Playwright web search, email connect command",
+        "files": [
+          "api/app/services/email_draft.py",
+          "api/app/services/web_search.py",
+          "api/app/services/agent.py",
+          "Dockerfile",
+          "api/requirements.txt"
+        ],
+        "at": "2026-03-24T01:38:05.950Z"
+      },
+      {
         "eventId": "evt_a72ad830a86b",
         "summary": "Added quick guide after onboarding, help command, FAQ section on landing page",
         "files": [
@@ -158,7 +170,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_dd7167ac123c",
-    "count": 33
+    "lastEventId": "evt_7b778270a1f8",
+    "count": 35
   }
 }

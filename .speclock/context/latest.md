@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-24T01:24:59.304Z
+> Generated: 2026-03-24T01:38:05.984Z
 > Project: **samva**
-> Repo: branch `main` @ `9e7b7f5`
+> Repo: branch `main` @ `1fccc32`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -26,6 +26,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-24T01:38:05] Wired IMAP email reading, Playwright web search, email connect command (api/app/services/email_draft.py, api/app/services/web_search.py, api/app/services/agent.py, Dockerfile, api/requirements.txt)
 - [2026-03-24T01:24:59] Added quick guide after onboarding, help command, FAQ section on landing page (api/app/services/onboarding.py, api/app/services/agent.py, web/public/index.html)
 - [2026-03-24T01:19:29] Fix Baileys 405 disconnect — use Browsers.ubuntu + fetchLatestBaileysVersion, fix reconnect counter (bridge/src/sessionManager.js)
 - [2026-03-24T01:10:40] Samva v1 deployed to Railway — 28 files, 4274 lines, all endpoints live (Dockerfile, start.sh, bridge/src/index.js, api/app/main.py, web/public/index.html)

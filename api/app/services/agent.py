@@ -5,7 +5,7 @@ from sqlalchemy import select
 from ..models import AgentSoul, User, Conversation, UserMemory
 from .llm import call_gemini, call_gemini_json, transcribe_audio
 from .onboarding import handle_onboarding
-from . import gold, stocks, email_draft, meeting, contacts, reminders
+from . import gold, stocks, email_draft, meeting, contacts, reminders, web_search
 
 logger = logging.getLogger("samva.agent")
 
@@ -130,6 +130,19 @@ async def process_message(
 
         # Fast commands — no AI cost
         lower = (text or "").strip().lower()
+
+        # Email connect command: "connect email user@gmail.com password123"
+        if lower.startswith("connect email "):
+            parts = text.strip().split(None, 3)  # connect email addr pass
+            if len(parts) >= 4:
+                email_addr = parts[2]
+                password = parts[3]
+                reply = await email_draft.connect_email(db, user_id, email_addr, password)
+                db.add(Conversation(user_id=user_id, role="user", content="[connect email]"))
+                db.add(Conversation(user_id=user_id, role="assistant", content=reply))
+                await db.commit()
+                return {"reply": reply, "actions": []}
+
         if lower in ("help", "menu", "commands", "kya kar sakti ho", "kya kya kar sakti ho", "what can you do"):
             db.add(Conversation(user_id=user_id, role="user", content=text))
             db.add(Conversation(user_id=user_id, role="assistant", content=HELP_TEXT))
@@ -271,7 +284,7 @@ async def _route_skill(
             return await email_draft.cancel_draft(user_id)
 
         elif intent == "email_read":
-            return "Email reading is being set up. I'll let you know when it's ready!"
+            return await email_draft.read_emails(db, user_id)
 
         elif intent == "memory_update":
             return await _update_memory(db, user_id, text)
@@ -283,12 +296,23 @@ async def _route_skill(
             return await stocks.get_watchlist_brief(db, user_id)
 
         elif intent == "web_search":
-            system = await _build_system_prompt(db, user_id, user, soul)
-            return await call_gemini(
-                system + "\n\nThe user is asking about current/live information. Answer to the best of your knowledge. If you're not sure about exact current data, say so.",
-                text,
-                user_id=user_id,
-            )
+            # Real web search via Playwright, then summarize with Gemini
+            search_results = await web_search.search(text, user_id)
+            if search_results:
+                system = await _build_system_prompt(db, user_id, user, soul)
+                return await call_gemini(
+                    system + "\n\nYou searched the web for the user. Summarize these search results concisely for WhatsApp. Give the key answer first, then details. Cite sources if relevant.",
+                    f"User asked: {text}\n\nWeb search results:\n{search_results[:3000]}",
+                    user_id=user_id,
+                )
+            else:
+                # Playwright failed — fallback to Gemini knowledge
+                system = await _build_system_prompt(db, user_id, user, soul)
+                return await call_gemini(
+                    system + "\n\nThe user is asking about current/live information. Answer to the best of your knowledge. Mention if data may not be current.",
+                    text,
+                    user_id=user_id,
+                )
 
         else:
             # General chat

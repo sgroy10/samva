@@ -12,7 +12,9 @@ WORKDIR /app
 
 # Install Python deps first (cached layer)
 COPY api/requirements.txt api/requirements.txt
-RUN pip3 install --break-system-packages -q -r api/requirements.txt
+RUN pip3 install --break-system-packages -q -r api/requirements.txt \
+    && python3 -m playwright install chromium \
+    && python3 -m playwright install-deps chromium
 
 # Install Node deps (cached layer)
 COPY bridge/package.json bridge/package.json
