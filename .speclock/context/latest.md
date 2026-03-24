@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-24T01:38:05.984Z
+> Generated: 2026-03-24T01:50:12.287Z
 > Project: **samva**
-> Repo: branch `main` @ `1fccc32`
+> Repo: branch `main` @ `415930b`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -26,6 +26,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-24T01:50:12] Complete gold brief rewrite: gold_rate intent, 9am timing with dedup, price alerts >150/gm, JewelClaw-exact format with 14K+platinum+expert view (api/app/services/gold.py, api/app/services/agent.py, api/app/models.py)
 - [2026-03-24T01:38:05] Wired IMAP email reading, Playwright web search, email connect command (api/app/services/email_draft.py, api/app/services/web_search.py, api/app/services/agent.py, Dockerfile, api/requirements.txt)
 - [2026-03-24T01:24:59] Added quick guide after onboarding, help command, FAQ section on landing page (api/app/services/onboarding.py, api/app/services/agent.py, web/public/index.html)
 - [2026-03-24T01:19:29] Fix Baileys 405 disconnect — use Browsers.ubuntu + fetchLatestBaileysVersion, fix reconnect counter (bridge/src/sessionManager.js)

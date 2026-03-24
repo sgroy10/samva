@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, String, Integer, Float, Boolean, Text, DateTime, Time, JSON,
+    Column, String, Integer, Float, Boolean, Text, DateTime, Time, JSON, Date,
     UniqueConstraint
 )
 from sqlalchemy.sql import func
@@ -36,6 +36,7 @@ class AgentSoul(Base):
     onboarding_context = Column(JSON, default=dict)
     daily_brief_time = Column(Time, default=datetime.time(9, 0))
     daily_brief_enabled = Column(Boolean, default=True)
+    last_gold_brief_date = Column(Date, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

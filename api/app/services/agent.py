@@ -71,11 +71,13 @@ Classify the user's message into ONE intent:
 - image_general: sent a general image (not business card)
 - stock_watch: wants to add/remove stocks to watchlist
 - stock_check: wants current stock prices or portfolio status
+- gold_rate: asking about gold price, silver price, rates, sona ka bhav, current gold, aaj ka rate
 
 Return JSON: {"intent": "the_intent", "confidence": 0.0-1.0}
 If image is present and looks like a business card, use "business_card".
 If image is present but not a card, use "image_general".
-If it's a voice transcription about a meeting, use "meeting_note"."""
+If it's a voice transcription about a meeting, use "meeting_note".
+If asking about gold/silver/rates, ALWAYS use gold_rate."""
 
 
 async def process_message(
@@ -139,6 +141,18 @@ async def process_message(
                 password = parts[3]
                 reply = await email_draft.connect_email(db, user_id, email_addr, password)
                 db.add(Conversation(user_id=user_id, role="user", content="[connect email]"))
+                db.add(Conversation(user_id=user_id, role="assistant", content=reply))
+                await db.commit()
+                return {"reply": reply, "actions": []}
+
+        # Gold rate fast-path — no AI cost for common rate queries
+        gold_triggers = {"gold", "gold rate", "gold rates", "gold price", "rates", "rate",
+                         "sona", "sona ka bhav", "bhav", "aaj ka rate", "current gold",
+                         "rates dikhao", "silver", "silver rate", "silver price", "gold brief"}
+        if lower in gold_triggers or (lower.startswith("gold") and len(lower) < 20):
+            reply = await gold.get_gold_brief(db, user_id)
+            if reply:
+                db.add(Conversation(user_id=user_id, role="user", content=text))
                 db.add(Conversation(user_id=user_id, role="assistant", content=reply))
                 await db.commit()
                 return {"reply": reply, "actions": []}
@@ -295,6 +309,9 @@ async def _route_skill(
         elif intent == "stock_check":
             return await stocks.get_watchlist_brief(db, user_id)
 
+        elif intent == "gold_rate":
+            return await gold.get_gold_brief(db, user_id)
+
         elif intent == "web_search":
             # Real web search via Playwright, then summarize with Gemini
             search_results = await web_search.search(text, user_id)
@@ -376,11 +393,17 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
         stock_alerts = await stocks.check_alerts(db, user_id)
         alerts.extend(stock_alerts)
 
-        # Check if gold brief is needed
+        # Check if 9am gold brief is needed (jeweller users only, once per day)
         if await gold.should_get_gold_brief(db, user_id):
             brief = await gold.get_gold_brief(db, user_id)
             if brief:
                 alerts.append(brief)
+                await gold.mark_brief_sent(db, user_id)
+
+        # Check gold price change alerts (jeweller users, every 15-min cron)
+        price_alert = await gold.check_price_alerts(db, user_id)
+        if price_alert:
+            alerts.append(price_alert)
 
     except Exception as e:
         logger.error(f"Alert check error for {user_id}: {e}", exc_info=True)

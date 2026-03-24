@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-24T01:38:05.984Z"
+    "updatedAt": "2026-03-24T01:50:12.288Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -125,6 +125,16 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_871db466dc40",
+        "summary": "Complete gold brief rewrite: gold_rate intent, 9am timing with dedup, price alerts >150/gm, JewelClaw-exact format with 14K+platinum+expert view",
+        "files": [
+          "api/app/services/gold.py",
+          "api/app/services/agent.py",
+          "api/app/models.py"
+        ],
+        "at": "2026-03-24T01:50:12.253Z"
+      },
+      {
         "eventId": "evt_fd56e1b3031f",
         "summary": "Wired IMAP email reading, Playwright web search, email connect command",
         "files": [
@@ -170,7 +180,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_7b778270a1f8",
-    "count": 35
+    "lastEventId": "evt_303e9149b0fe",
+    "count": 37
   }
 }
