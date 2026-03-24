@@ -73,8 +73,8 @@ async def evolve_user_soul(db: AsyncSession, user_id: str) -> dict:
         logger.info(f"[{user_id}] Already evolved this week, skipping")
         return {}
 
-    # Gather last 7 days of data
-    seven_days_ago = now - timedelta(days=7)
+    # Gather last 7 days of data (use naive datetime for DB compatibility)
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
 
     # Conversations
     conv_result = await db.execute(
