@@ -43,8 +43,26 @@ async def get_db():
 
 
 async def init_db():
-    """Create all tables."""
+    """Create all tables + run migrations for new columns."""
     os.makedirs("data/db", exist_ok=True)
     async with engine.begin() as conn:
         from . import models  # noqa
         await conn.run_sync(Base.metadata.create_all)
+
+    # Run column migrations (safe to re-run — uses IF NOT EXISTS / catches errors)
+    await _run_migrations()
+
+
+async def _run_migrations():
+    """Add new columns to existing tables. Idempotent."""
+    migrations = [
+        "ALTER TABLE agent_souls ADD COLUMN IF NOT EXISTS last_gold_brief_date DATE",
+    ]
+    async with engine.begin() as conn:
+        for sql in migrations:
+            try:
+                from sqlalchemy import text
+                await conn.execute(text(sql))
+            except Exception as e:
+                # Column might already exist or table might not exist yet
+                pass
