@@ -303,6 +303,21 @@ async function checkAllAlerts() {
   }
 }
 
+async function sendAlertToUser(userId, message) {
+  const session = sessions.get(userId);
+  if (!session || !session.ownJid) {
+    console.log(`[sessionManager] Cannot send alert to ${userId}: no active session`);
+    return false;
+  }
+  try {
+    await rateLimitedSend(session.socket, session.ownJid, message);
+    return true;
+  } catch (err) {
+    console.error(`[sessionManager] Alert send failed for ${userId}:`, err.message);
+    return false;
+  }
+}
+
 module.exports = {
   startSession,
   getSession,
@@ -310,4 +325,5 @@ module.exports = {
   getActiveCount,
   reconnectAll,
   checkAllAlerts,
+  sendAlertToUser,
 };

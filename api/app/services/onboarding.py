@@ -199,8 +199,10 @@ Match their language. Keep it short.""",
         user_id=user_id,
     )
 
-    # Append the quick guide
-    reply += QUICK_GUIDE
+    # Append the quick guide + network permission question
+    from .network import ask_network_permission
+    network_q = await ask_network_permission(db, user_id)
+    reply += QUICK_GUIDE + "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" + network_q
 
     return reply
 

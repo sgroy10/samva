@@ -229,3 +229,40 @@ async def handle_enterprise(
     db.add(inquiry)
     await db.commit()
     return {"status": "ok"}
+
+
+# --- Cron Endpoints (called by bridge scheduler) ---
+
+@app.post("/cron/soul-evolution")
+async def handle_soul_evolution(db: AsyncSession = Depends(get_db)):
+    """Sunday 11pm IST — evolve all active users' Souls."""
+    from .services.soul_evolution import run_soul_evolution_for_all
+    evolved = await run_soul_evolution_for_all(db)
+    return {"evolved": len(evolved), "users": evolved}
+
+
+@app.post("/cron/network-match")
+async def handle_network_match(db: AsyncSession = Depends(get_db)):
+    """Sunday 11pm IST (after soul evolution) — match network profiles."""
+    from .services.network import run_network_matching
+    matches = await run_network_matching(db)
+    return {"matches": len(matches), "notifications": matches}
+
+
+@app.post("/cron/evolution-notify")
+async def handle_evolution_notify(
+    db: AsyncSession = Depends(get_db)
+):
+    """Monday 9am IST — send evolution messages to users."""
+    from .services.soul_evolution import get_evolution_message
+    from .models import User
+    result = await db.execute(select(User).where(User.status == "active"))
+    users = result.scalars().all()
+
+    messages = []
+    for user in users:
+        msg = await get_evolution_message(db, user.id)
+        if msg:
+            messages.append({"user_id": user.id, "message": msg})
+
+    return {"count": len(messages), "messages": messages}

@@ -63,10 +63,12 @@ async def call_gemini_json(
     user_message: str,
     image_base64: str = None,
     user_id: str = "",
+    max_tokens: int = 800,
 ) -> dict:
     """Call Gemini and parse response as JSON."""
     raw = await call_gemini(
-        system_prompt, user_message, image_base64=image_base64, user_id=user_id
+        system_prompt, user_message, image_base64=image_base64,
+        user_id=user_id, max_tokens=max_tokens,
     )
 
     # Strip markdown code blocks

@@ -37,6 +37,7 @@ class AgentSoul(Base):
     daily_brief_time = Column(Time, default=datetime.time(9, 0))
     daily_brief_enabled = Column(Boolean, default=True)
     last_gold_brief_date = Column(Date, nullable=True)
+    network_permission = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -164,3 +165,30 @@ class SessionHealth(Base):
     last_qr_generated = Column(DateTime, nullable=True)
     reconnect_attempts = Column(Integer, default=0)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class SoulEvolution(Base):
+    __tablename__ = "soul_evolutions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False)
+    week_date = Column(Date, nullable=False)
+    patterns_found = Column(JSON, default=list)
+    new_behaviors = Column(JSON, default=list)
+    evolution_summary = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+
+
+class NetworkConnection(Base):
+    __tablename__ = "network_connections"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False)
+    need_type = Column(String(100), nullable=True)
+    need_description = Column(Text, nullable=True)
+    offer_type = Column(String(100), nullable=True)
+    offer_description = Column(Text, nullable=True)
+    location = Column(String(100), nullable=True)
+    is_active = Column(Boolean, default=True)
+    permission_given = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())

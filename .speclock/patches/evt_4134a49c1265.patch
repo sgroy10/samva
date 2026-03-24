@@ -1,0 +1,296 @@
+diff --git a/api/app/database.py b/api/app/database.py
+index 81fe3ed..4dbfef3 100644
+--- a/api/app/database.py
++++ b/api/app/database.py
+@@ -57,6 +57,7 @@ async def _run_migrations():
+     """Add new columns to existing tables. Idempotent."""
+     migrations = [
+         "ALTER TABLE agent_souls ADD COLUMN IF NOT EXISTS last_gold_brief_date DATE",
++        "ALTER TABLE agent_souls ADD COLUMN IF NOT EXISTS network_permission BOOLEAN DEFAULT FALSE",
+     ]
+     async with engine.begin() as conn:
+         for sql in migrations:
+diff --git a/api/app/main.py b/api/app/main.py
+index 6e30be1..a573a83 100644
+--- a/api/app/main.py
++++ b/api/app/main.py
+@@ -229,3 +229,40 @@ async def handle_enterprise(
+     db.add(inquiry)
+     await db.commit()
+     return {"status": "ok"}
++
++
++# --- Cron Endpoints (called by bridge scheduler) ---
++
++@app.post("/cron/soul-evolution")
++async def handle_soul_evolution(db: AsyncSession = Depends(get_db)):
++    """Sunday 11pm IST — evolve all active users' Souls."""
++    from .services.soul_evolution import run_soul_evolution_for_all
++    evolved = await run_soul_evolution_for_all(db)
++    return {"evolved": len(evolved), "users": evolved}
++
++
++@app.post("/cron/network-match")
++async def handle_network_match(db: AsyncSession = Depends(get_db)):
++    """Sunday 11pm IST (after soul evolution) — match network profiles."""
++    from .services.network import run_network_matching
++    matches = await run_network_matching(db)
++    return {"matches": len(matches), "notifications": matches}
++
++
++@app.post("/cron/evolution-notify")
++async def handle_evolution_notify(
++    db: AsyncSession = Depends(get_db)
++):
++    """Monday 9am IST — send evolution messages to users."""
++    from .services.soul_evolution import get_evolution_message
++    from .models import User
++    result = await db.execute(select(User).where(User.status == "active"))
++    users = result.scalars().all()
++
++    messages = []
++    for user in users:
++        msg = await get_evolution_message(db, user.id)
++        if msg:
++            messages.append({"user_id": user.id, "message": msg})
++
++    return {"count": len(messages), "messages": messages}
+diff --git a/api/app/models.py b/api/app/models.py
+index c8f59b4..d6e1e8f 100644
+--- a/api/app/models.py
++++ b/api/app/models.py
+@@ -37,6 +37,7 @@ class AgentSoul(Base):
+     daily_brief_time = Column(Time, default=datetime.time(9, 0))
+     daily_brief_enabled = Column(Boolean, default=True)
+     last_gold_brief_date = Column(Date, nullable=True)
++    network_permission = Column(Boolean, default=False)
+     created_at = Column(DateTime, default=func.now())
+     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+ 
+@@ -164,3 +165,30 @@ class SessionHealth(Base):
+     last_qr_generated = Column(DateTime, nullable=True)
+     reconnect_attempts = Column(Integer, default=0)
+     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
++
++
++class SoulEvolution(Base):
++    __tablename__ = "soul_evolutions"
++
++    id = Column(Integer, primary_key=True, autoincrement=True)
++    user_id = Column(String(36), nullable=False)
++    week_date = Column(Date, nullable=False)
++    patterns_found = Column(JSON, default=list)
++    new_behaviors = Column(JSON, default=list)
++    evolution_summary = Column(Text, nullable=True)
++    created_at = Column(DateTime, default=func.now())
++
++
++class NetworkConnection(Base):
++    __tablename__ = "network_connections"
++
++    id = Column(Integer, primary_key=True, autoincrement=True)
++    user_id = Column(String(36), nullable=False)
++    need_type = Column(String(100), nullable=True)
++    need_description = Column(Text, nullable=True)
++    offer_type = Column(String(100), nullable=True)
++    offer_description = Column(Text, nullable=True)
++    location = Column(String(100), nullable=True)
++    is_active = Column(Boolean, default=True)
++    permission_given = Column(Boolean, default=False)
++    created_at = Column(DateTime, default=func.now())
+diff --git a/api/app/services/agent.py b/api/app/services/agent.py
+index d3e7e3b..2436c11 100644
+--- a/api/app/services/agent.py
++++ b/api/app/services/agent.py
+@@ -6,6 +6,8 @@ from ..models import AgentSoul, User, Conversation, UserMemory
+ from .llm import call_gemini, call_gemini_json, transcribe_audio
+ from .onboarding import handle_onboarding
+ from . import gold, stocks, email_draft, meeting, contacts, reminders, web_search
++from .confidence import tag_confidence
++from . import network as network_svc
+ 
+ logger = logging.getLogger("samva.agent")
+ 
+@@ -133,6 +135,35 @@ async def process_message(
+         # Fast commands — no AI cost
+         lower = (text or "").strip().lower()
+ 
++        # Network permission response (right after onboarding asks)
++        # Check if user hasn't set permission yet (None means just asked)
++        if soul.network_permission is None or (soul.onboarding_complete and not soul.network_permission):
++            perm_reply = await network_svc.handle_permission_response(db, user_id, text)
++            if perm_reply:
++                # If they said yes, next message will be their need/offer profile
++                db.add(Conversation(user_id=user_id, role="user", content=text))
++                db.add(Conversation(user_id=user_id, role="assistant", content=perm_reply))
++                await db.commit()
++                return {"reply": perm_reply, "actions": []}
++
++        # Network profile save (user describing their need/offer after saying yes)
++        if soul.network_permission is True:
++            from ..models import NetworkConnection
++            nc_result = await db.execute(
++                select(NetworkConnection).where(
++                    NetworkConnection.user_id == user_id,
++                    NetworkConnection.is_active == True,
++                )
++            )
++            if not nc_result.scalar_one_or_none():
++                # No profile yet — this message might be their need/offer description
++                if len(text) > 15 and any(w in lower for w in ["chahiye", "need", "offer", "karti", "karta", "dhundh", "looking", "provide", "supply"]):
++                    reply = await network_svc.save_network_profile(db, user_id, text)
++                    db.add(Conversation(user_id=user_id, role="user", content=text))
++                    db.add(Conversation(user_id=user_id, role="assistant", content=reply))
++                    await db.commit()
++                    return {"reply": reply, "actions": []}
++
+         # Email connect command: "connect email user@gmail.com password123"
+         if lower.startswith("connect email "):
+             parts = text.strip().split(None, 3)  # connect email addr pass
+@@ -332,9 +363,10 @@ async def _route_skill(
+                 )
+ 
+         else:
+-            # General chat
++            # General chat — with confidence tagging
+             system = await _build_system_prompt(db, user_id, user, soul)
+-            return await call_gemini(system, text, user_id=user_id)
++            raw_reply = await call_gemini(system, text, user_id=user_id)
++            return await tag_confidence(raw_reply, soul.system_prompt[:300], user_id)
+ 
+     except Exception as e:
+         logger.error(f"Skill error ({intent}) for {user_id}: {e}", exc_info=True)
+diff --git a/api/app/services/llm.py b/api/app/services/llm.py
+index ca4a617..8bc2216 100644
+--- a/api/app/services/llm.py
++++ b/api/app/services/llm.py
+@@ -63,10 +63,12 @@ async def call_gemini_json(
+     user_message: str,
+     image_base64: str = None,
+     user_id: str = "",
++    max_tokens: int = 800,
+ ) -> dict:
+     """Call Gemini and parse response as JSON."""
+     raw = await call_gemini(
+-        system_prompt, user_message, image_base64=image_base64, user_id=user_id
++        system_prompt, user_message, image_base64=image_base64,
++        user_id=user_id, max_tokens=max_tokens,
+     )
+ 
+     # Strip markdown code blocks
+diff --git a/api/app/services/onboarding.py b/api/app/services/onboarding.py
+index 99719b6..251ad33 100644
+--- a/api/app/services/onboarding.py
++++ b/api/app/services/onboarding.py
+@@ -199,8 +199,10 @@ Match their language. Keep it short.""",
+         user_id=user_id,
+     )
+ 
+-    # Append the quick guide
+-    reply += QUICK_GUIDE
++    # Append the quick guide + network permission question
++    from .network import ask_network_permission
++    network_q = await ask_network_permission(db, user_id)
++    reply += QUICK_GUIDE + "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" + network_q
+ 
+     return reply
+ 
+diff --git a/bridge/src/coreClient.js b/bridge/src/coreClient.js
+index 53be132..12e0d91 100644
+--- a/bridge/src/coreClient.js
++++ b/bridge/src/coreClient.js
+@@ -59,4 +59,15 @@ module.exports = {
+   onboardUser,
+   checkAlerts,
+   healthCheck,
++  callCron,
+ };
++
++async function callCron(path) {
++  try {
++    const resp = await client.post(path, {}, { timeout: 120000 });
++    return resp.data;
++  } catch (err) {
++    console.error(`[CoreClient] Cron ${path} failed:`, err.message);
++    return {};
++  }
++}
+diff --git a/bridge/src/index.js b/bridge/src/index.js
+index 83cb3e7..31af81f 100644
+--- a/bridge/src/index.js
++++ b/bridge/src/index.js
+@@ -181,4 +181,42 @@ app.listen(PORT, async () => {
+       console.error('[Samva Bridge] Alert scheduler error:', err.message);
+     }
+   });
++
++  // Soul Evolution: Sunday 11pm IST
++  cron.schedule('0 23 * * 0', async () => {
++    console.log('[Cron] Running soul evolution...');
++    try {
++      const resp = await coreClient.callCron('/cron/soul-evolution');
++      console.log(`[Cron] Soul evolution: ${resp.evolved || 0} users evolved`);
++
++      // Run network matching right after
++      const matchResp = await coreClient.callCron('/cron/network-match');
++      console.log(`[Cron] Network matching: ${matchResp.matches || 0} matches found`);
++
++      // Send network match notifications via WhatsApp
++      if (matchResp.notifications) {
++        for (const notif of matchResp.notifications) {
++          await sessionManager.sendAlertToUser(notif.user_id, notif.message);
++        }
++      }
++    } catch (err) {
++      console.error('[Cron] Soul evolution/network error:', err.message);
++    }
++  }, { timezone: 'Asia/Kolkata' });
++
++  // Evolution notify: Monday 9am IST
++  cron.schedule('0 9 * * 1', async () => {
++    console.log('[Cron] Sending evolution notifications...');
++    try {
++      const resp = await coreClient.callCron('/cron/evolution-notify');
++      if (resp.messages) {
++        for (const item of resp.messages) {
++          await sessionManager.sendAlertToUser(item.user_id, item.message);
++        }
++        console.log(`[Cron] Sent ${resp.count || 0} evolution messages`);
++      }
++    } catch (err) {
++      console.error('[Cron] Evolution notify error:', err.message);
++    }
++  }, { timezone: 'Asia/Kolkata' });
+ });
+diff --git a/bridge/src/sessionManager.js b/bridge/src/sessionManager.js
+index 7e9b0d8..e7151a6 100644
+--- a/bridge/src/sessionManager.js
++++ b/bridge/src/sessionManager.js
+@@ -303,6 +303,21 @@ async function checkAllAlerts() {
+   }
+ }
+ 
++async function sendAlertToUser(userId, message) {
++  const session = sessions.get(userId);
++  if (!session || !session.ownJid) {
++    console.log(`[sessionManager] Cannot send alert to ${userId}: no active session`);
++    return false;
++  }
++  try {
++    await rateLimitedSend(session.socket, session.ownJid, message);
++    return true;
++  } catch (err) {
++    console.error(`[sessionManager] Alert send failed for ${userId}:`, err.message);
++    return false;
++  }
++}
++
+ module.exports = {
+   startSession,
+   getSession,
+@@ -310,4 +325,5 @@ module.exports = {
+   getActiveCount,
+   reconnectAll,
+   checkAllAlerts,
++  sendAlertToUser,
+ };

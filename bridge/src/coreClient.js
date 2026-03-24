@@ -59,4 +59,15 @@ module.exports = {
   onboardUser,
   checkAlerts,
   healthCheck,
+  callCron,
 };
+
+async function callCron(path) {
+  try {
+    const resp = await client.post(path, {}, { timeout: 120000 });
+    return resp.data;
+  } catch (err) {
+    console.error(`[CoreClient] Cron ${path} failed:`, err.message);
+    return {};
+  }
+}

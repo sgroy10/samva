@@ -6,6 +6,8 @@ from ..models import AgentSoul, User, Conversation, UserMemory
 from .llm import call_gemini, call_gemini_json, transcribe_audio
 from .onboarding import handle_onboarding
 from . import gold, stocks, email_draft, meeting, contacts, reminders, web_search
+from .confidence import tag_confidence
+from . import network as network_svc
 
 logger = logging.getLogger("samva.agent")
 
@@ -132,6 +134,35 @@ async def process_message(
 
         # Fast commands — no AI cost
         lower = (text or "").strip().lower()
+
+        # Network permission response (right after onboarding asks)
+        # Check if user hasn't set permission yet (None means just asked)
+        if soul.network_permission is None or (soul.onboarding_complete and not soul.network_permission):
+            perm_reply = await network_svc.handle_permission_response(db, user_id, text)
+            if perm_reply:
+                # If they said yes, next message will be their need/offer profile
+                db.add(Conversation(user_id=user_id, role="user", content=text))
+                db.add(Conversation(user_id=user_id, role="assistant", content=perm_reply))
+                await db.commit()
+                return {"reply": perm_reply, "actions": []}
+
+        # Network profile save (user describing their need/offer after saying yes)
+        if soul.network_permission is True:
+            from ..models import NetworkConnection
+            nc_result = await db.execute(
+                select(NetworkConnection).where(
+                    NetworkConnection.user_id == user_id,
+                    NetworkConnection.is_active == True,
+                )
+            )
+            if not nc_result.scalar_one_or_none():
+                # No profile yet — this message might be their need/offer description
+                if len(text) > 15 and any(w in lower for w in ["chahiye", "need", "offer", "karti", "karta", "dhundh", "looking", "provide", "supply"]):
+                    reply = await network_svc.save_network_profile(db, user_id, text)
+                    db.add(Conversation(user_id=user_id, role="user", content=text))
+                    db.add(Conversation(user_id=user_id, role="assistant", content=reply))
+                    await db.commit()
+                    return {"reply": reply, "actions": []}
 
         # Email connect command: "connect email user@gmail.com password123"
         if lower.startswith("connect email "):
@@ -332,9 +363,10 @@ async def _route_skill(
                 )
 
         else:
-            # General chat
+            # General chat — with confidence tagging
             system = await _build_system_prompt(db, user_id, user, soul)
-            return await call_gemini(system, text, user_id=user_id)
+            raw_reply = await call_gemini(system, text, user_id=user_id)
+            return await tag_confidence(raw_reply, soul.system_prompt[:300], user_id)
 
     except Exception as e:
         logger.error(f"Skill error ({intent}) for {user_id}: {e}", exc_info=True)

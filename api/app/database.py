@@ -57,6 +57,7 @@ async def _run_migrations():
     """Add new columns to existing tables. Idempotent."""
     migrations = [
         "ALTER TABLE agent_souls ADD COLUMN IF NOT EXISTS last_gold_brief_date DATE",
+        "ALTER TABLE agent_souls ADD COLUMN IF NOT EXISTS network_permission BOOLEAN DEFAULT FALSE",
     ]
     async with engine.begin() as conn:
         for sql in migrations:

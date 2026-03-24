@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-24T01:50:12.287Z
+> Generated: 2026-03-24T15:26:53.800Z
 > Project: **samva**
-> Repo: branch `main` @ `415930b`
+> Repo: branch `main` @ `0d10383`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -15,6 +15,9 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - **[LOCK]** Never touch JewelClaw code — Samva is a completely separate repo at /Users/gadgetzone/samva _(user, 2026-03-24)_
 
 ## Key Decisions
+- **[DEC]** Network matching is opt-in. Double confirmation before sharing any details. _(user, 2026-03-24)_
+- **[DEC]** Confidence tagging only on chat intent. max_tokens:50 for speed. _(user, 2026-03-24)_
+- **[DEC]** Soul Evolution APPENDS to system_prompt, never deletes. Runs Sunday 11pm IST. _(user, 2026-03-24)_
 - **[DEC]** OpenRouter for Gemini 2.5 Flash — all LLM calls go through OpenRouter _(user, 2026-03-24)_
 - **[DEC]** PostgreSQL on Railway, DATABASE_URL auto-injected _(user, 2026-03-24)_
 - **[DEC]** Razorpay live keys active — rzp_live_6B2TJ6eDeIzIqX _(user, 2026-03-24)_
@@ -26,6 +29,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-24T15:26:52] Three inventions: Soul Evolution, Confidence Transparency, Network Intelligence (api/app/services/soul_evolution.py, api/app/services/confidence.py, api/app/services/network.py, api/app/services/agent.py, api/app/services/onboarding.py, api/app/models.py, api/app/main.py, bridge/src/index.js, bridge/src/coreClient.js, bridge/src/sessionManager.js)
 - [2026-03-24T01:50:12] Complete gold brief rewrite: gold_rate intent, 9am timing with dedup, price alerts >150/gm, JewelClaw-exact format with 14K+platinum+expert view (api/app/services/gold.py, api/app/services/agent.py, api/app/models.py)
 - [2026-03-24T01:38:05] Wired IMAP email reading, Playwright web search, email connect command (api/app/services/email_draft.py, api/app/services/web_search.py, api/app/services/agent.py, Dockerfile, api/requirements.txt)
 - [2026-03-24T01:24:59] Added quick guide after onboarding, help command, FAQ section on landing page (api/app/services/onboarding.py, api/app/services/agent.py, web/public/index.html)

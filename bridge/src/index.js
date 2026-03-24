@@ -181,4 +181,42 @@ app.listen(PORT, async () => {
       console.error('[Samva Bridge] Alert scheduler error:', err.message);
     }
   });
+
+  // Soul Evolution: Sunday 11pm IST
+  cron.schedule('0 23 * * 0', async () => {
+    console.log('[Cron] Running soul evolution...');
+    try {
+      const resp = await coreClient.callCron('/cron/soul-evolution');
+      console.log(`[Cron] Soul evolution: ${resp.evolved || 0} users evolved`);
+
+      // Run network matching right after
+      const matchResp = await coreClient.callCron('/cron/network-match');
+      console.log(`[Cron] Network matching: ${matchResp.matches || 0} matches found`);
+
+      // Send network match notifications via WhatsApp
+      if (matchResp.notifications) {
+        for (const notif of matchResp.notifications) {
+          await sessionManager.sendAlertToUser(notif.user_id, notif.message);
+        }
+      }
+    } catch (err) {
+      console.error('[Cron] Soul evolution/network error:', err.message);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+
+  // Evolution notify: Monday 9am IST
+  cron.schedule('0 9 * * 1', async () => {
+    console.log('[Cron] Sending evolution notifications...');
+    try {
+      const resp = await coreClient.callCron('/cron/evolution-notify');
+      if (resp.messages) {
+        for (const item of resp.messages) {
+          await sessionManager.sendAlertToUser(item.user_id, item.message);
+        }
+        console.log(`[Cron] Sent ${resp.count || 0} evolution messages`);
+      }
+    } catch (err) {
+      console.error('[Cron] Evolution notify error:', err.message);
+    }
+  }, { timezone: 'Asia/Kolkata' });
 });

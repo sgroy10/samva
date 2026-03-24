@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-24T01:50:12.288Z"
+    "updatedAt": "2026-03-24T15:26:53.800Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -56,6 +56,27 @@
     ]
   },
   "decisions": [
+    {
+      "id": "dec_09b020849290",
+      "text": "Network matching is opt-in. Double confirmation before sharing any details.",
+      "createdAt": "2026-03-24T15:26:53.767Z",
+      "source": "user",
+      "tags": []
+    },
+    {
+      "id": "dec_d5f605aa833c",
+      "text": "Confidence tagging only on chat intent. max_tokens:50 for speed.",
+      "createdAt": "2026-03-24T15:26:53.457Z",
+      "source": "user",
+      "tags": []
+    },
+    {
+      "id": "dec_bfd98d59588b",
+      "text": "Soul Evolution APPENDS to system_prompt, never deletes. Runs Sunday 11pm IST.",
+      "createdAt": "2026-03-24T15:26:53.147Z",
+      "source": "user",
+      "tags": []
+    },
     {
       "id": "dec_623808d20c0a",
       "text": "OpenRouter for Gemini 2.5 Flash — all LLM calls go through OpenRouter",
@@ -125,6 +146,23 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_4134a49c1265",
+        "summary": "Three inventions: Soul Evolution, Confidence Transparency, Network Intelligence",
+        "files": [
+          "api/app/services/soul_evolution.py",
+          "api/app/services/confidence.py",
+          "api/app/services/network.py",
+          "api/app/services/agent.py",
+          "api/app/services/onboarding.py",
+          "api/app/models.py",
+          "api/app/main.py",
+          "bridge/src/index.js",
+          "bridge/src/coreClient.js",
+          "bridge/src/sessionManager.js"
+        ],
+        "at": "2026-03-24T15:26:52.825Z"
+      },
+      {
         "eventId": "evt_871db466dc40",
         "summary": "Complete gold brief rewrite: gold_rate intent, 9am timing with dedup, price alerts >150/gm, JewelClaw-exact format with 14K+platinum+expert view",
         "files": [
@@ -180,7 +218,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_303e9149b0fe",
-    "count": 37
+    "lastEventId": "evt_f19338ba95df",
+    "count": 45
   }
 }
