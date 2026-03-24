@@ -192,3 +192,17 @@ class NetworkConnection(Base):
     is_active = Column(Boolean, default=True)
     permission_given = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
+
+
+class NetworkMatch(Base):
+    """Tracks a pending match between two users. Both must confirm before intro."""
+    __tablename__ = "network_matches"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_a_id = Column(String(36), nullable=False)
+    user_b_id = Column(String(36), nullable=False)
+    match_reason = Column(Text, nullable=True)  # what matched
+    user_a_confirmed = Column(Boolean, default=False)
+    user_b_confirmed = Column(Boolean, default=False)
+    introduced = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())

@@ -43,3 +43,5 @@
 {"eventId":"evt_07c71c48ae9e","type":"context_generated","at":"2026-03-24T15:26:53.489Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
 {"eventId":"evt_1908b3934dcb","type":"decision_added","at":"2026-03-24T15:26:53.768Z","files":[],"summary":"Decision: Network matching is opt-in. Double confirmation before sharing any details.","patchPath":""}
 {"eventId":"evt_f19338ba95df","type":"context_generated","at":"2026-03-24T15:26:53.800Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_aa05d940fe1c","type":"manual_change","at":"2026-03-24T15:52:36.395Z","files":["api/app/services/confidence.py","api/app/services/network.py","api/app/services/agent.py","api/app/models.py"],"summary":"Three Claude-reviewed fixes: language-aware confidence tags, network match confirmation+intro flow, verified Monday cron","patchPath":".speclock/patches/evt_aa05d940fe1c.patch"}
+{"eventId":"evt_53f237e2b5b6","type":"context_generated","at":"2026-03-24T15:52:36.430Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}

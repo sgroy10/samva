@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-24T15:26:53.800Z
+> Generated: 2026-03-24T15:52:36.429Z
 > Project: **samva**
-> Repo: branch `main` @ `0d10383`
+> Repo: branch `main` @ `0b3dfe6`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -29,6 +29,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-24T15:52:36] Three Claude-reviewed fixes: language-aware confidence tags, network match confirmation+intro flow, verified Monday cron (api/app/services/confidence.py, api/app/services/network.py, api/app/services/agent.py, api/app/models.py)
 - [2026-03-24T15:26:52] Three inventions: Soul Evolution, Confidence Transparency, Network Intelligence (api/app/services/soul_evolution.py, api/app/services/confidence.py, api/app/services/network.py, api/app/services/agent.py, api/app/services/onboarding.py, api/app/models.py, api/app/main.py, bridge/src/index.js, bridge/src/coreClient.js, bridge/src/sessionManager.js)
 - [2026-03-24T01:50:12] Complete gold brief rewrite: gold_rate intent, 9am timing with dedup, price alerts >150/gm, JewelClaw-exact format with 14K+platinum+expert view (api/app/services/gold.py, api/app/services/agent.py, api/app/models.py)
 - [2026-03-24T01:38:05] Wired IMAP email reading, Playwright web search, email connect command (api/app/services/email_draft.py, api/app/services/web_search.py, api/app/services/agent.py, Dockerfile, api/requirements.txt)

@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-24T15:26:53.800Z"
+    "updatedAt": "2026-03-24T15:52:36.430Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -146,6 +146,17 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_aa05d940fe1c",
+        "summary": "Three Claude-reviewed fixes: language-aware confidence tags, network match confirmation+intro flow, verified Monday cron",
+        "files": [
+          "api/app/services/confidence.py",
+          "api/app/services/network.py",
+          "api/app/services/agent.py",
+          "api/app/models.py"
+        ],
+        "at": "2026-03-24T15:52:36.395Z"
+      },
+      {
         "eventId": "evt_4134a49c1265",
         "summary": "Three inventions: Soul Evolution, Confidence Transparency, Network Intelligence",
         "files": [
@@ -218,7 +229,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_f19338ba95df",
-    "count": 45
+    "lastEventId": "evt_53f237e2b5b6",
+    "count": 47
   }
 }

@@ -366,7 +366,10 @@ async def _route_skill(
             # General chat — with confidence tagging
             system = await _build_system_prompt(db, user_id, user, soul)
             raw_reply = await call_gemini(system, text, user_id=user_id)
-            return await tag_confidence(raw_reply, soul.system_prompt[:300], user_id)
+            return await tag_confidence(
+                raw_reply, soul.system_prompt[:300], user_id,
+                language=soul.language_preference or "auto",
+            )
 
     except Exception as e:
         logger.error(f"Skill error ({intent}) for {user_id}: {e}", exc_info=True)
