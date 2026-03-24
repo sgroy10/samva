@@ -60,8 +60,8 @@ async def evolve_user_soul(db: AsyncSession, user_id: str) -> dict:
         return {}
 
     # Check if already evolved this week
-    now = datetime.now(IST)
-    week_start = (now - timedelta(days=7)).date()
+    now_utc = datetime.utcnow()
+    week_start = (now_utc - timedelta(days=7)).date()
 
     existing = await db.execute(
         select(SoulEvolution).where(
@@ -73,13 +73,14 @@ async def evolve_user_soul(db: AsyncSession, user_id: str) -> dict:
         logger.info(f"[{user_id}] Already evolved this week, skipping")
         return {}
 
-    # Gather last 7 days of data (use naive datetime for DB compatibility)
-    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    # Gather last 7 days of data using raw SQL interval to avoid timezone issues
+    from sqlalchemy import text as sql_text
 
     # Conversations
     conv_result = await db.execute(
         select(Conversation)
-        .where(Conversation.user_id == user_id, Conversation.created_at >= seven_days_ago)
+        .where(Conversation.user_id == user_id)
+        .where(sql_text("created_at >= NOW() - INTERVAL '7 days'"))
         .order_by(Conversation.created_at)
         .limit(200)
     )
@@ -91,7 +92,8 @@ async def evolve_user_soul(db: AsyncSession, user_id: str) -> dict:
     # Reminders created
     rem_result = await db.execute(
         select(Reminder)
-        .where(Reminder.user_id == user_id, Reminder.created_at >= seven_days_ago)
+        .where(Reminder.user_id == user_id)
+        .where(sql_text("created_at >= NOW() - INTERVAL '7 days'"))
     )
     reminders_list = rem_result.scalars().all()
     rem_summary = "\n".join(
@@ -101,7 +103,8 @@ async def evolve_user_soul(db: AsyncSession, user_id: str) -> dict:
     # Contacts saved
     cont_result = await db.execute(
         select(Contact)
-        .where(Contact.user_id == user_id, Contact.created_at >= seven_days_ago)
+        .where(Contact.user_id == user_id)
+        .where(sql_text("created_at >= NOW() - INTERVAL '7 days'"))
     )
     contacts_list = cont_result.scalars().all()
     cont_summary = "\n".join(
@@ -111,7 +114,8 @@ async def evolve_user_soul(db: AsyncSession, user_id: str) -> dict:
     # Meeting notes
     meet_result = await db.execute(
         select(MeetingNote)
-        .where(MeetingNote.user_id == user_id, MeetingNote.created_at >= seven_days_ago)
+        .where(MeetingNote.user_id == user_id)
+        .where(sql_text("created_at >= NOW() - INTERVAL '7 days'"))
     )
     meetings_list = meet_result.scalars().all()
     meet_summary = "\n".join(
@@ -121,7 +125,8 @@ async def evolve_user_soul(db: AsyncSession, user_id: str) -> dict:
     # Memories updated
     mem_result = await db.execute(
         select(UserMemory)
-        .where(UserMemory.user_id == user_id, UserMemory.updated_at >= seven_days_ago)
+        .where(UserMemory.user_id == user_id)
+        .where(sql_text("updated_at >= NOW() - INTERVAL '7 days'"))
     )
     memories_list = mem_result.scalars().all()
     mem_summary = "\n".join(
@@ -179,7 +184,7 @@ MEMORY UPDATES ({len(memories_list)}):
     # Save evolution record
     evo = SoulEvolution(
         user_id=user_id,
-        week_date=now.date(),
+        week_date=now_utc.date(),
         patterns_found=patterns,
         new_behaviors=new_behaviors,
         evolution_summary=summary,
