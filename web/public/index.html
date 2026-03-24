@@ -649,7 +649,10 @@ footer {
 
 <nav>
   <div class="logo">Sam<span>va</span></div>
-  <a href="javascript:void(0)" class="nav-cta" onclick="openSignup()">Get Sam — &#8377;999/mo</a>
+  <div style="display:flex;align-items:center;gap:24px;">
+    <a href="#faq" style="font-size:14px;color:var(--muted);text-decoration:none;font-weight:400;">Help</a>
+    <a href="javascript:void(0)" class="nav-cta" onclick="openSignup()">Get Sam — &#8377;999/mo</a>
+  </div>
 </nav>
 
 <!-- HERO -->
@@ -1085,6 +1088,71 @@ footer {
       <div class="ent-desc">ERP, Shopify, Tally, CRM, courier tracking — custom API connections for your business.</div>
     </div>
     <button class="ent-btn" onclick="openEnterprise()">Talk to us &rarr;</button>
+  </div>
+</section>
+
+<!-- HELP / FAQ -->
+<section id="faq" style="padding:80px 48px;max-width:800px;margin:0 auto;">
+  <p class="section-label">Questions</p>
+  <h2 class="section-title">Everything you need to <em>know.</em></h2>
+
+  <div style="display:flex;flex-direction:column;gap:2px;margin-top:40px;background:var(--border);border-radius:16px;overflow:hidden;">
+
+    <details style="background:var(--paper);padding:20px 24px;">
+      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">How does Sam get on my WhatsApp?<span style="color:var(--muted);font-size:20px;">+</span></summary>
+      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">After you pay, you get a QR code. Open WhatsApp → Settings → Linked Devices → Link a Device → scan the QR. Sam connects as a linked device — like WhatsApp Web. Your number stays yours. Sam just reads and sends messages through it.</p>
+    </details>
+
+    <details style="background:var(--paper);padding:20px 24px;">
+      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">What happens after I scan the QR?<span style="color:var(--muted);font-size:20px;">+</span></summary>
+      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Sam sends you a message on WhatsApp and starts a short conversation to learn about you — what you do, your prices, your rules, your language. This takes about 5 minutes. After that, Sam is fully set up and starts helping you immediately. You'll get your first morning brief the next day.</p>
+    </details>
+
+    <details style="background:var(--paper);padding:20px 24px;">
+      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">What can Sam actually do?<span style="color:var(--muted);font-size:20px;">+</span></summary>
+      <div style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">
+        <p><strong>Answer messages</strong> — Sam responds to people who message your WhatsApp, in their language, using your business knowledge.</p>
+        <p style="margin-top:8px;"><strong>Read & send email</strong> — "Check my mail" gets you a summary. Ramble in Hindi, Sam drafts a polished English email.</p>
+        <p style="margin-top:8px;"><strong>Scan business cards</strong> — Photo any card, Sam saves the contact forever. Ask "Vikram ka number?" anytime.</p>
+        <p style="margin-top:8px;"><strong>Meeting notes</strong> — Voice note after any meeting. Sam structures everything, saves contacts, sets reminders, emails you a summary.</p>
+        <p style="margin-top:8px;"><strong>Reminders</strong> — One-time or recurring. Birthdays, payments, follow-ups. Sam never forgets.</p>
+        <p style="margin-top:8px;"><strong>Gold brief</strong> — For jewellers: 24K, 22K, 18K rates every morning with buy/hold view.</p>
+        <p style="margin-top:8px;"><strong>Stock alerts</strong> — "Watch Reliance, alert above ₹1450." Sam tracks and notifies.</p>
+        <p style="margin-top:8px;"><strong>Web search</strong> — Current info: weather, news, prices, anything.</p>
+        <p style="margin-top:8px;"><strong>Memory</strong> — "My COD charge is ₹50." Sam remembers permanently.</p>
+      </div>
+    </details>
+
+    <details style="background:var(--paper);padding:20px 24px;">
+      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">What languages does Sam speak?<span style="color:var(--muted);font-size:20px;">+</span></summary>
+      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Sam automatically detects and matches your language. Hindi, English, Gujarati, Marathi, Tamil, Telugu, Kannada, Malayalam, Bengali, Punjabi, Hinglish, and more. You can even switch languages mid-conversation — Sam keeps up.</p>
+    </details>
+
+    <details style="background:var(--paper);padding:20px 24px;">
+      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">Can Sam answer my customers?<span style="color:var(--muted);font-size:20px;">+</span></summary>
+      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Yes. When someone messages your WhatsApp, Sam answers using the knowledge you gave during onboarding — your prices, policies, delivery info, and rules. Sam will escalate to you for anything it's not sure about. You control what Sam handles vs what gets forwarded to you.</p>
+    </details>
+
+    <details style="background:var(--paper);padding:20px 24px;">
+      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">Is my data safe?<span style="color:var(--muted);font-size:20px;">+</span></summary>
+      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Yes. Each user's data is completely isolated — no one can see your conversations, contacts, or business information. Email passwords are encrypted. Voice notes are processed and not stored permanently. We never share or sell your data.</p>
+    </details>
+
+    <details style="background:var(--paper);padding:20px 24px;">
+      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">How do I connect my email?<span style="color:var(--muted);font-size:20px;">+</span></summary>
+      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Just message Sam: "connect email your@gmail.com your_app_password". For Gmail, you need an App Password (not your regular password) — Sam will guide you through creating one. Works with Gmail, Outlook, Yahoo, Zoho, GoDaddy, and any IMAP email.</p>
+    </details>
+
+    <details style="background:var(--paper);padding:20px 24px;">
+      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">Can I cancel anytime?<span style="color:var(--muted);font-size:20px;">+</span></summary>
+      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Yes. No commitment, no lock-in. Your subscription is monthly. Cancel anytime and Sam pauses at the end of your billing cycle. Your data stays safe — reactivate anytime and Sam picks up right where it left off.</p>
+    </details>
+
+    <details style="background:var(--paper);padding:20px 24px;">
+      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">What if Sam doesn't know the answer?<span style="color:var(--muted);font-size:20px;">+</span></summary>
+      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Sam is honest. If Sam doesn't know something, it says so — "Main check karke batati hoon" — and escalates to you. Sam never guesses prices, policies, or makes commitments without your approval. The more you use Sam, the more it learns.</p>
+    </details>
+
   </div>
 </section>
 

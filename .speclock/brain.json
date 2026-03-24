@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-24T01:19:29.637Z"
+    "updatedAt": "2026-03-24T01:24:59.304Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -125,6 +125,16 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_a72ad830a86b",
+        "summary": "Added quick guide after onboarding, help command, FAQ section on landing page",
+        "files": [
+          "api/app/services/onboarding.py",
+          "api/app/services/agent.py",
+          "web/public/index.html"
+        ],
+        "at": "2026-03-24T01:24:59.270Z"
+      },
+      {
         "eventId": "evt_58d5181125ba",
         "summary": "Fix Baileys 405 disconnect — use Browsers.ubuntu + fetchLatestBaileysVersion, fix reconnect counter",
         "files": [
@@ -148,7 +158,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_070adf6535f4",
-    "count": 31
+    "lastEventId": "evt_dd7167ac123c",
+    "count": 33
   }
 }

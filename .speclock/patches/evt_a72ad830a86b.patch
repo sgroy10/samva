@@ -1,0 +1,223 @@
+diff --git a/api/app/services/agent.py b/api/app/services/agent.py
+index 30c064f..15c8f2f 100644
+--- a/api/app/services/agent.py
++++ b/api/app/services/agent.py
+@@ -9,6 +9,51 @@ from . import gold, stocks, email_draft, meeting, contacts, reminders
+ 
+ logger = logging.getLogger("samva.agent")
+ 
++
++HELP_TEXT = """👋 *I'm Sam — here's everything I can do:*
++
++━━━━━━━━━━━━━━━━━━━━━━━━━━
++
++💬 *Chat* — Ask me anything. I know your business, your preferences, your context.
++
++📧 *Email*
++• "Check my mail" — I read and summarize your inbox
++• Voice note or type anything → I draft a professional email → you confirm → I send it
++• To connect: send "connect email your@email.com password"
++
++📸 *Business Card* — Photo any card, I extract and save the contact forever.
++• "Vikram ka number?" — I find it instantly
++
++🎙️ *Meeting Notes* — Send a voice note after any meeting.
++• I transcribe, structure who/what/price/next-steps, save contacts, set reminders, email you a summary.
++
++⏰ *Reminders*
++• "Remind me tomorrow 9am to call Ramesh"
++• "Mummy ka birthday 14 April — hamesha yaad dilana"
++• Works: daily, weekly, monthly, yearly
++
++📊 *Gold Brief* (for jewellers)
++• Every morning at 9am: 24K, 22K, 18K, silver, international prices, buy/hold view
++
++📈 *Stocks*
++• "Watch Reliance" — I track it
++• "Alert me when TCS crosses 4000" — I notify you
++• "My stocks" — I show your watchlist with live prices
++
++🔍 *Web Search* — "What's the weather in Mumbai?" "RBI repo rate?"
++
++🧠 *Memory* — "My COD charge is ₹50" — I remember permanently. Never ask twice.
++
++━━━━━━━━━━━━━━━━━━━━━━━━━━
++
++💡 *Tips:*
++• Talk in any language — Hindi, English, Gujarati, Tamil, anything
++• Send voice notes — I understand speech
++• I learn from every conversation — the more you use me, the better I get
++
++Type *help* anytime to see this again."""
++
++
+ INTENT_PROMPT = """You are an intent classifier for Sam, a WhatsApp personal assistant.
+ Classify the user's message into ONE intent:
+ 
+@@ -83,6 +128,14 @@ async def process_message(
+ 
+             return {"reply": reply, "actions": []}
+ 
++        # Fast commands — no AI cost
++        lower = (text or "").strip().lower()
++        if lower in ("help", "menu", "commands", "kya kar sakti ho", "kya kya kar sakti ho", "what can you do"):
++            db.add(Conversation(user_id=user_id, role="user", content=text))
++            db.add(Conversation(user_id=user_id, role="assistant", content=HELP_TEXT))
++            await db.commit()
++            return {"reply": HELP_TEXT, "actions": []}
++
+         # Active user - detect intent
+         intent_data = await _detect_intent(text, image_base64, user_id)
+         intent = intent_data.get("intent", "chat")
+diff --git a/api/app/services/onboarding.py b/api/app/services/onboarding.py
+index 1ede777..34436a4 100644
+--- a/api/app/services/onboarding.py
++++ b/api/app/services/onboarding.py
+@@ -187,22 +187,53 @@ Output ONLY the system prompt text, nothing else.""",
+     )
+     await db.commit()
+ 
+-    # Generate welcome message
++    # Generate personalized welcome message
+     reply = await call_gemini(
+         f"""You are Sam. You just finished setting up for this user.
+ Their profile: {system_prompt[:500]}
+-Send a warm, excited confirmation message. Tell them:
+-- You're all set and ready
+-- Briefly mention 2-3 things you'll help with (based on their profile)
+-- Tomorrow morning they'll get their first daily brief
+-Match their language. Keep it short and warm.""",
++Send a warm, excited confirmation message in 3-4 lines.
++Tell them you're ready and mention 2 specific things you'll do for THEM.
++Match their language. Keep it short.""",
+         "Generate the post-onboarding welcome message.",
+         user_id=user_id,
+     )
+ 
++    # Append the quick guide
++    reply += QUICK_GUIDE
++
+     return reply
+ 
+ 
++# ── Quick Guide — sent right after onboarding ────────────────────
++
++QUICK_GUIDE = """
++
++━━━━━━━━━━━━━━━━━━━━━━━━━━
++
++🚀 *Here's what I can do for you:*
++
++💬 *Chat* — Ask me anything. I know your business.
++📧 *Email* — "Check my mail" or voice note me what to send
++📸 *Business card* — Photo a card, I save the contact forever
++🎙️ *Meeting notes* — Voice note after any meeting, I structure everything
++⏰ *Reminders* — "Remind me tomorrow 9am to call Ramesh"
++🔍 *Web search* — "What's the gold rate today?"
++📊 *Stocks* — "Watch Reliance, alert me above 1450"
++🧠 *Memory* — "My COD charge is ₹50" — I never forget
++
++━━━━━━━━━━━━━━━━━━━━━━━━━━
++
++💡 *Try these right now:*
++
++1. Send me a photo of a business card
++2. Say "remind me tomorrow at 9am to check email"
++3. Ask "check my mail" (connect email first)
++4. Voice note me about your last meeting
++
++Type *help* anytime to see this again.
++"""
++
++
+ async def send_first_message(
+     db: AsyncSession, user_id: str, phone: str, push_name: str = ""
+ ) -> list[str]:
+diff --git a/web/public/index.html b/web/public/index.html
+index c642165..c02c7b2 100644
+--- a/web/public/index.html
++++ b/web/public/index.html
+@@ -649,7 +649,10 @@ footer {
+ 
+ <nav>
+   <div class="logo">Sam<span>va</span></div>
+-  <a href="javascript:void(0)" class="nav-cta" onclick="openSignup()">Get Sam — &#8377;999/mo</a>
++  <div style="display:flex;align-items:center;gap:24px;">
++    <a href="#faq" style="font-size:14px;color:var(--muted);text-decoration:none;font-weight:400;">Help</a>
++    <a href="javascript:void(0)" class="nav-cta" onclick="openSignup()">Get Sam — &#8377;999/mo</a>
++  </div>
+ </nav>
+ 
+ <!-- HERO -->
+@@ -1088,6 +1091,71 @@ footer {
+   </div>
+ </section>
+ 
++<!-- HELP / FAQ -->
++<section id="faq" style="padding:80px 48px;max-width:800px;margin:0 auto;">
++  <p class="section-label">Questions</p>
++  <h2 class="section-title">Everything you need to <em>know.</em></h2>
++
++  <div style="display:flex;flex-direction:column;gap:2px;margin-top:40px;background:var(--border);border-radius:16px;overflow:hidden;">
++
++    <details style="background:var(--paper);padding:20px 24px;">
++      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">How does Sam get on my WhatsApp?<span style="color:var(--muted);font-size:20px;">+</span></summary>
++      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">After you pay, you get a QR code. Open WhatsApp → Settings → Linked Devices → Link a Device → scan the QR. Sam connects as a linked device — like WhatsApp Web. Your number stays yours. Sam just reads and sends messages through it.</p>
++    </details>
++
++    <details style="background:var(--paper);padding:20px 24px;">
++      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">What happens after I scan the QR?<span style="color:var(--muted);font-size:20px;">+</span></summary>
++      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Sam sends you a message on WhatsApp and starts a short conversation to learn about you — what you do, your prices, your rules, your language. This takes about 5 minutes. After that, Sam is fully set up and starts helping you immediately. You'll get your first morning brief the next day.</p>
++    </details>
++
++    <details style="background:var(--paper);padding:20px 24px;">
++      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">What can Sam actually do?<span style="color:var(--muted);font-size:20px;">+</span></summary>
++      <div style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">
++        <p><strong>Answer messages</strong> — Sam responds to people who message your WhatsApp, in their language, using your business knowledge.</p>
++        <p style="margin-top:8px;"><strong>Read & send email</strong> — "Check my mail" gets you a summary. Ramble in Hindi, Sam drafts a polished English email.</p>
++        <p style="margin-top:8px;"><strong>Scan business cards</strong> — Photo any card, Sam saves the contact forever. Ask "Vikram ka number?" anytime.</p>
++        <p style="margin-top:8px;"><strong>Meeting notes</strong> — Voice note after any meeting. Sam structures everything, saves contacts, sets reminders, emails you a summary.</p>
++        <p style="margin-top:8px;"><strong>Reminders</strong> — One-time or recurring. Birthdays, payments, follow-ups. Sam never forgets.</p>
++        <p style="margin-top:8px;"><strong>Gold brief</strong> — For jewellers: 24K, 22K, 18K rates every morning with buy/hold view.</p>
++        <p style="margin-top:8px;"><strong>Stock alerts</strong> — "Watch Reliance, alert above ₹1450." Sam tracks and notifies.</p>
++        <p style="margin-top:8px;"><strong>Web search</strong> — Current info: weather, news, prices, anything.</p>
++        <p style="margin-top:8px;"><strong>Memory</strong> — "My COD charge is ₹50." Sam remembers permanently.</p>
++      </div>
++    </details>
++
++    <details style="background:var(--paper);padding:20px 24px;">
++      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">What languages does Sam speak?<span style="color:var(--muted);font-size:20px;">+</span></summary>
++      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Sam automatically detects and matches your language. Hindi, English, Gujarati, Marathi, Tamil, Telugu, Kannada, Malayalam, Bengali, Punjabi, Hinglish, and more. You can even switch languages mid-conversation — Sam keeps up.</p>
++    </details>
++
++    <details style="background:var(--paper);padding:20px 24px;">
++      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">Can Sam answer my customers?<span style="color:var(--muted);font-size:20px;">+</span></summary>
++      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Yes. When someone messages your WhatsApp, Sam answers using the knowledge you gave during onboarding — your prices, policies, delivery info, and rules. Sam will escalate to you for anything it's not sure about. You control what Sam handles vs what gets forwarded to you.</p>
++    </details>
++
++    <details style="background:var(--paper);padding:20px 24px;">
++      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">Is my data safe?<span style="color:var(--muted);font-size:20px;">+</span></summary>
++      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Yes. Each user's data is completely isolated — no one can see your conversations, contacts, or business information. Email passwords are encrypted. Voice notes are processed and not stored permanently. We never share or sell your data.</p>
++    </details>
++
++    <details style="background:var(--paper);padding:20px 24px;">
++      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">How do I connect my email?<span style="color:var(--muted);font-size:20px;">+</span></summary>
++      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Just message Sam: "connect email your@gmail.com your_app_password". For Gmail, you need an App Password (not your regular password) — Sam will guide you through creating one. Works with Gmail, Outlook, Yahoo, Zoho, GoDaddy, and any IMAP email.</p>
++    </details>
++
++    <details style="background:var(--paper);padding:20px 24px;">
++      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">Can I cancel anytime?<span style="color:var(--muted);font-size:20px;">+</span></summary>
++      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Yes. No commitment, no lock-in. Your subscription is monthly. Cancel anytime and Sam pauses at the end of your billing cycle. Your data stays safe — reactivate anytime and Sam picks up right where it left off.</p>
++    </details>
++
++    <details style="background:var(--paper);padding:20px 24px;">
++      <summary style="font-size:16px;font-weight:500;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">What if Sam doesn't know the answer?<span style="color:var(--muted);font-size:20px;">+</span></summary>
++      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.7;">Sam is honest. If Sam doesn't know something, it says so — "Main check karke batati hoon" — and escalates to you. Sam never guesses prices, policies, or makes commitments without your approval. The more you use Sam, the more it learns.</p>
++    </details>
++
++  </div>
++</section>
++
+ <footer>
+   <div class="footer-logo">Sam<span>va</span></div>
+   <div class="footer-links">

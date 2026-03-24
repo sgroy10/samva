@@ -187,20 +187,51 @@ Output ONLY the system prompt text, nothing else.""",
     )
     await db.commit()
 
-    # Generate welcome message
+    # Generate personalized welcome message
     reply = await call_gemini(
         f"""You are Sam. You just finished setting up for this user.
 Their profile: {system_prompt[:500]}
-Send a warm, excited confirmation message. Tell them:
-- You're all set and ready
-- Briefly mention 2-3 things you'll help with (based on their profile)
-- Tomorrow morning they'll get their first daily brief
-Match their language. Keep it short and warm.""",
+Send a warm, excited confirmation message in 3-4 lines.
+Tell them you're ready and mention 2 specific things you'll do for THEM.
+Match their language. Keep it short.""",
         "Generate the post-onboarding welcome message.",
         user_id=user_id,
     )
 
+    # Append the quick guide
+    reply += QUICK_GUIDE
+
     return reply
+
+
+# ── Quick Guide — sent right after onboarding ────────────────────
+
+QUICK_GUIDE = """
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 *Here's what I can do for you:*
+
+💬 *Chat* — Ask me anything. I know your business.
+📧 *Email* — "Check my mail" or voice note me what to send
+📸 *Business card* — Photo a card, I save the contact forever
+🎙️ *Meeting notes* — Voice note after any meeting, I structure everything
+⏰ *Reminders* — "Remind me tomorrow 9am to call Ramesh"
+🔍 *Web search* — "What's the gold rate today?"
+📊 *Stocks* — "Watch Reliance, alert me above 1450"
+🧠 *Memory* — "My COD charge is ₹50" — I never forget
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 *Try these right now:*
+
+1. Send me a photo of a business card
+2. Say "remind me tomorrow at 9am to check email"
+3. Ask "check my mail" (connect email first)
+4. Voice note me about your last meeting
+
+Type *help* anytime to see this again.
+"""
 
 
 async def send_first_message(

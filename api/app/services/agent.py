@@ -9,6 +9,51 @@ from . import gold, stocks, email_draft, meeting, contacts, reminders
 
 logger = logging.getLogger("samva.agent")
 
+
+HELP_TEXT = """👋 *I'm Sam — here's everything I can do:*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💬 *Chat* — Ask me anything. I know your business, your preferences, your context.
+
+📧 *Email*
+• "Check my mail" — I read and summarize your inbox
+• Voice note or type anything → I draft a professional email → you confirm → I send it
+• To connect: send "connect email your@email.com password"
+
+📸 *Business Card* — Photo any card, I extract and save the contact forever.
+• "Vikram ka number?" — I find it instantly
+
+🎙️ *Meeting Notes* — Send a voice note after any meeting.
+• I transcribe, structure who/what/price/next-steps, save contacts, set reminders, email you a summary.
+
+⏰ *Reminders*
+• "Remind me tomorrow 9am to call Ramesh"
+• "Mummy ka birthday 14 April — hamesha yaad dilana"
+• Works: daily, weekly, monthly, yearly
+
+📊 *Gold Brief* (for jewellers)
+• Every morning at 9am: 24K, 22K, 18K, silver, international prices, buy/hold view
+
+📈 *Stocks*
+• "Watch Reliance" — I track it
+• "Alert me when TCS crosses 4000" — I notify you
+• "My stocks" — I show your watchlist with live prices
+
+🔍 *Web Search* — "What's the weather in Mumbai?" "RBI repo rate?"
+
+🧠 *Memory* — "My COD charge is ₹50" — I remember permanently. Never ask twice.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 *Tips:*
+• Talk in any language — Hindi, English, Gujarati, Tamil, anything
+• Send voice notes — I understand speech
+• I learn from every conversation — the more you use me, the better I get
+
+Type *help* anytime to see this again."""
+
+
 INTENT_PROMPT = """You are an intent classifier for Sam, a WhatsApp personal assistant.
 Classify the user's message into ONE intent:
 
@@ -82,6 +127,14 @@ async def process_message(
             await db.commit()
 
             return {"reply": reply, "actions": []}
+
+        # Fast commands — no AI cost
+        lower = (text or "").strip().lower()
+        if lower in ("help", "menu", "commands", "kya kar sakti ho", "kya kya kar sakti ho", "what can you do"):
+            db.add(Conversation(user_id=user_id, role="user", content=text))
+            db.add(Conversation(user_id=user_id, role="assistant", content=HELP_TEXT))
+            await db.commit()
+            return {"reply": HELP_TEXT, "actions": []}
 
         # Active user - detect intent
         intent_data = await _detect_intent(text, image_base64, user_id)
