@@ -395,17 +395,45 @@ async def execute_user_skill(db: AsyncSession, user_id: str, query: str) -> str:
 
     query_lower = query.lower()
 
-    # Find matching skill by keywords
+    # Pass 1: keyword match (fast, no AI cost)
     for skill in skills:
         keywords = skill.trigger_keywords or []
         if any(kw.lower() in query_lower for kw in keywords):
-            logger.info(f"[{user_id}] Executing custom skill: {skill.skill_name}")
+            logger.info(f"[{user_id}] Custom skill keyword match: {skill.skill_name}")
             try:
-                test_result = await test_skill(skill.python_code, query)
-                if test_result["passed"]:
-                    return test_result["output"]
+                result = await test_skill(skill.python_code, query)
+                if result["passed"]:
+                    return result["output"]
             except Exception as e:
-                logger.error(f"[{user_id}] Skill execution error ({skill.skill_name}): {e}")
+                logger.error(f"[{user_id}] Skill exec error ({skill.skill_name}): {e}")
+
+    # Pass 2: check if query is semantically about any skill's domain
+    # Build a quick description list for Gemini to match against
+    if len(skills) > 0 and len(query) > 10:
+        skill_list = "\n".join(
+            f"{i+1}. {s.skill_name}: {s.description}" for i, s in enumerate(skills)
+        )
+        try:
+            match = await call_gemini_json(
+                f"""Does this user query match any of these custom skills?
+Skills:
+{skill_list}
+
+Return JSON: {{"match": 0}} if no match, or {{"match": N}} where N is the skill number (1-based).
+Only match if the query is clearly asking for what the skill provides.""",
+                query,
+                user_id=user_id,
+                max_tokens=20,
+            )
+            idx = match.get("match", 0)
+            if idx > 0 and idx <= len(skills):
+                skill = skills[idx - 1]
+                logger.info(f"[{user_id}] Custom skill semantic match: {skill.skill_name}")
+                result = await test_skill(skill.python_code, query)
+                if result["passed"]:
+                    return result["output"]
+        except Exception:
+            pass
 
     return ""
 
