@@ -1386,23 +1386,64 @@ function openQRModal() {
   container.innerHTML = '<div class="qr-loading"><div class="spinner"></div><p style="color:var(--muted);font-size:14px;">Generating QR code...</p></div>';
   openModal('qr-modal');
 
-  // Poll for QR code
+  // Poll for QR code — handles ALL session states
   qrPollInterval = setInterval(async () => {
     try {
       const resp = await fetch('/sessions/' + currentUserId + '/status');
       const data = await resp.json();
 
+      // CONNECTED — done!
       if (data.status === 'connected') {
         container.innerHTML = '<div class="connected-msg"><div class="check">&#10003;</div><p style="font-size:18px;font-weight:600;">Connected!</p><p style="color:var(--muted);margin-top:8px;">Sam is alive on your WhatsApp. Check your messages!</p></div>';
         clearInterval(qrPollInterval);
         qrPollInterval = null;
-      } else if (data.hasQR && data.qrDataUrl) {
-        container.innerHTML = '<img src="' + data.qrDataUrl + '" alt="QR Code" style="max-width:260px;border-radius:12px;" />';
+        return;
       }
+
+      // QR READY — show it
+      if (data.hasQR && data.qrDataUrl) {
+        container.innerHTML = '<img src="' + data.qrDataUrl + '" alt="QR Code" style="max-width:260px;border-radius:12px;" /><p style="color:var(--muted);font-size:13px;margin-top:12px;">Open WhatsApp > Linked Devices > Link a Device</p>';
+        return;
+      }
+
+      // NEEDS RECONNECT — show reconnect button
+      if (data.needsReconnect) {
+        container.innerHTML = '<div style="text-align:center;padding:20px;">'
+          + '<p style="font-size:16px;font-weight:500;margin-bottom:8px;">Session disconnected</p>'
+          + '<p style="color:var(--muted);font-size:14px;margin-bottom:16px;">' + (data.statusMessage || 'WhatsApp session ended.') + '</p>'
+          + '<button onclick="reconnectSession()" style="padding:12px 28px;background:var(--ink);color:var(--paper);border:none;border-radius:100px;font-size:15px;cursor:pointer;font-family:DM Sans,sans-serif;">Reconnect — get new QR</button>'
+          + '</div>';
+        clearInterval(qrPollInterval);
+        qrPollInterval = null;
+        return;
+      }
+
+      // RECONNECTING / RECOVERING — show spinner with message
+      if (data.status === 'reconnecting' || data.status === 'recovering') {
+        container.innerHTML = '<div class="qr-loading"><div class="spinner"></div><p style="color:var(--muted);font-size:14px;">' + (data.statusMessage || 'Reconnecting...') + '</p></div>';
+        return;
+      }
+
     } catch (err) {
       console.error('QR poll error:', err);
     }
   }, 3000);
+}
+
+async function reconnectSession() {
+  if (!currentUserId) return;
+  const container = document.getElementById('qr-container');
+  container.innerHTML = '<div class="qr-loading"><div class="spinner"></div><p style="color:var(--muted);font-size:14px;">Creating fresh session...</p></div>';
+
+  try {
+    await fetch('/sessions/' + currentUserId + '/reconnect', { method: 'POST' });
+    // Wait a beat then start polling again
+    setTimeout(() => {
+      if (!qrPollInterval) openQRModal();
+    }, 2000);
+  } catch (err) {
+    container.innerHTML = '<p style="color:#E24B4A;">Reconnect failed. Please refresh the page and try again.</p>';
+  }
 }
 
 // --- Enterprise Flow ---

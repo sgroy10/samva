@@ -34,16 +34,26 @@ app.get('/health', (req, res) => {
 });
 
 // --- Session Management ---
+
+// Create or resume a session
 app.post('/sessions', async (req, res) => {
   try {
     const { userId } = req.body || {};
+
+    // Check if session exists and is in a bad state — auto-clean
+    const currentStatus = sessionManager.getSessionStatus(userId);
+    if (['logged_out', 'deleted', 'conflict'].includes(currentStatus.status)) {
+      console.log(`[index] Auto-cleaning stale session for ${userId} (was: ${currentStatus.status})`);
+      sessionManager.deleteSession(userId);
+    }
+
     const session = sessionStore.createSession(userId);
     await sessionManager.startSession(session.userId);
 
     res.json({
       userId: session.userId,
       pairToken: session.pairToken,
-      status: session.status,
+      status: 'pending',
     });
   } catch (err) {
     console.error('[index] Session creation error:', err.message);
@@ -51,21 +61,43 @@ app.post('/sessions', async (req, res) => {
   }
 });
 
+// Get session status (with user-friendly messages)
 app.get('/sessions/:userId/status', (req, res) => {
   try {
-    const { userId } = req.params;
-    const status = sessionManager.getSessionStatus(userId);
+    const status = sessionManager.getSessionStatus(req.params.userId);
     res.json(status);
   } catch (err) {
-    console.error('[index] Session status error:', err.message);
-    res.json({ status: 'unknown', phone: '', qrDataUrl: null, hasQR: false });
+    res.json({ status: 'unknown', statusMessage: 'Unknown status', phone: '', qrDataUrl: null, hasQR: false, needsReconnect: true });
   }
 });
 
 // Delete session fully (wipe auth files for fresh QR)
 app.delete('/sessions/:userId', (req, res) => {
   sessionManager.deleteSession(req.params.userId);
-  res.json({ ok: true, message: 'Session deleted. Create new session for fresh QR.' });
+  res.json({ ok: true });
+});
+
+// Reconnect — wipe stale session + create fresh one with new QR
+app.post('/sessions/:userId/reconnect', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`[index] Reconnect requested for ${userId}`);
+
+    // Full wipe
+    sessionManager.deleteSession(userId);
+
+    // Wait a beat for cleanup
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Fresh session
+    const session = sessionStore.createSession(userId);
+    await sessionManager.startSession(userId);
+
+    res.json({ ok: true, status: 'pending', message: 'Fresh QR generating...' });
+  } catch (err) {
+    console.error('[index] Reconnect error:', err.message);
+    res.status(500).json({ error: 'Reconnect failed. Try again.' });
+  }
 });
 
 // --- QR Code Page ---

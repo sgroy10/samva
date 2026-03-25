@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-24T18:22:45.582Z"
+    "updatedAt": "2026-03-25T16:02:45.865Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -154,6 +154,16 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_f9599d5b9137",
+        "summary": "Bulletproof session management: auto-wipe on 401/405, auto-recover, reconnect button, status messages",
+        "files": [
+          "bridge/src/sessionManager.js",
+          "bridge/src/index.js",
+          "web/public/index.html"
+        ],
+        "at": "2026-03-25T16:02:45.829Z"
+      },
+      {
         "eventId": "evt_14d9784d3dd3",
         "summary": "Admin bypass, complete subscription management (payment confirm, expiry check, renewal, 3-day warning)",
         "files": [
@@ -249,7 +259,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_fd42c3179d53",
-    "count": 51
+    "lastEventId": "evt_4c75d1aa980d",
+    "count": 53
   }
 }

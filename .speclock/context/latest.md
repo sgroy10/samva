@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-24T18:22:45.582Z
+> Generated: 2026-03-25T16:02:45.865Z
 > Project: **samva**
-> Repo: branch `main` @ `3a7c773`
+> Repo: branch `main` @ `a19a6a0`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -30,6 +30,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-25T16:02:45] Bulletproof session management: auto-wipe on 401/405, auto-recover, reconnect button, status messages (bridge/src/sessionManager.js, bridge/src/index.js, web/public/index.html)
 - [2026-03-24T18:22:45] Admin bypass, complete subscription management (payment confirm, expiry check, renewal, 3-day warning) (api/app/main.py, api/app/services/agent.py, api/app/config.py, bridge/src/index.js, web/public/index.html)
 - [2026-03-24T15:52:36] Three Claude-reviewed fixes: language-aware confidence tags, network match confirmation+intro flow, verified Monday cron (api/app/services/confidence.py, api/app/services/network.py, api/app/services/agent.py, api/app/models.py)
 - [2026-03-24T15:26:52] Three inventions: Soul Evolution, Confidence Transparency, Network Intelligence (api/app/services/soul_evolution.py, api/app/services/confidence.py, api/app/services/network.py, api/app/services/agent.py, api/app/services/onboarding.py, api/app/models.py, api/app/main.py, bridge/src/index.js, bridge/src/coreClient.js, bridge/src/sessionManager.js)
