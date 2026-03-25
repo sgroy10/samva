@@ -459,6 +459,7 @@ async def admin_skills(userId: str, db: AsyncSession = Depends(get_db)):
     return {
         "userId": userId,
         "count": len(skills),
+        "skills_summary": f"{sum(1 for s in skills if s.is_active)} active, {sum(1 for s in skills if not s.is_active)} inactive",
         "skills": [
             {
                 "skill_name": s.skill_name,
@@ -475,3 +476,17 @@ async def admin_skills(userId: str, db: AsyncSession = Depends(get_db)):
             for s in skills
         ],
     }
+
+
+@app.delete("/admin/skills/{skill_name}")
+async def admin_delete_skill(skill_name: str, userId: str, db: AsyncSession = Depends(get_db)):
+    """Delete a user's custom skill. For debugging/fixing broken skills."""
+    from .models import UserSkill
+    from sqlalchemy import delete
+    result = await db.execute(
+        delete(UserSkill).where(
+            UserSkill.user_id == userId, UserSkill.skill_name == skill_name
+        )
+    )
+    await db.commit()
+    return {"deleted": skill_name, "rows": result.rowcount}
