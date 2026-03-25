@@ -490,3 +490,57 @@ async def admin_delete_skill(skill_name: str, userId: str, db: AsyncSession = De
     )
     await db.commit()
     return {"deleted": skill_name, "rows": result.rowcount}
+
+
+@app.get("/admin/skills/all")
+async def admin_all_skills(db: AsyncSession = Depends(get_db)):
+    """Overview of ALL custom skills across ALL users. Admin dashboard."""
+    from .models import UserSkill
+    from sqlalchemy import func
+
+    # All skills
+    result = await db.execute(
+        select(UserSkill).order_by(UserSkill.created_at.desc())
+    )
+    skills = result.scalars().all()
+
+    # Stats
+    total = len(skills)
+    active = sum(1 for s in skills if s.is_active)
+    failed = sum(1 for s in skills if not s.is_active)
+    unique_users = len(set(s.user_id for s in skills))
+
+    # Group by user
+    by_user = {}
+    for s in skills:
+        if s.user_id not in by_user:
+            by_user[s.user_id] = []
+        by_user[s.user_id].append({
+            "skill_name": s.skill_name,
+            "description": s.description,
+            "api_url": s.api_url,
+            "is_active": s.is_active,
+            "test_passed": s.test_passed,
+            "test_result": (s.test_result or "")[:100],
+            "created_at": str(s.created_at),
+        })
+
+    return {
+        "stats": {
+            "total_skills": total,
+            "active": active,
+            "failed": failed,
+            "unique_users": unique_users,
+            "pass_rate": f"{(active/total*100):.0f}%" if total > 0 else "N/A",
+        },
+        "prebuilt_available": list(PREBUILT_SKILLS_NAMES),
+        "by_user": by_user,
+    }
+
+
+# Import prebuilt skill names for admin view
+try:
+    from .services.skill_builder import PREBUILT_SKILLS
+    PREBUILT_SKILLS_NAMES = list(PREBUILT_SKILLS.keys())
+except Exception:
+    PREBUILT_SKILLS_NAMES = []

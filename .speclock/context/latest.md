@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-25T16:56:37.952Z
+> Generated: 2026-03-25T18:20:04.399Z
 > Project: **samva**
-> Repo: branch `main` @ `5a4fdda`
+> Repo: branch `main` @ `d56b21b`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -35,6 +35,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-25T18:20:04] 5 prebuilt skills (FDA, weather, Indian stocks, currency converter, gemstone) + admin overview dashboard (api/app/services/skill_builder.py, api/app/main.py)
 - [2026-03-25T16:56:37] Subprocess sandbox + rate limiting for self-plugin builder (api/app/services/skill_builder.py)
 - [2026-03-25T16:30:41] THE INVENTION: Sam's self-plugin builder — detect need, find API, write code, test, activate (api/app/services/skill_builder.py, api/app/services/agent.py, api/app/models.py)
 - [2026-03-25T16:02:45] Bulletproof session management: auto-wipe on 401/405, auto-recover, reconnect button, status messages (bridge/src/sessionManager.js, bridge/src/index.js, web/public/index.html)

@@ -1,0 +1,204 @@
+diff --git a/api/app/main.py b/api/app/main.py
+index f793e62..11447e7 100644
+--- a/api/app/main.py
++++ b/api/app/main.py
+@@ -490,3 +490,57 @@ async def admin_delete_skill(skill_name: str, userId: str, db: AsyncSession = De
+     )
+     await db.commit()
+     return {"deleted": skill_name, "rows": result.rowcount}
++
++
++@app.get("/admin/skills/all")
++async def admin_all_skills(db: AsyncSession = Depends(get_db)):
++    """Overview of ALL custom skills across ALL users. Admin dashboard."""
++    from .models import UserSkill
++    from sqlalchemy import func
++
++    # All skills
++    result = await db.execute(
++        select(UserSkill).order_by(UserSkill.created_at.desc())
++    )
++    skills = result.scalars().all()
++
++    # Stats
++    total = len(skills)
++    active = sum(1 for s in skills if s.is_active)
++    failed = sum(1 for s in skills if not s.is_active)
++    unique_users = len(set(s.user_id for s in skills))
++
++    # Group by user
++    by_user = {}
++    for s in skills:
++        if s.user_id not in by_user:
++            by_user[s.user_id] = []
++        by_user[s.user_id].append({
++            "skill_name": s.skill_name,
++            "description": s.description,
++            "api_url": s.api_url,
++            "is_active": s.is_active,
++            "test_passed": s.test_passed,
++            "test_result": (s.test_result or "")[:100],
++            "created_at": str(s.created_at),
++        })
++
++    return {
++        "stats": {
++            "total_skills": total,
++            "active": active,
++            "failed": failed,
++            "unique_users": unique_users,
++            "pass_rate": f"{(active/total*100):.0f}%" if total > 0 else "N/A",
++        },
++        "prebuilt_available": list(PREBUILT_SKILLS_NAMES),
++        "by_user": by_user,
++    }
++
++
++# Import prebuilt skill names for admin view
++try:
++    from .services.skill_builder import PREBUILT_SKILLS
++    PREBUILT_SKILLS_NAMES = list(PREBUILT_SKILLS.keys())
++except Exception:
++    PREBUILT_SKILLS_NAMES = []
+diff --git a/api/app/services/skill_builder.py b/api/app/services/skill_builder.py
+index 46b86d8..62aa723 100644
+--- a/api/app/services/skill_builder.py
++++ b/api/app/services/skill_builder.py
+@@ -176,6 +176,137 @@ PREBUILT_SKILLS = {
+     },
+ }
+ 
++    "indian_stocks": {
++        "skill_name": "nse_stock_price",
++        "description": "Gets live Indian stock prices from NSE/BSE — Reliance, TCS, HDFC, Nifty, Sensex",
++        "trigger_keywords": ["NSE", "BSE", "nifty", "sensex", "share price", "Indian stock", "stock price India", "Reliance share", "TCS share", "HDFC share", "infosys"],
++        "api_url": "https://query1.finance.yahoo.com/v8/finance/chart/",
++        "python_code": '''async def execute(query: str) -> str:
++    # Map common Indian stock names to Yahoo Finance symbols
++    SYMBOLS = {
++        "reliance": "RELIANCE.NS", "tcs": "TCS.NS", "hdfc": "HDFCBANK.NS",
++        "infosys": "INFY.NS", "wipro": "WIPRO.NS", "icici": "ICICIBANK.NS",
++        "sbi": "SBIN.NS", "kotak": "KOTAKBANK.NS", "bajaj": "BAJFINANCE.NS",
++        "adani": "ADANIENT.NS", "titan": "TITAN.NS", "maruti": "MARUTI.NS",
++        "nifty": "^NSEI", "nifty50": "^NSEI", "sensex": "^BSESN",
++        "banknifty": "^NSEBANK", "gold": "GC=F", "silver": "SI=F",
++    }
++    words = query.lower().replace("?", "").replace("share", "").replace("price", "").replace("stock", "").split()
++    stop = {"what", "is", "the", "of", "for", "how", "much", "today", "current", "live", "nse", "bse", "kya", "hai", "ka", "ki", "rate"}
++    terms = [w for w in words if w not in stop and len(w) > 1]
++
++    symbol = None
++    for t in terms:
++        if t in SYMBOLS:
++            symbol = SYMBOLS[t]
++            break
++    if not symbol and terms:
++        # Try as-is with .NS suffix
++        symbol = terms[0].upper() + ".NS"
++    if not symbol:
++        return "Please mention a stock name — e.g., 'Reliance share price' or 'Nifty today'"
++
++    try:
++        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=1d&interval=1d"
++        async with httpx.AsyncClient(timeout=10.0) as client:
++            resp = await client.get(url)
++            if resp.status_code != 200:
++                return f"Could not fetch price for {symbol}"
++            data = resp.json()
++            meta = data["chart"]["result"][0]["meta"]
++            price = meta["regularMarketPrice"]
++            prev = meta.get("chartPreviousClose", price)
++            change = price - prev
++            pct = (change / prev * 100) if prev else 0
++            arrow = "↑" if change >= 0 else "↓"
++            name = meta.get("shortName", symbol)
++            return f"*{name}*\\n₹{price:,.2f} {arrow} ₹{abs(change):,.2f} ({abs(pct):.1f}%)"
++    except Exception as e:
++        return f"Stock price check failed: {str(e)[:80]}"
++''',
++    },
++    "currency": {
++        "skill_name": "currency_converter",
++        "description": "Converts any currency to any other — handles amounts like 'convert 5000 AED to INR'",
++        "trigger_keywords": ["convert", "currency", "exchange rate", "AED", "USD", "EUR", "GBP", "INR", "to INR", "to USD", "kitne rupees", "dollars to rupees"],
++        "api_url": "https://open.er-api.com/v6/latest/",
++        "python_code": '''async def execute(query: str) -> str:
++    import re
++    q = query.upper().replace(",", "")
++
++    # Extract amount
++    nums = re.findall(r"[\\d.]+", q)
++    amount = float(nums[0]) if nums else 1.0
++
++    # Common currency codes
++    CODES = {"DOLLAR": "USD", "DOLLARS": "USD", "RUPEE": "INR", "RUPEES": "INR",
++             "EURO": "EUR", "EUROS": "EUR", "POUND": "GBP", "POUNDS": "GBP",
++             "YEN": "JPY", "DIRHAM": "AED", "DIRHAMS": "AED", "RIYAL": "SAR"}
++    all_codes = {"USD","EUR","GBP","INR","AED","SAR","JPY","CAD","AUD","SGD","CHF","CNY","KWD","BHD","OMR","QAR","THB","MYR","IDR","PHP","BDT","NPR","LKR","PKR"}
++
++    words = q.split()
++    found = []
++    for w in words:
++        w = w.strip(".,?!")
++        if w in all_codes:
++            found.append(w)
++        elif w in CODES:
++            found.append(CODES[w])
++
++    if len(found) < 2:
++        # Default: first found to INR
++        if len(found) == 1:
++            found.append("INR")
++        else:
++            return "Please specify currencies — e.g., 'convert 5000 AED to INR'"
++
++    from_cur, to_cur = found[0], found[1]
++
++    try:
++        async with httpx.AsyncClient(timeout=10.0) as client:
++            resp = await client.get(f"https://open.er-api.com/v6/latest/{from_cur}")
++            if resp.status_code != 200:
++                return f"Could not fetch rate for {from_cur}"
++            data = resp.json()
++            rate = data["rates"].get(to_cur)
++            if not rate:
++                return f"Rate not found: {from_cur} to {to_cur}"
++            result = amount * rate
++            return f"{amount:,.0f} {from_cur} = *{result:,.2f} {to_cur}*\\n(Rate: 1 {from_cur} = {rate:.4f} {to_cur})"
++    except Exception as e:
++        return f"Conversion failed: {str(e)[:80]}"
++''',
++    },
++    "jewelry": {
++        "skill_name": "gemstone_identifier",
++        "description": "Identifies gemstones and provides jewelry-related information — diamond grades, stone types, carat weights",
++        "trigger_keywords": ["stone", "gemstone", "diamond", "identify", "gem", "ruby", "sapphire", "emerald", "pearl", "carat", "clarity", "cut grade"],
++        "api_url": "gemini_vision",
++        "python_code": '''async def execute(query: str) -> str:
++    # Gemstone knowledge base — no external API needed, this is reference data
++    GEMS = {
++        "diamond": "Diamond: Hardness 10 (Mohs). Graded by 4Cs — Cut, Clarity, Color, Carat. VVS1 > VVS2 > VS1 > VS2 > SI1. D color (best) to Z. Round brilliant most popular. Price: ₹30K-5L/ct for VS-SI quality.",
++        "ruby": "Ruby: Hardness 9. Red corundum. Burmese (pigeon blood) most valuable. Heat treatment common. Price: ₹10K-2L/ct depending on origin and treatment.",
++        "sapphire": "Sapphire: Hardness 9. Blue corundum (also comes in pink, yellow, white). Kashmir sapphires most valuable. Ceylon (Sri Lanka) popular. Price: ₹5K-1L/ct.",
++        "emerald": "Emerald: Hardness 7.5. Green beryl. Colombian most prized. Almost always has inclusions (jardin). Oil treatment standard. Price: ₹5K-3L/ct.",
++        "pearl": "Pearl: Organic gem. Akoya (Japanese) most classic. South Sea largest. Tahitian (black). Freshwater most affordable. Price: ₹500-50K per pearl depending on type and size.",
++        "tanzanite": "Tanzanite: Only found in Tanzania. Trichroic — shows blue, violet, burgundy. Heat treated for deep blue. Price: ₹3K-30K/ct.",
++        "opal": "Opal: Play of color. Australian black opal most valuable. Ethiopian opal affordable. Hardness 5.5-6.5 (fragile). Price: ₹500-50K/ct.",
++    }
++    q = query.lower()
++    for gem, info in GEMS.items():
++        if gem in q:
++            return info
++
++    # General diamond grading if asked about clarity/cut/color
++    if any(w in q for w in ["clarity", "grade", "4c", "carat", "cut", "color"]):
++        return "Diamond 4Cs:\\n*Cut*: Excellent > Very Good > Good > Fair\\n*Color*: D(best) E F G H I J...Z\\n*Clarity*: FL > IF > VVS1 > VVS2 > VS1 > VS2 > SI1 > SI2 > I1\\n*Carat*: 1ct = 0.2 grams\\n\\nFor pricing, tell me the specific 4C combination."
++
++    return "I know about: diamond, ruby, sapphire, emerald, pearl, tanzanite, opal. Which stone do you want to know about?"
++''',
++    },
++}
++
+ REGISTRY_TEXT = "\n".join(
+     f"- {a['name']}: {a['description']} (auth: {a['auth']}, url: {a['url']})"
+     for a in API_REGISTRY
