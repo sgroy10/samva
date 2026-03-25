@@ -204,7 +204,9 @@ CRITICAL RULES for python_code:
 - Handle all exceptions — return error string, never raise
 - Keep response SHORT — this is WhatsApp, not a report
 - Do NOT import anything — httpx and json are pre-imported
-- The function receives the user's EXACT words as 'query'""",
+- The function receives the user's EXACT words as 'query'
+- IMPORTANT: The query is natural language. EXTRACT the key parameter (drug name, stock symbol, city, etc.) from the query BEFORE calling the API. Do NOT pass the raw query string directly to API search parameters.
+- Example: if query is 'drug interaction for warfarin', extract 'warfarin' and use that in the API URL.""",
         f"Need: {need}\nCategory: {category}",
         user_id=user_id,
         max_tokens=2000,  # Code + JSON needs more tokens
