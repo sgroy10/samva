@@ -207,6 +207,7 @@ CRITICAL RULES for python_code:
 - The function receives the user's EXACT words as 'query'""",
         f"Need: {need}\nCategory: {category}",
         user_id=user_id,
+        max_tokens=2000,  # Code + JSON needs more tokens
     )
 
     return result
