@@ -8,6 +8,7 @@ from .onboarding import handle_onboarding
 from . import gold, stocks, email_draft, meeting, contacts, reminders, web_search
 from .confidence import tag_confidence
 from . import network as network_svc
+from . import skill_builder
 
 logger = logging.getLogger("samva.agent")
 
@@ -374,18 +375,48 @@ async def _route_skill(
                 )
 
         else:
+            # Check user's custom-built skills FIRST
+            custom_reply = await skill_builder.execute_user_skill(db, user_id, text)
+            if custom_reply:
+                return custom_reply
+
             # General chat — with confidence tagging
             system = await _build_system_prompt(db, user_id, user, soul)
             raw_reply = await call_gemini(system, text, user_id=user_id)
-            return await tag_confidence(
+            tagged_reply = await tag_confidence(
                 raw_reply, soul.system_prompt[:300], user_id,
                 language=soul.language_preference or "auto",
             )
+
+            # Background: detect if Sam should build a new skill
+            # Non-blocking — fires and forgets
+            import asyncio
+            asyncio.create_task(
+                _maybe_build_skill_bg(db, user_id, text, raw_reply, soul.system_prompt)
+            )
+
+            return tagged_reply
 
     except Exception as e:
         logger.error(f"Skill error ({intent}) for {user_id}: {e}", exc_info=True)
         system = await _build_system_prompt(db, user_id, user, soul)
         return await call_gemini(system, text, user_id=user_id)
+
+
+async def _maybe_build_skill_bg(db, user_id, text, reply, soul_prompt):
+    """Background task: detect skill need and build if needed."""
+    try:
+        notification = await skill_builder.maybe_build_skill(
+            db, user_id, text, reply, soul_prompt
+        )
+        if notification:
+            # Save notification to be sent on next alert check
+            from ..models import Conversation
+            db.add(Conversation(user_id=user_id, role="assistant", content=notification))
+            await db.commit()
+            logger.info(f"[{user_id}] Skill build notification queued: {notification[:80]}")
+    except Exception as e:
+        logger.error(f"[{user_id}] Background skill build error: {e}")
 
 
 async def _update_memory(db: AsyncSession, user_id: str, text: str) -> str:

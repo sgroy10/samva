@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-25T16:02:45.865Z"
+    "updatedAt": "2026-03-25T16:30:41.424Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -13,6 +13,14 @@
   },
   "specLock": {
     "items": [
+      {
+        "id": "lock_8ea6591fe45a",
+        "text": "Self-plugin builder: generated code runs in exec() sandbox with ONLY httpx and json available. No filesystem, no os, no subprocess.",
+        "createdAt": "2026-03-25T16:30:40.362Z",
+        "source": "user",
+        "tags": [],
+        "active": true
+      },
       {
         "id": "lock_64112eb81b16",
         "text": "Admin phone 8928731453 — free access, no payment, no subscription check, plan=admin",
@@ -64,6 +72,20 @@
     ]
   },
   "decisions": [
+    {
+      "id": "dec_eb30d2eff37a",
+      "text": "Custom skills checked BEFORE general chat in routing. Keyword matching from trigger_keywords.",
+      "createdAt": "2026-03-25T16:30:41.045Z",
+      "source": "user",
+      "tags": []
+    },
+    {
+      "id": "dec_dbd355c64797",
+      "text": "User skills stored in DB (user_skills table), not as files. Survives deploys.",
+      "createdAt": "2026-03-25T16:30:40.713Z",
+      "source": "user",
+      "tags": []
+    },
     {
       "id": "dec_09b020849290",
       "text": "Network matching is opt-in. Double confirmation before sharing any details.",
@@ -153,6 +175,16 @@
       "capturedAt": "2026-03-24T01:09:48.687Z"
     },
     "recentChanges": [
+      {
+        "eventId": "evt_19d380d1f27e",
+        "summary": "THE INVENTION: Sam's self-plugin builder — detect need, find API, write code, test, activate",
+        "files": [
+          "api/app/services/skill_builder.py",
+          "api/app/services/agent.py",
+          "api/app/models.py"
+        ],
+        "at": "2026-03-25T16:30:41.388Z"
+      },
       {
         "eventId": "evt_f9599d5b9137",
         "summary": "Bulletproof session management: auto-wipe on 401/405, auto-recover, reconnect button, status messages",
@@ -259,7 +291,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_4c75d1aa980d",
-    "count": 53
+    "lastEventId": "evt_76c4bfbb3b10",
+    "count": 61
   }
 }

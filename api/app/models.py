@@ -194,6 +194,28 @@ class NetworkConnection(Base):
     created_at = Column(DateTime, default=func.now())
 
 
+class UserSkill(Base):
+    """Self-built skill — Sam wrote this code to serve a specific user need."""
+    __tablename__ = "user_skills"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False)
+    skill_name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=False)      # what this skill does
+    trigger_keywords = Column(JSON, default=list)    # words that activate this skill
+    api_url = Column(String(500), nullable=True)     # the API it connects to
+    python_code = Column(Text, nullable=False)       # the connector code Sam wrote
+    test_result = Column(Text, nullable=True)        # output from test run
+    test_passed = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=False)       # only True after test passes
+    build_log = Column(Text, nullable=True)          # full log of how Sam built this
+    created_at = Column(DateTime, default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "skill_name", name="uq_user_skill"),
+    )
+
+
 class NetworkMatch(Base):
     """Tracks a pending match between two users. Both must confirm before intro."""
     __tablename__ = "network_matches"

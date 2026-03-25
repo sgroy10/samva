@@ -1,0 +1,201 @@
+diff --git a/.speclock/brain.json b/.speclock/brain.json
+index 524143e..afbeb17 100644
+--- a/.speclock/brain.json
++++ b/.speclock/brain.json
+@@ -5,7 +5,7 @@
+     "name": "samva",
+     "root": "/Users/gadgetzone/samva",
+     "createdAt": "2026-03-24T01:09:48.668Z",
+-    "updatedAt": "2026-03-25T16:02:45.865Z"
++    "updatedAt": "2026-03-25T16:30:41.078Z"
+   },
+   "goal": {
+     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
+@@ -13,6 +13,14 @@
+   },
+   "specLock": {
+     "items": [
++      {
++        "id": "lock_8ea6591fe45a",
++        "text": "Self-plugin builder: generated code runs in exec() sandbox with ONLY httpx and json available. No filesystem, no os, no subprocess.",
++        "createdAt": "2026-03-25T16:30:40.362Z",
++        "source": "user",
++        "tags": [],
++        "active": true
++      },
+       {
+         "id": "lock_64112eb81b16",
+         "text": "Admin phone 8928731453 — free access, no payment, no subscription check, plan=admin",
+@@ -64,6 +72,20 @@
+     ]
+   },
+   "decisions": [
++    {
++      "id": "dec_eb30d2eff37a",
++      "text": "Custom skills checked BEFORE general chat in routing. Keyword matching from trigger_keywords.",
++      "createdAt": "2026-03-25T16:30:41.045Z",
++      "source": "user",
++      "tags": []
++    },
++    {
++      "id": "dec_dbd355c64797",
++      "text": "User skills stored in DB (user_skills table), not as files. Survives deploys.",
++      "createdAt": "2026-03-25T16:30:40.713Z",
++      "source": "user",
++      "tags": []
++    },
+     {
+       "id": "dec_09b020849290",
+       "text": "Network matching is opt-in. Double confirmation before sharing any details.",
+@@ -259,7 +281,7 @@
+     "reverts": []
+   },
+   "events": {
+-    "lastEventId": "evt_4c75d1aa980d",
+-    "count": 53
++    "lastEventId": "evt_6da74c98e1d3",
++    "count": 59
+   }
+ }
+\ No newline at end of file
+diff --git a/.speclock/context/latest.md b/.speclock/context/latest.md
+index 484ec6a..3b684d8 100644
+--- a/.speclock/context/latest.md
++++ b/.speclock/context/latest.md
+@@ -1,13 +1,14 @@
+ # SpecLock Context Pack
+-> Generated: 2026-03-25T16:02:45.865Z
++> Generated: 2026-03-25T16:30:41.077Z
+ > Project: **samva**
+-> Repo: branch `main` @ `a19a6a0`
++> Repo: branch `main` @ `3305149`
+ 
+ ## Goal
+ Samva — multi-tenant WhatsApp personal assistant SaaS
+ 
+ ## SpecLock (Non-Negotiables)
+ > **These constraints MUST be followed. Do not violate any lock.**
++- **[LOCK]** Self-plugin builder: generated code runs in exec() sandbox with ONLY httpx and json available. No filesystem, no os, no subprocess. _(user, 2026-03-25)_
+ - **[LOCK]** Admin phone 8928731453 — free access, no payment, no subscription check, plan=admin _(user, 2026-03-24)_
+ - **[LOCK]** Architecture: Node.js bridge + Python FastAPI in single Dockerfile — do not split into separate services _(user, 2026-03-24)_
+ - **[LOCK]** All Railway management via CLI — never ask user to use dashboard _(user, 2026-03-24)_
+@@ -16,6 +17,8 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
+ - **[LOCK]** Never touch JewelClaw code — Samva is a completely separate repo at /Users/gadgetzone/samva _(user, 2026-03-24)_
+ 
+ ## Key Decisions
++- **[DEC]** Custom skills checked BEFORE general chat in routing. Keyword matching from trigger_keywords. _(user, 2026-03-25)_
++- **[DEC]** User skills stored in DB (user_skills table), not as files. Survives deploys. _(user, 2026-03-25)_
+ - **[DEC]** Network matching is opt-in. Double confirmation before sharing any details. _(user, 2026-03-24)_
+ - **[DEC]** Confidence tagging only on chat intent. max_tokens:50 for speed. _(user, 2026-03-24)_
+ - **[DEC]** Soul Evolution APPENDS to system_prompt, never deletes. Runs Sunday 11pm IST. _(user, 2026-03-24)_
+diff --git a/.speclock/events.log b/.speclock/events.log
+index efe1458..8406f76 100644
+--- a/.speclock/events.log
++++ b/.speclock/events.log
+@@ -51,3 +51,9 @@
+ {"eventId":"evt_fd42c3179d53","type":"context_generated","at":"2026-03-24T18:22:45.582Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+ {"eventId":"evt_f9599d5b9137","type":"manual_change","at":"2026-03-25T16:02:45.829Z","files":["bridge/src/sessionManager.js","bridge/src/index.js","web/public/index.html"],"summary":"Bulletproof session management: auto-wipe on 401/405, auto-recover, reconnect button, status messages","patchPath":".speclock/patches/evt_f9599d5b9137.patch"}
+ {"eventId":"evt_4c75d1aa980d","type":"context_generated","at":"2026-03-25T16:02:45.865Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
++{"eventId":"evt_a8e00235923b","type":"lock_added","at":"2026-03-25T16:30:40.363Z","files":[],"summary":"Lock added: Self-plugin builder: generated code runs in exec() sandbox with ONLY httpx and j","patchPath":""}
++{"eventId":"evt_7c9be15a3abe","type":"context_generated","at":"2026-03-25T16:30:40.414Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
++{"eventId":"evt_6c6dc89fe16a","type":"decision_added","at":"2026-03-25T16:30:40.714Z","files":[],"summary":"Decision: User skills stored in DB (user_skills table), not as files. Survives deploys.","patchPath":""}
++{"eventId":"evt_baa58a4e0394","type":"context_generated","at":"2026-03-25T16:30:40.749Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
++{"eventId":"evt_37d7532ab205","type":"decision_added","at":"2026-03-25T16:30:41.045Z","files":[],"summary":"Decision: Custom skills checked BEFORE general chat in routing. Keyword matching from trig","patchPath":""}
++{"eventId":"evt_6da74c98e1d3","type":"context_generated","at":"2026-03-25T16:30:41.078Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+diff --git a/api/app/models.py b/api/app/models.py
+index a8f3fbd..b9e0466 100644
+--- a/api/app/models.py
++++ b/api/app/models.py
+@@ -194,6 +194,28 @@ class NetworkConnection(Base):
+     created_at = Column(DateTime, default=func.now())
+ 
+ 
++class UserSkill(Base):
++    """Self-built skill — Sam wrote this code to serve a specific user need."""
++    __tablename__ = "user_skills"
++
++    id = Column(Integer, primary_key=True, autoincrement=True)
++    user_id = Column(String(36), nullable=False)
++    skill_name = Column(String(100), nullable=False)
++    description = Column(Text, nullable=False)      # what this skill does
++    trigger_keywords = Column(JSON, default=list)    # words that activate this skill
++    api_url = Column(String(500), nullable=True)     # the API it connects to
++    python_code = Column(Text, nullable=False)       # the connector code Sam wrote
++    test_result = Column(Text, nullable=True)        # output from test run
++    test_passed = Column(Boolean, default=False)
++    is_active = Column(Boolean, default=False)       # only True after test passes
++    build_log = Column(Text, nullable=True)          # full log of how Sam built this
++    created_at = Column(DateTime, default=func.now())
++
++    __table_args__ = (
++        UniqueConstraint("user_id", "skill_name", name="uq_user_skill"),
++    )
++
++
+ class NetworkMatch(Base):
+     """Tracks a pending match between two users. Both must confirm before intro."""
+     __tablename__ = "network_matches"
+diff --git a/api/app/services/agent.py b/api/app/services/agent.py
+index 6d0f0de..bec9df1 100644
+--- a/api/app/services/agent.py
++++ b/api/app/services/agent.py
+@@ -8,6 +8,7 @@ from .onboarding import handle_onboarding
+ from . import gold, stocks, email_draft, meeting, contacts, reminders, web_search
+ from .confidence import tag_confidence
+ from . import network as network_svc
++from . import skill_builder
+ 
+ logger = logging.getLogger("samva.agent")
+ 
+@@ -374,20 +375,50 @@ async def _route_skill(
+                 )
+ 
+         else:
++            # Check user's custom-built skills FIRST
++            custom_reply = await skill_builder.execute_user_skill(db, user_id, text)
++            if custom_reply:
++                return custom_reply
++
+             # General chat — with confidence tagging
+             system = await _build_system_prompt(db, user_id, user, soul)
+             raw_reply = await call_gemini(system, text, user_id=user_id)
+-            return await tag_confidence(
++            tagged_reply = await tag_confidence(
+                 raw_reply, soul.system_prompt[:300], user_id,
+                 language=soul.language_preference or "auto",
+             )
+ 
++            # Background: detect if Sam should build a new skill
++            # Non-blocking — fires and forgets
++            import asyncio
++            asyncio.create_task(
++                _maybe_build_skill_bg(db, user_id, text, raw_reply, soul.system_prompt)
++            )
++
++            return tagged_reply
++
+     except Exception as e:
+         logger.error(f"Skill error ({intent}) for {user_id}: {e}", exc_info=True)
+         system = await _build_system_prompt(db, user_id, user, soul)
+         return await call_gemini(system, text, user_id=user_id)
+ 
+ 
++async def _maybe_build_skill_bg(db, user_id, text, reply, soul_prompt):
++    """Background task: detect skill need and build if needed."""
++    try:
++        notification = await skill_builder.maybe_build_skill(
++            db, user_id, text, reply, soul_prompt
++        )
++        if notification:
++            # Save notification to be sent on next alert check
++            from ..models import Conversation
++            db.add(Conversation(user_id=user_id, role="assistant", content=notification))
++            await db.commit()
++            logger.info(f"[{user_id}] Skill build notification queued: {notification[:80]}")
++    except Exception as e:
++        logger.error(f"[{user_id}] Background skill build error: {e}")
++
++
+ async def _update_memory(db: AsyncSession, user_id: str, text: str) -> str:
+     """Extract and save a memory from the user's message."""
+     extracted = await call_gemini_json(

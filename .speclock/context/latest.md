@@ -1,13 +1,14 @@
 # SpecLock Context Pack
-> Generated: 2026-03-25T16:02:45.865Z
+> Generated: 2026-03-25T16:30:41.423Z
 > Project: **samva**
-> Repo: branch `main` @ `a19a6a0`
+> Repo: branch `main` @ `3305149`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
 
 ## SpecLock (Non-Negotiables)
 > **These constraints MUST be followed. Do not violate any lock.**
+- **[LOCK]** Self-plugin builder: generated code runs in exec() sandbox with ONLY httpx and json available. No filesystem, no os, no subprocess. _(user, 2026-03-25)_
 - **[LOCK]** Admin phone 8928731453 — free access, no payment, no subscription check, plan=admin _(user, 2026-03-24)_
 - **[LOCK]** Architecture: Node.js bridge + Python FastAPI in single Dockerfile — do not split into separate services _(user, 2026-03-24)_
 - **[LOCK]** All Railway management via CLI — never ask user to use dashboard _(user, 2026-03-24)_
@@ -16,6 +17,8 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - **[LOCK]** Never touch JewelClaw code — Samva is a completely separate repo at /Users/gadgetzone/samva _(user, 2026-03-24)_
 
 ## Key Decisions
+- **[DEC]** Custom skills checked BEFORE general chat in routing. Keyword matching from trigger_keywords. _(user, 2026-03-25)_
+- **[DEC]** User skills stored in DB (user_skills table), not as files. Survives deploys. _(user, 2026-03-25)_
 - **[DEC]** Network matching is opt-in. Double confirmation before sharing any details. _(user, 2026-03-24)_
 - **[DEC]** Confidence tagging only on chat intent. max_tokens:50 for speed. _(user, 2026-03-24)_
 - **[DEC]** Soul Evolution APPENDS to system_prompt, never deletes. Runs Sunday 11pm IST. _(user, 2026-03-24)_
@@ -30,6 +33,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-25T16:30:41] THE INVENTION: Sam's self-plugin builder — detect need, find API, write code, test, activate (api/app/services/skill_builder.py, api/app/services/agent.py, api/app/models.py)
 - [2026-03-25T16:02:45] Bulletproof session management: auto-wipe on 401/405, auto-recover, reconnect button, status messages (bridge/src/sessionManager.js, bridge/src/index.js, web/public/index.html)
 - [2026-03-24T18:22:45] Admin bypass, complete subscription management (payment confirm, expiry check, renewal, 3-day warning) (api/app/main.py, api/app/services/agent.py, api/app/config.py, bridge/src/index.js, web/public/index.html)
 - [2026-03-24T15:52:36] Three Claude-reviewed fixes: language-aware confidence tags, network match confirmation+intro flow, verified Monday cron (api/app/services/confidence.py, api/app/services/network.py, api/app/services/agent.py, api/app/models.py)
