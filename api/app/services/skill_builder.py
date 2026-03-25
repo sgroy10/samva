@@ -32,10 +32,10 @@ API_REGISTRY = [
     {
         "name": "OpenFDA Drug Interactions",
         "url": "https://api.fda.gov/drug/label.json",
-        "description": "US FDA drug labels — search by generic name, get interactions, warnings, contraindications. Use openfda.generic_name field for searching.",
+        "description": "US FDA drug labels. MUST search using: ?search=openfda.generic_name:{drugname}&limit=1. Response has results[0].drug_interactions array. Extract the drug name from the user query first.",
         "category": "medical",
         "auth": "none",
-        "example": "https://api.fda.gov/drug/label.json?search=openfda.generic_name:aspirin&limit=1 — returns drug_interactions field",
+        "example": "GET https://api.fda.gov/drug/label.json?search=openfda.generic_name:warfarin&limit=1 then read results[0]['drug_interactions'][0]",
     },
     {
         "name": "Yahoo Finance",
@@ -289,9 +289,12 @@ async def test_skill(python_code: str, test_query: str = "test") -> dict:
 
             # Reject responses that are clearly errors or failures
             lower_result = result.lower()
-            error_signals = ["error", "failed", "not found", "404", "403", "500", "timeout", "unavailable"]
-            if any(sig in lower_result for sig in error_signals) and len(result) < 100:
-                return {"passed": False, "output": f"API returned error: {result}"}
+            hard_fails = ["404", "403", "500", "502", "503", "not_found", "NOT_FOUND", "unauthorized"]
+            soft_fails = ["error", "failed", "timeout", "unavailable"]
+            if any(sig in result for sig in hard_fails):
+                return {"passed": False, "output": f"API error: {result[:200]}"}
+            if any(sig in lower_result for sig in soft_fails) and len(result) < 150:
+                return {"passed": False, "output": f"Likely error: {result[:200]}"}
 
             logger.info(f"Skill test passed (subprocess): {result[:100]}")
             return {"passed": True, "output": result[:500]}
