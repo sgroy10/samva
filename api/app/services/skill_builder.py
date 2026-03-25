@@ -365,9 +365,19 @@ async def build_skill_for_user(
         build_log.append(f"Designed: {skill_name} — {spec.get('description', '')}")
         build_log.append(f"API: {spec.get('api_url', '?')}")
 
-        # Step 2: Test
-        build_log.append("Testing with sample query...")
-        test_query = need[:50]  # Use the need description as test query
+        # Step 2: Test with a realistic short query (not the full need description)
+        build_log.append("Generating test query...")
+        try:
+            tq = await call_gemini(
+                "Generate a SHORT realistic test query (5-10 words max) that a user would type to use this skill. Return ONLY the query, nothing else.",
+                f"Skill: {spec.get('description', need)}",
+                user_id=user_id,
+                max_tokens=30,
+            )
+            test_query = tq.strip().strip('"').strip("'")
+        except Exception:
+            test_query = need[:50]
+        build_log.append(f"Test query: {test_query}")
         test_result = await test_skill(spec["python_code"], test_query)
 
         build_log.append(f"Test {'PASSED' if test_result['passed'] else 'FAILED'}: {test_result['output'][:200]}")
