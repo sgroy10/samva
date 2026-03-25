@@ -174,8 +174,6 @@ PREBUILT_SKILLS = {
         return f"Weather check failed: {str(e)[:50]}"
 ''',
     },
-}
-
     "indian_stocks": {
         "skill_name": "nse_stock_price",
         "description": "Gets live Indian stock prices from NSE/BSE — Reliance, TCS, HDFC, Nifty, Sensex",
