@@ -32,10 +32,10 @@ API_REGISTRY = [
     {
         "name": "OpenFDA Drug Interactions",
         "url": "https://api.fda.gov/drug/label.json",
-        "description": "US FDA drug labels with interactions, warnings, contraindications",
+        "description": "US FDA drug labels — search by generic name, get interactions, warnings, contraindications. Use openfda.generic_name field for searching.",
         "category": "medical",
         "auth": "none",
-        "example": "https://api.fda.gov/drug/label.json?search=drug_interactions:aspirin+AND+drug_interactions:warfarin&limit=1",
+        "example": "https://api.fda.gov/drug/label.json?search=openfda.generic_name:aspirin&limit=1 — returns drug_interactions field",
     },
     {
         "name": "Yahoo Finance",
@@ -285,6 +285,13 @@ async def test_skill(python_code: str, test_query: str = "test") -> dict:
             result = output.split("__RESULT__:", 1)[1].strip()
             if not result or len(result) < 3:
                 return {"passed": False, "output": f"Empty result: '{result}'"}
+
+            # Reject responses that are clearly errors or failures
+            lower_result = result.lower()
+            error_signals = ["error", "failed", "not found", "404", "403", "500", "timeout", "unavailable"]
+            if any(sig in lower_result for sig in error_signals) and len(result) < 100:
+                return {"passed": False, "output": f"API returned error: {result}"}
+
             logger.info(f"Skill test passed (subprocess): {result[:100]}")
             return {"passed": True, "output": result[:500]}
 
