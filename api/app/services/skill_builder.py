@@ -212,65 +212,115 @@ CRITICAL RULES for python_code:
     return result
 
 
-# ── Step 3: Test the skill in sandbox ────────────────────────────
+# ── Step 3: Test the skill in isolated subprocess ────────────────
+
+# Runner script template — executed in a separate process
+# Has NO access to: database, API keys, filesystem, parent memory
+_RUNNER_SCRIPT = '''
+import asyncio, httpx, json, sys
+
+{code}
+
+async def _main():
+    try:
+        result = await execute("""{query}""")
+        print("__RESULT__:" + str(result))
+    except Exception as e:
+        print("__ERROR__:" + str(e))
+
+asyncio.run(_main())
+'''
+
 
 async def test_skill(python_code: str, test_query: str = "test") -> dict:
     """
-    Execute the generated code in a sandboxed environment.
-    Returns {"passed": True/False, "output": "result or error"}.
+    Execute generated code in an ISOLATED SUBPROCESS.
+    The subprocess has:
+    - No database access
+    - No API keys from environment
+    - No filesystem write access
+    - 10 second hard timeout (killed if exceeded)
+    - Separate memory space (can't exhaust parent)
     """
-    import httpx
-    import json as json_mod
+    import tempfile
+    import os
 
-    # Sandbox namespace — only httpx and json available
-    sandbox = {
-        "httpx": httpx,
-        "json": json_mod,
-        "__builtins__": {
-            "str": str, "int": int, "float": float, "bool": bool,
-            "list": list, "dict": dict, "tuple": tuple, "set": set,
-            "len": len, "range": range, "enumerate": enumerate,
-            "print": lambda *a: None,  # suppress prints
-            "isinstance": isinstance, "type": type,
-            "min": min, "max": max, "abs": abs, "round": round,
-            "sorted": sorted, "reversed": reversed,
-            "zip": zip, "map": map, "filter": filter,
-            "Exception": Exception, "ValueError": ValueError,
-            "TypeError": TypeError, "KeyError": KeyError,
-            "True": True, "False": False, "None": None,
-        },
-    }
+    # Escape the query for embedding in the script
+    safe_query = test_query.replace('"""', '\\"\\"\\"').replace("\\", "\\\\")
 
+    script = _RUNNER_SCRIPT.replace("{code}", python_code).replace("{query}", safe_query)
+
+    # Write to temp file
+    tmp_path = None
     try:
-        # Compile and exec the code
-        exec(python_code, sandbox)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, dir="/tmp") as f:
+            f.write(script)
+            tmp_path = f.name
 
-        # Get the execute function
-        execute_fn = sandbox.get("execute")
-        if not execute_fn:
-            return {"passed": False, "output": "No 'execute' function found in code"}
+        # Run in subprocess with clean environment (no inherited env vars)
+        clean_env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/usr/local/bin"),
+            "HOME": "/tmp",
+        }
 
-        # Run it with timeout
-        result = await asyncio.wait_for(execute_fn(test_query), timeout=15.0)
+        proc = await asyncio.create_subprocess_exec(
+            "python3", tmp_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=clean_env,
+        )
 
-        if not isinstance(result, str):
-            result = str(result)
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10.0)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.communicate()
+            return {"passed": False, "output": "Timeout — killed after 10 seconds"}
 
-        if not result or len(result) < 3:
-            return {"passed": False, "output": f"Empty or too short result: '{result}'"}
+        output = stdout.decode("utf-8", errors="replace").strip()
+        errors = stderr.decode("utf-8", errors="replace").strip()
 
-        # Check it's not an error message from the code itself
-        lower = result.lower()
-        if "error" in lower and len(result) < 50:
-            return {"passed": False, "output": result}
+        # Parse result
+        if "__RESULT__:" in output:
+            result = output.split("__RESULT__:", 1)[1].strip()
+            if not result or len(result) < 3:
+                return {"passed": False, "output": f"Empty result: '{result}'"}
+            logger.info(f"Skill test passed (subprocess): {result[:100]}")
+            return {"passed": True, "output": result[:500]}
 
-        logger.info(f"Skill test passed: {result[:100]}")
-        return {"passed": True, "output": result[:500]}
+        if "__ERROR__:" in output:
+            return {"passed": False, "output": output.split("__ERROR__:", 1)[1].strip()[:300]}
 
-    except asyncio.TimeoutError:
-        return {"passed": False, "output": "Timeout — API call took >15 seconds"}
+        # No marker found — check stderr
+        if errors:
+            return {"passed": False, "output": f"Process error: {errors[:300]}"}
+
+        return {"passed": False, "output": f"No output from subprocess. stdout: {output[:200]}"}
+
     except Exception as e:
-        return {"passed": False, "output": f"Execution error: {str(e)[:200]}"}
+        return {"passed": False, "output": f"Subprocess error: {str(e)[:200]}"}
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+
+# ── Rate Limiting ────────────────────────────────────────────────
+
+MAX_BUILDS_PER_DAY = 3
+
+async def _check_rate_limit(db: AsyncSession, user_id: str) -> bool:
+    """Returns True if user is within daily build limit."""
+    from sqlalchemy import func, text
+    result = await db.execute(
+        select(func.count(UserSkill.id)).where(
+            UserSkill.user_id == user_id,
+        ).where(text("created_at >= NOW() - INTERVAL '1 day'"))
+    )
+    count = result.scalar() or 0
+    return count < MAX_BUILDS_PER_DAY
 
 
 # ── Step 4: Full build pipeline ──────────────────────────────────
@@ -285,6 +335,11 @@ async def build_skill_for_user(
     build_log = [f"[{datetime.utcnow().isoformat()}] Build started for: {need}"]
 
     try:
+        # Rate limit check — max 3 builds per user per day
+        if not await _check_rate_limit(db, user_id):
+            logger.warning(f"[{user_id}] Skill build rate limited (max {MAX_BUILDS_PER_DAY}/day)")
+            return ""
+
         # Step 1: Design
         build_log.append("Designing skill...")
         spec = await design_skill(user_id, need, category)

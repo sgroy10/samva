@@ -1,13 +1,15 @@
 # SpecLock Context Pack
-> Generated: 2026-03-25T16:30:41.423Z
+> Generated: 2026-03-25T16:56:37.952Z
 > Project: **samva**
-> Repo: branch `main` @ `3305149`
+> Repo: branch `main` @ `5a4fdda`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
 
 ## SpecLock (Non-Negotiables)
 > **These constraints MUST be followed. Do not violate any lock.**
+- **[LOCK]** Max 3 skill builds per user per day — rate limited to prevent credit exhaustion _(user, 2026-03-25)_
+- **[LOCK]** Skill execution MUST run in isolated subprocess — never exec() in main process _(user, 2026-03-25)_
 - **[LOCK]** Self-plugin builder: generated code runs in exec() sandbox with ONLY httpx and json available. No filesystem, no os, no subprocess. _(user, 2026-03-25)_
 - **[LOCK]** Admin phone 8928731453 — free access, no payment, no subscription check, plan=admin _(user, 2026-03-24)_
 - **[LOCK]** Architecture: Node.js bridge + Python FastAPI in single Dockerfile — do not split into separate services _(user, 2026-03-24)_
@@ -33,6 +35,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-25T16:56:37] Subprocess sandbox + rate limiting for self-plugin builder (api/app/services/skill_builder.py)
 - [2026-03-25T16:30:41] THE INVENTION: Sam's self-plugin builder — detect need, find API, write code, test, activate (api/app/services/skill_builder.py, api/app/services/agent.py, api/app/models.py)
 - [2026-03-25T16:02:45] Bulletproof session management: auto-wipe on 401/405, auto-recover, reconnect button, status messages (bridge/src/sessionManager.js, bridge/src/index.js, web/public/index.html)
 - [2026-03-24T18:22:45] Admin bypass, complete subscription management (payment confirm, expiry check, renewal, 3-day warning) (api/app/main.py, api/app/services/agent.py, api/app/config.py, bridge/src/index.js, web/public/index.html)

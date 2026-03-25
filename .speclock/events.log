@@ -59,3 +59,9 @@
 {"eventId":"evt_6da74c98e1d3","type":"context_generated","at":"2026-03-25T16:30:41.078Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
 {"eventId":"evt_19d380d1f27e","type":"manual_change","at":"2026-03-25T16:30:41.388Z","files":["api/app/services/skill_builder.py","api/app/services/agent.py","api/app/models.py"],"summary":"THE INVENTION: Sam's self-plugin builder — detect need, find API, write code, test, activate","patchPath":".speclock/patches/evt_19d380d1f27e.patch"}
 {"eventId":"evt_76c4bfbb3b10","type":"context_generated","at":"2026-03-25T16:30:41.424Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_976525e3a0f5","type":"lock_added","at":"2026-03-25T16:56:37.267Z","files":[],"summary":"Lock added: Skill execution MUST run in isolated subprocess — never exec() in main process","patchPath":""}
+{"eventId":"evt_e5ee2baca4fa","type":"context_generated","at":"2026-03-25T16:56:37.316Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_7b7edf7376cc","type":"lock_added","at":"2026-03-25T16:56:37.597Z","files":[],"summary":"Lock added: Max 3 skill builds per user per day — rate limited to prevent credit exhaustion","patchPath":""}
+{"eventId":"evt_702a796756e1","type":"context_generated","at":"2026-03-25T16:56:37.629Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_b2c0e8d7acbb","type":"manual_change","at":"2026-03-25T16:56:37.921Z","files":["api/app/services/skill_builder.py"],"summary":"Subprocess sandbox + rate limiting for self-plugin builder","patchPath":".speclock/patches/evt_b2c0e8d7acbb.patch"}
+{"eventId":"evt_b064eb93bfcd","type":"context_generated","at":"2026-03-25T16:56:37.953Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}

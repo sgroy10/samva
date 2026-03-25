@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-25T16:30:41.424Z"
+    "updatedAt": "2026-03-25T16:56:37.953Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -13,6 +13,22 @@
   },
   "specLock": {
     "items": [
+      {
+        "id": "lock_e7043c544ccd",
+        "text": "Max 3 skill builds per user per day — rate limited to prevent credit exhaustion",
+        "createdAt": "2026-03-25T16:56:37.595Z",
+        "source": "user",
+        "tags": [],
+        "active": true
+      },
+      {
+        "id": "lock_ca79d9df8933",
+        "text": "Skill execution MUST run in isolated subprocess — never exec() in main process",
+        "createdAt": "2026-03-25T16:56:37.267Z",
+        "source": "user",
+        "tags": [],
+        "active": true
+      },
       {
         "id": "lock_8ea6591fe45a",
         "text": "Self-plugin builder: generated code runs in exec() sandbox with ONLY httpx and json available. No filesystem, no os, no subprocess.",
@@ -176,6 +192,14 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_b2c0e8d7acbb",
+        "summary": "Subprocess sandbox + rate limiting for self-plugin builder",
+        "files": [
+          "api/app/services/skill_builder.py"
+        ],
+        "at": "2026-03-25T16:56:37.921Z"
+      },
+      {
         "eventId": "evt_19d380d1f27e",
         "summary": "THE INVENTION: Sam's self-plugin builder — detect need, find API, write code, test, activate",
         "files": [
@@ -291,7 +315,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_76c4bfbb3b10",
-    "count": 61
+    "lastEventId": "evt_b064eb93bfcd",
+    "count": 67
   }
 }
