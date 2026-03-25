@@ -443,3 +443,35 @@ async def handle_evolution_notify(
             messages.append({"user_id": user.id, "message": msg})
 
     return {"count": len(messages), "messages": messages}
+
+
+# --- Admin Endpoints ---
+
+@app.get("/admin/skills")
+async def admin_skills(userId: str, db: AsyncSession = Depends(get_db)):
+    """Show all custom skills built for a user. For debugging."""
+    from .models import UserSkill
+    result = await db.execute(
+        select(UserSkill).where(UserSkill.user_id == userId).order_by(UserSkill.created_at.desc())
+    )
+    skills = result.scalars().all()
+
+    return {
+        "userId": userId,
+        "count": len(skills),
+        "skills": [
+            {
+                "skill_name": s.skill_name,
+                "description": s.description,
+                "api_url": s.api_url,
+                "trigger_keywords": s.trigger_keywords,
+                "test_passed": s.test_passed,
+                "test_result": s.test_result,
+                "is_active": s.is_active,
+                "build_log": s.build_log,
+                "code_preview": (s.python_code or "")[:300],
+                "created_at": str(s.created_at),
+            }
+            for s in skills
+        ],
+    }
