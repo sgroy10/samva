@@ -126,9 +126,12 @@ async function startSession(userId) {
         console.log(`[sessionManager] Reconnecting ${userId} in ${delay}ms (attempt ${sessionData.reconnectAttempts})`);
         setTimeout(() => startSession(userId), delay);
       } else if (!shouldReconnect) {
-        console.log(`[sessionManager] Logged out: ${userId}. Cleaning up.`);
+        console.log(`[sessionManager] Logged out: ${userId}. Wiping auth files.`);
         sessions.delete(userId);
         sessionStore.updateSession(userId, { status: 'logged_out' });
+        // Wipe auth directory so next connect gets fresh QR
+        const authDir = path.join(SESSION_DIR, userId);
+        try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (_) {}
       }
     }
   });
@@ -303,6 +306,19 @@ async function checkAllAlerts() {
   }
 }
 
+function deleteSession(userId) {
+  const session = sessions.get(userId);
+  if (session && session.socket) {
+    try { session.socket.end(); } catch (_) {}
+  }
+  sessions.delete(userId);
+  // Wipe auth directory
+  const authDir = path.join(SESSION_DIR, userId);
+  try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (_) {}
+  sessionStore.updateSession(userId, { status: 'deleted' });
+  console.log(`[sessionManager] Session deleted + auth wiped: ${userId}`);
+}
+
 async function sendAlertToUser(userId, message) {
   const session = sessions.get(userId);
   if (!session || !session.ownJid) {
@@ -326,4 +342,5 @@ module.exports = {
   reconnectAll,
   checkAllAlerts,
   sendAlertToUser,
+  deleteSession,
 };

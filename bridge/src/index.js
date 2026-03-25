@@ -62,6 +62,12 @@ app.get('/sessions/:userId/status', (req, res) => {
   }
 });
 
+// Delete session fully (wipe auth files for fresh QR)
+app.delete('/sessions/:userId', (req, res) => {
+  sessionManager.deleteSession(req.params.userId);
+  res.json({ ok: true, message: 'Session deleted. Create new session for fresh QR.' });
+});
+
 // --- QR Code Page ---
 app.get('/pair/:token', (req, res) => {
   const session = sessionStore.getSessionByToken(req.params.token);
