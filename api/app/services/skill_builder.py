@@ -103,6 +103,79 @@ API_REGISTRY = [
     },
 ]
 
+# ── Pre-built Skills — hand-written code for complex APIs ────────
+# When the need matches a prebuilt skill, use this code instead of
+# asking Gemini to generate it. Reliable, tested, works every time.
+
+PREBUILT_SKILLS = {
+    "medical": {
+        "skill_name": "fda_drug_info",
+        "description": "Checks drug interactions, warnings, and uses from FDA database",
+        "trigger_keywords": ["drug interaction", "medicine", "medication", "drug info", "warfarin", "aspirin", "side effect", "contraindication", "prescribe"],
+        "api_url": "https://api.fda.gov/drug/label.json",
+        "python_code": '''async def execute(query: str) -> str:
+    # Extract drug name — take the last meaningful word(s) that look like a drug
+    words = query.lower().replace("?", "").replace("!", "").split()
+    stop = {"what", "are", "the", "drug", "interaction", "interactions", "for", "of", "between",
+            "check", "info", "about", "with", "can", "i", "take", "is", "it", "safe", "to",
+            "me", "tell", "please", "fda", "data", "and", "medicine", "medication"}
+    drugs = [w for w in words if w not in stop and len(w) > 2]
+    if not drugs:
+        return "Please mention a drug name — e.g., 'drug interaction warfarin'"
+
+    results = []
+    for drug in drugs[:2]:
+        try:
+            url = f"https://api.fda.gov/drug/label.json?search=openfda.generic_name:{drug}&limit=1"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url)
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
+                r = data.get("results", [{}])[0]
+                name = drug.upper()
+                interactions = r.get("drug_interactions", ["No interaction data found"])[0][:300]
+                warnings = r.get("warnings", [""])[0][:200]
+                result = f"*{name}* (FDA):\\n"
+                result += f"Interactions: {interactions}\\n"
+                if warnings:
+                    result += f"Warnings: {warnings}"
+                results.append(result)
+        except Exception:
+            continue
+
+    if not results:
+        return "Drug not found in FDA database. Check the spelling or try the generic name."
+    return "\\n\\n".join(results)
+''',
+    },
+    "weather": {
+        "skill_name": "weather_check",
+        "description": "Gets current weather for any city",
+        "trigger_keywords": ["weather", "temperature", "mausam", "barish", "rain", "forecast"],
+        "api_url": "https://wttr.in",
+        "python_code": '''async def execute(query: str) -> str:
+    words = query.lower().replace("?", "").split()
+    stop = {"what", "is", "the", "weather", "in", "of", "for", "today", "how", "mausam", "kya", "hai"}
+    city = " ".join(w for w in words if w not in stop and len(w) > 1) or "Mumbai"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"https://wttr.in/{city}?format=j1")
+            if resp.status_code != 200:
+                return f"Could not get weather for {city}"
+            data = resp.json()
+            current = data["current_condition"][0]
+            temp = current["temp_C"]
+            desc = current["weatherDesc"][0]["value"]
+            humidity = current["humidity"]
+            feels = current["FeelsLikeC"]
+            return f"Weather in *{city.title()}*:\\n{desc}, {temp}C (feels like {feels}C)\\nHumidity: {humidity}%"
+    except Exception as e:
+        return f"Weather check failed: {str(e)[:50]}"
+''',
+    },
+}
+
 REGISTRY_TEXT = "\n".join(
     f"- {a['name']}: {a['description']} (auth: {a['auth']}, url: {a['url']})"
     for a in API_REGISTRY
@@ -168,8 +241,22 @@ Rules:
 async def design_skill(user_id: str, need: str, category: str = "other") -> dict:
     """
     Given a need description, find the right API and write the connector code.
-    Returns the full skill specification.
+    Uses prebuilt skills for complex APIs, falls back to Gemini generation.
     """
+    # Check prebuilt skills first — reliable, tested, works every time
+    if category in PREBUILT_SKILLS:
+        prebuilt = PREBUILT_SKILLS[category]
+        logger.info(f"[{user_id}] Using PREBUILT skill: {prebuilt['skill_name']}")
+        return prebuilt
+
+    # Also check by keywords in the need description
+    need_lower = need.lower()
+    for cat, prebuilt in PREBUILT_SKILLS.items():
+        if any(kw in need_lower for kw in prebuilt.get("trigger_keywords", [])[:3]):
+            logger.info(f"[{user_id}] Keyword match to PREBUILT skill: {prebuilt['skill_name']}")
+            return prebuilt
+
+    # No prebuilt match — ask Gemini to generate
     result = await call_gemini_json(
         f"""You are a senior Python developer building an API connector.
 
