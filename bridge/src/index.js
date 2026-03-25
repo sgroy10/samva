@@ -183,7 +183,8 @@ app.get('/pair/:token', (req, res) => {
 app.all('/api/*', async (req, res) => {
   try {
     const targetPath = req.path.replace('/api', '');
-    const url = `${CORE_URL}${targetPath}`;
+    const queryString = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
+    const url = `${CORE_URL}${targetPath}${queryString ? '?' + queryString : ''}`;
 
     const config = {
       method: req.method,
