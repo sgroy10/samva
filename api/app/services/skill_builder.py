@@ -369,12 +369,15 @@ async def build_skill_for_user(
         build_log.append("Generating test query...")
         try:
             tq = await call_gemini(
-                "Generate a SHORT realistic test query (5-10 words max) that a user would type to use this skill. Return ONLY the query, nothing else.",
-                f"Skill: {spec.get('description', need)}",
+                "Generate ONE realistic test query that a real user would actually type to use this skill. Use REAL values — not placeholders. For medical: use a real drug like 'warfarin'. For stocks: use 'Reliance'. For weather: use 'Mumbai'. Return ONLY the query text, nothing else. No brackets, no placeholders.",
+                f"Skill: {spec.get('description', need)}\nOriginal need: {need}",
                 user_id=user_id,
                 max_tokens=30,
             )
             test_query = tq.strip().strip('"').strip("'")
+            # Reject if it still has placeholders
+            if "[" in test_query or "{" in test_query:
+                test_query = need.split("for")[-1].strip().split(",")[0].strip() if "for" in need else need[:30]
         except Exception:
             test_query = need[:50]
         build_log.append(f"Test query: {test_query}")
