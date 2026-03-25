@@ -12,6 +12,9 @@ const logger = pino({ level: 'warn' });
 // Active sessions: userId -> sessionData
 const sessions = new Map();
 
+// Persistent reconnect counter (survives startSession recreations)
+const reconnectCounters = new Map();
+
 // Rate limiting: jid -> lastSentTime
 const sendTimestamps = new Map();
 const SEND_INTERVAL_MS = 2000;
@@ -22,10 +25,10 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 async function startSession(userId) {
   // Clean up old socket if exists
   const existing = sessions.get(userId);
-  const prevAttempts = existing ? existing.reconnectAttempts : 0;
   if (existing && existing.socket) {
     try { existing.socket.end(); } catch (_) {}
   }
+  const prevAttempts = reconnectCounters.get(userId) || 0;
 
   console.log(`[session] Starting ${userId} (attempt ${prevAttempts})`);
 
@@ -102,6 +105,7 @@ async function startSession(userId) {
       sessionData.qrDataUrl = null;
       sessionData.reconnectAttempts = 0;
       sessionData.disconnectReason = null;
+      reconnectCounters.set(userId, 0);
 
       sessionStore.updateSession(userId, {
         status: 'connected',
@@ -168,21 +172,25 @@ async function startSession(userId) {
         return;
       }
 
-      // ── CASE 4: Temporary disconnect (network, restart) ───
+      // ── CASE 4: Temporary disconnect (network, restart, undefined) ─
       // Normal reconnect with exponential backoff, max 5 attempts.
       sessionStore.updateSession(userId, { status: 'reconnecting' });
 
-      if (sessionData.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-        sessionData.reconnectAttempts++;
-        const delay = Math.min(1000 * Math.pow(2, sessionData.reconnectAttempts), 60000);
-        console.log(`[session] Reconnecting ${userId} in ${delay}ms (attempt ${sessionData.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+      const attempts = (reconnectCounters.get(userId) || 0) + 1;
+      reconnectCounters.set(userId, attempts);
+      sessionData.reconnectAttempts = attempts;
+
+      if (attempts < MAX_RECONNECT_ATTEMPTS) {
+        const delay = Math.min(2000 * Math.pow(2, attempts), 60000);
+        console.log(`[session] Reconnecting ${userId} in ${delay}ms (attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS})`);
         setTimeout(() => startSession(userId), delay);
       } else {
-        // Max attempts reached — give up, mark as disconnected
-        console.log(`[session] MAX RECONNECTS reached for ${userId}. Giving up.`);
+        // Max attempts reached — wipe and stop (user can click Reconnect)
+        console.log(`[session] MAX RECONNECTS reached for ${userId}. Wiping for fresh start.`);
         sessions.delete(userId);
+        _wipeAuthDir(userId);
+        reconnectCounters.delete(userId);
         sessionStore.updateSession(userId, { status: 'disconnected' });
-        sessionData.disconnectReason = 'max_reconnects';
       }
     }
   });
@@ -367,6 +375,7 @@ function deleteSession(userId) {
     try { session.socket.end(); } catch (_) {}
   }
   sessions.delete(userId);
+  reconnectCounters.delete(userId);
   _wipeAuthDir(userId);
   sessionStore.updateSession(userId, { status: 'deleted' });
   console.log(`[session] Session fully deleted: ${userId}`);

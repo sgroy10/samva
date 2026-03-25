@@ -1386,7 +1386,7 @@ function openQRModal() {
   container.innerHTML = '<div class="qr-loading"><div class="spinner"></div><p style="color:var(--muted);font-size:14px;">Generating QR code...</p></div>';
   openModal('qr-modal');
 
-  // Poll for QR code — handles ALL session states
+  // Poll for QR code every 2s — QR refreshes on server, we always show latest
   qrPollInterval = setInterval(async () => {
     try {
       const resp = await fetch('/sessions/' + currentUserId + '/status');
@@ -1427,7 +1427,7 @@ function openQRModal() {
     } catch (err) {
       console.error('QR poll error:', err);
     }
-  }, 3000);
+  }, 2000);
 }
 
 async function reconnectSession() {
