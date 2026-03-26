@@ -157,18 +157,34 @@ async function startSession(userId) {
         return;
       }
 
-      // ── CASE 3: Bad session (405, 410, 440, 515) ──────────
+      // ── CASE 3a: Stream error (515) — WhatsApp rejected stream ──
+      // Do NOT auto-retry — creates infinite loop. Wait for user to reconnect.
+      if (statusCode === 515) {
+        console.log(`[session] STREAM ERROR (515): ${userId}. Waiting 60s before allowing retry.`);
+        sessions.delete(userId);
+        _wipeAuthDir(userId);
+        sessionStore.updateSession(userId, { status: 'disconnected' });
+        // Cool down — prevent immediate re-creation
+        reconnectCounters.set(userId, MAX_RECONNECT_ATTEMPTS);
+        // After 60s, allow reconnect
+        setTimeout(() => {
+          reconnectCounters.delete(userId);
+          console.log(`[session] ${userId} cooldown expired. Ready for reconnect.`);
+        }, 60000);
+        return;
+      }
+
+      // ── CASE 3b: Bad session (405, 410, 440) ──────────────────
       // Session is corrupted. Wipe auth and auto-retry once with fresh QR.
-      if ([405, 410, 440, 515].includes(statusCode)) {
+      if ([405, 410, 440].includes(statusCode)) {
         console.log(`[session] BAD SESSION (${statusCode}): ${userId}. Wiping + fresh start.`);
         sessions.delete(userId);
         _wipeAuthDir(userId);
         sessionStore.updateSession(userId, { status: 'recovering' });
-        // Auto-retry once after wipe
         setTimeout(() => {
           console.log(`[session] Auto-recovering ${userId} with fresh QR...`);
           startSession(userId);
-        }, 3000);
+        }, 5000);
         return;
       }
 
