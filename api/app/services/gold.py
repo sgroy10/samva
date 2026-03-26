@@ -196,10 +196,10 @@ def _is_jeweller(business_type: str) -> bool:
 
 async def should_get_gold_brief(db: AsyncSession, user_id: str) -> bool:
     """
-    Check if user should get the 9am gold brief RIGHT NOW.
+    Check if user should get their gold brief RIGHT NOW.
     All three conditions must be true:
-    1. Business type is jewellery-related
-    2. Current IST time is between 9:00-9:15am
+    1. Business type is jewellery-related AND daily_brief_enabled
+    2. Current IST time is within 15 min of user's chosen brief time
     3. Brief hasn't been sent today yet
     """
     result = await db.execute(
@@ -213,9 +213,15 @@ async def should_get_gold_brief(db: AsyncSession, user_id: str) -> bool:
     if not _is_jeweller(soul.business_type):
         return False
 
-    # Condition 2: between 9:00-9:15 IST
+    # Condition 2: within 15 min of user's brief time (default 9:00 AM)
     now_ist = datetime.now(IST)
-    if not (time(9, 0) <= now_ist.time() <= time(9, 15)):
+    brief_time = soul.daily_brief_time or time(9, 0)
+    # Create window: brief_time to brief_time + 15 min
+    from datetime import timedelta, datetime as dt_cls
+    brief_start = dt_cls.combine(now_ist.date(), brief_time)
+    brief_end = brief_start + timedelta(minutes=15)
+    current = dt_cls.combine(now_ist.date(), now_ist.time().replace(tzinfo=None))
+    if not (brief_start <= current <= brief_end):
         return False
 
     # Condition 3: not already sent today

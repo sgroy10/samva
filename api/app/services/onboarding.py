@@ -199,10 +199,21 @@ Match their language. Keep it short.""",
         user_id=user_id,
     )
 
+    # If jeweller — tell them about the gold brief
+    from .gold import _is_jeweller
+    if _is_jeweller(business_type):
+        reply += (
+            "\n\n\U0001f4b0 *Aapke liye special:* Roz subah 9 AM pe main aapko gold/silver ka "
+            "live rate bhejungi — 24K, 22K, 18K, silver, platinum, international price, "
+            "aur expert buy/hold view.\n"
+            "Time change karna ho toh bolo: 'brief 8am'\n"
+            "Band karna ho toh bolo: 'stop gold brief'"
+        )
+
     # Append the quick guide + network permission question
     from .network import ask_network_permission
     network_q = await ask_network_permission(db, user_id)
-    reply += QUICK_GUIDE + "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" + network_q
+    reply += QUICK_GUIDE + "\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n" + network_q
 
     return reply
 

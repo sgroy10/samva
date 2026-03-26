@@ -188,6 +188,61 @@ async def process_message(
                 await db.commit()
                 return {"reply": reply, "actions": []}
 
+        # Gold brief control — stop/start/change time
+        if lower in ("stop gold brief", "stop brief", "no gold brief", "band karo brief",
+                      "unsubscribe gold", "stop daily brief", "daily brief band karo"):
+            from sqlalchemy import update as sql_update
+            await db.execute(
+                sql_update(AgentSoul).where(AgentSoul.user_id == user_id)
+                .values(daily_brief_enabled=False)
+            )
+            await db.commit()
+            reply = "Gold brief band kar diya. Ab 9 AM pe nahi aayega.\n\nKabhi bhi 'start gold brief' bolo toh phir se chalu ho jayega."
+            db.add(Conversation(user_id=user_id, role="user", content=text))
+            db.add(Conversation(user_id=user_id, role="assistant", content=reply))
+            await db.commit()
+            return {"reply": reply, "actions": []}
+
+        if lower in ("start gold brief", "start brief", "gold brief chalu karo",
+                      "subscribe gold", "start daily brief", "brief chalu karo"):
+            from sqlalchemy import update as sql_update
+            await db.execute(
+                sql_update(AgentSoul).where(AgentSoul.user_id == user_id)
+                .values(daily_brief_enabled=True)
+            )
+            await db.commit()
+            reply = "Gold brief chalu! Roz subah aapko rates milenge.\n\nTime change karna ho toh bolo: 'brief 8am' ya 'brief 7:30am'"
+            db.add(Conversation(user_id=user_id, role="user", content=text))
+            db.add(Conversation(user_id=user_id, role="assistant", content=reply))
+            await db.commit()
+            return {"reply": reply, "actions": []}
+
+        # Change brief time — "brief 8am", "gold brief 7:30am", "brief time 10am"
+        import re
+        brief_time_match = re.match(r"(?:gold\s+)?brief\s+(?:time\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)", lower)
+        if brief_time_match:
+            import datetime as dt
+            h = int(brief_time_match.group(1))
+            m = int(brief_time_match.group(2) or 0)
+            ampm = brief_time_match.group(3)
+            if ampm == "pm" and h < 12:
+                h += 12
+            elif ampm == "am" and h == 12:
+                h = 0
+            new_time = dt.time(h, m)
+            from sqlalchemy import update as sql_update
+            await db.execute(
+                sql_update(AgentSoul).where(AgentSoul.user_id == user_id)
+                .values(daily_brief_time=new_time, daily_brief_enabled=True)
+            )
+            await db.commit()
+            display = f"{h if h <= 12 else h-12}:{str(m).zfill(2)} {'AM' if h < 12 else 'PM'}"
+            reply = f"Done! Gold brief ab roz *{display}* pe aayega."
+            db.add(Conversation(user_id=user_id, role="user", content=text))
+            db.add(Conversation(user_id=user_id, role="assistant", content=reply))
+            await db.commit()
+            return {"reply": reply, "actions": []}
+
         # Gold rate fast-path — no AI cost for common rate queries
         gold_triggers = {"gold", "gold rate", "gold rates", "gold price", "rates", "rate",
                          "sona", "sona ka bhav", "bhav", "aaj ka rate", "current gold",
