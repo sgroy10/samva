@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage, makeCacheableSignalKeyStore, Browsers, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage, Browsers, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const path = require('path');
 const fs = require('fs');
@@ -7,7 +7,7 @@ const sessionStore = require('./sessionStore');
 const coreClient = require('./coreClient');
 
 const SESSION_DIR = process.env.SESSION_DIR || path.resolve(__dirname, '../../data/sessions');
-const logger = pino({ level: 'warn' });
+const logger = pino({ level: 'silent' });
 
 // Active sessions: userId -> sessionData
 const sessions = new Map();
@@ -55,16 +55,11 @@ async function startSession(userId) {
     waVersion = version;
   } catch (_) {}
 
+  // Match JewelClaw's exact config — proven working
   const sockOpts = {
-    auth: {
-      creds: state.creds,
-      keys: makeCacheableSignalKeyStore(state.keys, logger),
-    },
-    printQRInTerminal: false,
-    logger,
+    auth: state,
     browser: Browsers.ubuntu('Chrome'),
-    generateHighQualityLinkPreview: false,
-    syncFullHistory: false,
+    logger,
   };
   if (waVersion) sockOpts.version = waVersion;
 
