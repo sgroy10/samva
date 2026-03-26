@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-26T17:12:44.520Z"
+    "updatedAt": "2026-03-26T17:16:50.072Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -88,6 +88,20 @@
     ]
   },
   "decisions": [
+    {
+      "id": "dec_7829cd8ace55",
+      "text": "LLM selection: flash for chat, pro for medical vision, sonnet for code gen. All via OpenRouter.",
+      "createdAt": "2026-03-26T17:16:50.039Z",
+      "source": "user",
+      "tags": []
+    },
+    {
+      "id": "dec_73a9aa014dc6",
+      "text": "Orchestrator routing order: prebuilt → custom-built → image → LLM chat → background self-build",
+      "createdAt": "2026-03-26T17:16:49.728Z",
+      "source": "user",
+      "tags": []
+    },
     {
       "id": "dec_4d5092d966c7",
       "text": "Prebuilt is the 20% safety net. Sam self-builds 80%. Orchestrator tries self-build first, prebuilt as fallback.",
@@ -198,6 +212,15 @@
       "capturedAt": "2026-03-24T01:09:48.687Z"
     },
     "recentChanges": [
+      {
+        "eventId": "evt_1fda6f7afb95",
+        "summary": "THE ORCHESTRATOR: 5-layer routing brain above all skills",
+        "files": [
+          "api/app/services/orchestrator.py",
+          "api/app/services/agent.py"
+        ],
+        "at": "2026-03-26T17:16:49.417Z"
+      },
       {
         "eventId": "evt_361993d9d9f7",
         "summary": "Astrology vertical: 7 skills — panchang, kundli, rashifal, gun milan, muhurat, vastu, graha sthiti",
@@ -356,7 +379,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_7aaa87267859",
-    "count": 77
+    "lastEventId": "evt_d2a3ea610a89",
+    "count": 83
   }
 }

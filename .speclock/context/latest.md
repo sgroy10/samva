@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-26T17:12:44.519Z
+> Generated: 2026-03-26T17:16:50.072Z
 > Project: **samva**
-> Repo: branch `main` @ `85bf331`
+> Repo: branch `main` @ `df2f491`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -19,6 +19,8 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - **[LOCK]** Never touch JewelClaw code — Samva is a completely separate repo at /Users/gadgetzone/samva _(user, 2026-03-24)_
 
 ## Key Decisions
+- **[DEC]** LLM selection: flash for chat, pro for medical vision, sonnet for code gen. All via OpenRouter. _(user, 2026-03-26)_
+- **[DEC]** Orchestrator routing order: prebuilt → custom-built → image → LLM chat → background self-build _(user, 2026-03-26)_
 - **[DEC]** Prebuilt is the 20% safety net. Sam self-builds 80%. Orchestrator tries self-build first, prebuilt as fallback. _(user, 2026-03-26)_
 - **[DEC]** Custom skills checked BEFORE general chat in routing. Keyword matching from trigger_keywords. _(user, 2026-03-25)_
 - **[DEC]** User skills stored in DB (user_skills table), not as files. Survives deploys. _(user, 2026-03-25)_
@@ -29,13 +31,13 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - **[DEC]** PostgreSQL on Railway, DATABASE_URL auto-injected _(user, 2026-03-24)_
 - **[DEC]** Razorpay live keys active — rzp_live_6B2TJ6eDeIzIqX _(user, 2026-03-24)_
 - **[DEC]** Dockerfile uses node:22-slim + python3 for dual runtime _(user, 2026-03-24)_
-- **[DEC]** Samva is standalone repo at sgroy10/samva, NOT inside JewelClaw _(user, 2026-03-24)_
 
 ## Deploy Facts
 - Provider: **Railway**
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-26T17:16:49] THE ORCHESTRATOR: 5-layer routing brain above all skills (api/app/services/orchestrator.py, api/app/services/agent.py)
 - [2026-03-26T17:12:44] Astrology vertical: 7 skills — panchang, kundli, rashifal, gun milan, muhurat, vastu, graha sthiti (api/app/services/prebuilt_skills.py)
 - [2026-03-26T17:02:52] Full JewelClaw jewelry suite: GemLens BOM, JewelCraft render/enhance/ad/VTO + API keys set (api/app/services/prebuilt_skills.py, api/app/config.py)
 - [2026-03-26T16:49:16] Prebuilt skills library: 13 skills across 5 verticals + universal (api/app/services/prebuilt_skills.py)

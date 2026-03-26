@@ -206,35 +206,31 @@ async def process_message(
             await db.commit()
             return {"reply": HELP_TEXT, "actions": []}
 
-        # Check user's custom-built skills FIRST (before intent detection)
-        custom_reply = await skill_builder.execute_user_skill(db, user_id, text)
-        if custom_reply:
-            db.add(Conversation(user_id=user_id, role="user", content=text or "[media]"))
-            db.add(Conversation(user_id=user_id, role="assistant", content=custom_reply))
-            await db.commit()
-            return {"reply": custom_reply, "actions": []}
-
-        # Active user - detect intent
-        intent_data = await _detect_intent(text, image_base64, user_id)
-        intent = intent_data.get("intent", "chat")
-        logger.info(f"Intent for {user_id}: {intent} (confidence: {intent_data.get('confidence', 0)})")
+        # ══════════════════════════════════════════════════════════
+        # THE ORCHESTRATOR — routes everything
+        # Prebuilt skills → custom skills → image routing → LLM chat
+        # All invisible to the user. Sam just works.
+        # ══════════════════════════════════════════════════════════
+        from .orchestrator import orchestrate
 
         # Save user message
         db.add(Conversation(user_id=user_id, role="user", content=text or "[media]"))
         await db.commit()
 
-        # Route to skill
-        reply = await _route_skill(db, user_id, user, soul, intent, text, image_base64)
+        # Orchestrate
+        reply = await orchestrate(db, user_id, user, soul, text, message_type, image_base64)
+
+        # Handle dedicated skills that orchestrator doesn't cover
+        # (email, meeting notes, reminders, contacts — these need DB writes)
+        if not reply:
+            intent_data = await _detect_intent(text, image_base64, user_id)
+            intent = intent_data.get("intent", "chat")
+            logger.info(f"Intent fallback for {user_id}: {intent}")
+            reply = await _route_skill(db, user_id, user, soul, intent, text, image_base64)
 
         # Save assistant reply
         db.add(Conversation(user_id=user_id, role="assistant", content=reply))
         await db.commit()
-
-        # Background: detect if Sam should build a new skill for this user
-        # Uses a separate DB session since the request session will close
-        import asyncio
-        soul_prompt = soul.system_prompt or ""
-        asyncio.create_task(_maybe_build_skill_bg(user_id, text, reply, soul_prompt))
 
         return {"reply": reply, "actions": []}
 

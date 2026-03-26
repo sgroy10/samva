@@ -75,3 +75,9 @@
 {"eventId":"evt_468c71be69f1","type":"context_generated","at":"2026-03-26T17:02:52.917Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
 {"eventId":"evt_361993d9d9f7","type":"manual_change","at":"2026-03-26T17:12:44.485Z","files":["api/app/services/prebuilt_skills.py"],"summary":"Astrology vertical: 7 skills — panchang, kundli, rashifal, gun milan, muhurat, vastu, graha sthiti","patchPath":".speclock/patches/evt_361993d9d9f7.patch"}
 {"eventId":"evt_7aaa87267859","type":"context_generated","at":"2026-03-26T17:12:44.520Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_1fda6f7afb95","type":"manual_change","at":"2026-03-26T17:16:49.417Z","files":["api/app/services/orchestrator.py","api/app/services/agent.py"],"summary":"THE ORCHESTRATOR: 5-layer routing brain above all skills","patchPath":".speclock/patches/evt_1fda6f7afb95.patch"}
+{"eventId":"evt_7dc860253479","type":"context_generated","at":"2026-03-26T17:16:49.451Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_9463cc4733ba","type":"decision_added","at":"2026-03-26T17:16:49.728Z","files":[],"summary":"Decision: Orchestrator routing order: prebuilt → custom-built → image → LLM chat → backgro","patchPath":""}
+{"eventId":"evt_5f6207a529e7","type":"context_generated","at":"2026-03-26T17:16:49.761Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_6653e642c799","type":"decision_added","at":"2026-03-26T17:16:50.039Z","files":[],"summary":"Decision: LLM selection: flash for chat, pro for medical vision, sonnet for code gen. All ","patchPath":""}
+{"eventId":"evt_d2a3ea610a89","type":"context_generated","at":"2026-03-26T17:16:50.072Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
