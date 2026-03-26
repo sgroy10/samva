@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-25T18:20:04.399Z"
+    "updatedAt": "2026-03-26T16:49:17.302Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -88,6 +88,13 @@
     ]
   },
   "decisions": [
+    {
+      "id": "dec_4d5092d966c7",
+      "text": "Prebuilt is the 20% safety net. Sam self-builds 80%. Orchestrator tries self-build first, prebuilt as fallback.",
+      "createdAt": "2026-03-26T16:49:17.269Z",
+      "source": "user",
+      "tags": []
+    },
     {
       "id": "dec_eb30d2eff37a",
       "text": "Custom skills checked BEFORE general chat in routing. Keyword matching from trigger_keywords.",
@@ -191,6 +198,14 @@
       "capturedAt": "2026-03-24T01:09:48.687Z"
     },
     "recentChanges": [
+      {
+        "eventId": "evt_6fd2a6080038",
+        "summary": "Prebuilt skills library: 13 skills across 5 verticals + universal",
+        "files": [
+          "api/app/services/prebuilt_skills.py"
+        ],
+        "at": "2026-03-26T16:49:16.942Z"
+      },
       {
         "eventId": "evt_f60243eacc4a",
         "summary": "5 prebuilt skills (FDA, weather, Indian stocks, currency converter, gemstone) + admin overview dashboard",
@@ -324,7 +339,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_75f8ae83f353",
-    "count": 69
+    "lastEventId": "evt_7dfe4bad6bc8",
+    "count": 73
   }
 }

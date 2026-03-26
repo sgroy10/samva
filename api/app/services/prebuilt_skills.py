@@ -1,0 +1,624 @@
+"""
+Prebuilt Skills Library — organized by vertical.
+
+These are hand-coded, tested, reliable skills that activate instantly.
+No generation. No research. Just works.
+
+Structure:
+- UNIVERSAL: every user gets these
+- JEWELRY: activates when business_type contains jewel/gold/diamond/ornament
+- HEALTH: activates when business_type contains doctor/clinic/health/fitness
+- FINANCE: activates when business_type contains CA/accountant/finance/tax
+- LEGAL: activates when business_type contains lawyer/legal/advocate
+- BUSINESS: general business skills for all active users
+
+Each skill has:
+  name: unique identifier
+  description: what it does (shown to user)
+  keywords: trigger words for routing
+  vertical: "universal" or specific vertical name
+  execute: async function(query, context) -> str
+"""
+
+import logging
+import httpx
+
+logger = logging.getLogger("samva.prebuilt")
+
+
+# ══════════════════════════════════════════════════════════════════
+# UNIVERSAL — every user gets these
+# ══════════════════════════════════════════════════════════════════
+
+async def weather(query: str, context: dict = None) -> str:
+    """Current weather for any city via wttr.in."""
+    words = query.lower().replace("?", "").split()
+    stop = {"what", "is", "the", "weather", "in", "of", "for", "today", "how",
+            "mausam", "kya", "hai", "ka", "batao", "bolo", "check", "current"}
+    city = " ".join(w for w in words if w not in stop and len(w) > 1) or "Mumbai"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"https://wttr.in/{city}?format=j1")
+            if resp.status_code != 200:
+                return ""
+            data = resp.json()
+            c = data["current_condition"][0]
+            return (
+                f"*{city.title()}* weather:\n"
+                f"{c['weatherDesc'][0]['value']}, {c['temp_C']}°C "
+                f"(feels like {c['FeelsLikeC']}°C)\n"
+                f"Humidity: {c['humidity']}% | Wind: {c['windspeedKmph']} km/h"
+            )
+    except Exception:
+        return ""
+
+
+async def currency_convert(query: str, context: dict = None) -> str:
+    """Convert any currency to any other with amounts."""
+    import re
+    q = query.upper().replace(",", "")
+
+    nums = re.findall(r"[\d.]+", q)
+    amount = float(nums[0]) if nums else 1.0
+
+    NAMES = {"DOLLAR": "USD", "DOLLARS": "USD", "RUPEE": "INR", "RUPEES": "INR",
+             "EURO": "EUR", "EUROS": "EUR", "POUND": "GBP", "POUNDS": "GBP",
+             "YEN": "JPY", "DIRHAM": "AED", "DIRHAMS": "AED", "RIYAL": "SAR"}
+    CODES = {"USD", "EUR", "GBP", "INR", "AED", "SAR", "JPY", "CAD", "AUD",
+             "SGD", "CHF", "CNY", "KWD", "BHD", "OMR", "QAR", "THB", "MYR",
+             "IDR", "PHP", "BDT", "NPR", "LKR", "PKR"}
+
+    found = []
+    for w in q.split():
+        w = w.strip(".,?!")
+        if w in CODES:
+            found.append(w)
+        elif w in NAMES:
+            found.append(NAMES[w])
+
+    if len(found) < 1:
+        return ""
+    if len(found) < 2:
+        found.append("INR")
+
+    from_cur, to_cur = found[0], found[1]
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"https://open.er-api.com/v6/latest/{from_cur}")
+            if resp.status_code != 200:
+                return ""
+            rate = resp.json()["rates"].get(to_cur)
+            if not rate:
+                return ""
+            result = amount * rate
+            return f"{amount:,.0f} {from_cur} = *{result:,.2f} {to_cur}*\n(1 {from_cur} = {rate:.4f} {to_cur})"
+    except Exception:
+        return ""
+
+
+async def stock_price(query: str, context: dict = None) -> str:
+    """Live stock prices — Indian (NSE/BSE) and international."""
+    SYMBOLS = {
+        "reliance": "RELIANCE.NS", "tcs": "TCS.NS", "hdfc": "HDFCBANK.NS",
+        "infosys": "INFY.NS", "wipro": "WIPRO.NS", "icici": "ICICIBANK.NS",
+        "sbi": "SBIN.NS", "kotak": "KOTAKBANK.NS", "bajaj": "BAJFINANCE.NS",
+        "adani": "ADANIENT.NS", "titan": "TITAN.NS", "maruti": "MARUTI.NS",
+        "hul": "HINDUNILVR.NS", "itc": "ITC.NS", "lt": "LT.NS",
+        "nifty": "^NSEI", "nifty50": "^NSEI", "sensex": "^BSESN",
+        "banknifty": "^NSEBANK",
+        "apple": "AAPL", "google": "GOOGL", "tesla": "TSLA",
+        "amazon": "AMZN", "microsoft": "MSFT",
+    }
+    words = query.lower().replace("?", "").replace("'s", "").split()
+    stop = {"what", "is", "the", "of", "for", "how", "much", "today", "current",
+            "live", "nse", "bse", "share", "price", "stock", "kya", "hai", "ka", "ki", "rate", "check"}
+    terms = [w for w in words if w not in stop and len(w) > 1]
+
+    symbol = None
+    for t in terms:
+        if t in SYMBOLS:
+            symbol = SYMBOLS[t]
+            break
+    if not symbol and terms:
+        symbol = terms[0].upper() + ".NS"
+    if not symbol:
+        return ""
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=1d&interval=1d"
+            )
+            if resp.status_code != 200:
+                return ""
+            meta = resp.json()["chart"]["result"][0]["meta"]
+            price = meta["regularMarketPrice"]
+            prev = meta.get("chartPreviousClose", price)
+            change = price - prev
+            pct = (change / prev * 100) if prev else 0
+            arrow = "\u2191" if change >= 0 else "\u2193"
+            name = meta.get("shortName", symbol)
+            return f"*{name}*\n\u20b9{price:,.2f} {arrow} \u20b9{abs(change):,.2f} ({abs(pct):.1f}%)"
+    except Exception:
+        return ""
+
+
+async def dictionary_lookup(query: str, context: dict = None) -> str:
+    """English word definition, pronunciation, examples."""
+    words = query.lower().replace("?", "").split()
+    stop = {"what", "does", "mean", "meaning", "of", "the", "word", "define",
+            "definition", "matlab", "kya", "hai", "ka", "ki", "english"}
+    term = None
+    for w in words:
+        if w not in stop and len(w) > 2:
+            term = w
+            break
+    if not term:
+        return ""
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{term}")
+            if resp.status_code != 200:
+                return ""
+            data = resp.json()[0]
+            word = data["word"]
+            phonetic = data.get("phonetic", "")
+            meanings = []
+            for m in data.get("meanings", [])[:2]:
+                pos = m["partOfSpeech"]
+                defn = m["definitions"][0]["definition"]
+                example = m["definitions"][0].get("example", "")
+                line = f"*{pos}*: {defn}"
+                if example:
+                    line += f'\n  _"{example}"_'
+                meanings.append(line)
+            result = f"*{word}* {phonetic}\n\n" + "\n\n".join(meanings)
+            return result
+    except Exception:
+        return ""
+
+
+async def news_search(query: str, context: dict = None) -> str:
+    """Search latest news by keyword. Uses free news APIs."""
+    words = query.lower().replace("?", "").split()
+    stop = {"news", "latest", "about", "on", "what", "is", "the", "happening",
+            "kya", "hai", "batao", "tell", "me", "show", "today"}
+    terms = [w for w in words if w not in stop and len(w) > 2]
+    search = " ".join(terms) if terms else "India"
+
+    try:
+        # Use Google News RSS as free alternative (no API key needed)
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"https://news.google.com/rss/search?q={search}&hl=en-IN&gl=IN&ceid=IN:en"
+            )
+            if resp.status_code != 200:
+                return ""
+            # Parse RSS XML simply
+            import re
+            items = re.findall(r"<title>(.*?)</title>", resp.text)
+            # Skip first item (feed title)
+            headlines = items[1:6] if len(items) > 1 else []
+            if not headlines:
+                return ""
+            lines = [f"*Latest news: {search}*\n"]
+            for i, h in enumerate(headlines, 1):
+                # Clean HTML entities
+                h = h.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&#39;", "'")
+                lines.append(f"{i}. {h}")
+            return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+# ══════════════════════════════════════════════════════════════════
+# JEWELRY VERTICAL
+# ══════════════════════════════════════════════════════════════════
+
+async def gemstone_info(query: str, context: dict = None) -> str:
+    """Gemstone identification and grading reference."""
+    GEMS = {
+        "diamond": (
+            "*Diamond*\nHardness: 10 (Mohs)\n"
+            "4Cs: Cut, Clarity, Color, Carat\n"
+            "Clarity: FL > IF > VVS1 > VVS2 > VS1 > VS2 > SI1 > SI2 > I1\n"
+            "Color: D(best) E F G H I J...Z\n"
+            "Cut: Excellent > Very Good > Good > Fair\n"
+            "Price: \u20b930K-5L/ct for VS-SI quality"
+        ),
+        "ruby": "*Ruby*\nHardness: 9. Red corundum.\nBurmese (pigeon blood) most valuable.\nPrice: \u20b910K-2L/ct depending on origin.",
+        "sapphire": "*Sapphire*\nHardness: 9. Blue corundum.\nKashmir most valuable, Ceylon popular.\nPrice: \u20b95K-1L/ct.",
+        "emerald": "*Emerald*\nHardness: 7.5. Green beryl.\nColombian most prized. Inclusions normal.\nPrice: \u20b95K-3L/ct.",
+        "pearl": "*Pearl*\nOrganic gem. Akoya (Japanese) classic.\nSouth Sea largest. Tahitian (black).\nPrice: \u20b9500-50K per pearl.",
+        "tanzanite": "*Tanzanite*\nOnly found in Tanzania.\nTrichroic. Heat treated for blue.\nPrice: \u20b93K-30K/ct.",
+        "opal": "*Opal*\nPlay of color. Australian black most valuable.\nHardness 5.5-6.5 (fragile).\nPrice: \u20b9500-50K/ct.",
+    }
+    q = query.lower()
+    for gem, info in GEMS.items():
+        if gem in q:
+            return info
+
+    if any(w in q for w in ["clarity", "grade", "4c", "carat", "cut", "color"]):
+        return GEMS["diamond"]
+
+    return "*Gemstone Guide*\nI know: diamond, ruby, sapphire, emerald, pearl, tanzanite, opal.\nWhich stone?"
+
+
+async def jewelry_pricing(query: str, context: dict = None) -> str:
+    """Calculate jewelry price from weight + making charges using live gold + user memory."""
+    import re
+    q = query.lower()
+
+    # Extract weight in grams
+    weight_match = re.search(r"([\d.]+)\s*(?:gram|gm|g\b)", q)
+    weight = float(weight_match.group(1)) if weight_match else None
+
+    # Extract karat
+    karat = 22  # default
+    if "24k" in q or "24 karat" in q:
+        karat = 24
+    elif "18k" in q or "18 karat" in q:
+        karat = 18
+    elif "14k" in q or "14 karat" in q:
+        karat = 14
+
+    if not weight:
+        return ""
+
+    # Get live gold price
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get("https://api.gold-api.com/price/XAU")
+            gold_usd = resp.json().get("price", 0) if resp.status_code == 200 else 0
+            resp2 = await client.get("https://open.er-api.com/v6/latest/USD")
+            usd_inr = resp2.json().get("rates", {}).get("INR", 83.5) if resp2.status_code == 200 else 83.5
+
+        gold_24k = (gold_usd * usd_inr * 1.069) / 31.1035
+        purity = {24: 1.0, 22: 0.916, 18: 0.75, 14: 0.585}
+        gold_rate = gold_24k * purity.get(karat, 0.916)
+        metal_cost = weight * gold_rate
+
+        # Making charges — default 12% if not in user memory
+        making_pct = 12
+        if context and context.get("user_memory"):
+            for mem in context["user_memory"]:
+                if "making" in mem.get("key", "").lower():
+                    try:
+                        making_pct = float(re.search(r"[\d.]+", mem["value"]).group())
+                    except Exception:
+                        pass
+
+        making = metal_cost * (making_pct / 100)
+        total = metal_cost + making
+
+        return (
+            f"*Jewelry Price Estimate*\n"
+            f"Weight: {weight}g | {karat}K gold\n"
+            f"Gold rate: \u20b9{gold_rate:,.0f}/gm ({karat}K)\n"
+            f"Metal cost: \u20b9{metal_cost:,.0f}\n"
+            f"Making ({making_pct}%): \u20b9{making:,.0f}\n"
+            f"*Total: \u20b9{total:,.0f}*\n\n"
+            f"_Stone charges extra. Live gold rate used._"
+        )
+    except Exception:
+        return ""
+
+
+# ══════════════════════════════════════════════════════════════════
+# HEALTH VERTICAL
+# ══════════════════════════════════════════════════════════════════
+
+async def drug_interactions(query: str, context: dict = None) -> str:
+    """Check drug interactions via FDA OpenFDA database."""
+    words = query.lower().replace("?", "").replace("!", "").split()
+    stop = {"what", "are", "the", "drug", "interaction", "interactions", "for", "of",
+            "between", "check", "info", "about", "with", "can", "i", "take", "is",
+            "it", "safe", "to", "me", "tell", "please", "fda", "and", "medicine",
+            "medication", "prescribe", "dava", "dawai"}
+    drugs = [w for w in words if w not in stop and len(w) > 2]
+    if not drugs:
+        return ""
+
+    results = []
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        for drug in drugs[:2]:
+            try:
+                resp = await client.get(
+                    f"https://api.fda.gov/drug/label.json?search=openfda.generic_name:{drug}&limit=1"
+                )
+                if resp.status_code != 200:
+                    continue
+                r = resp.json().get("results", [{}])[0]
+                name = drug.upper()
+                interactions = r.get("drug_interactions", ["No interaction data"])[0][:300]
+                warnings = r.get("warnings", [""])[0][:200]
+                text = f"*{name}* (FDA):\nInteractions: {interactions}"
+                if warnings:
+                    text += f"\nWarnings: {warnings}"
+                results.append(text)
+            except Exception:
+                continue
+
+    return "\n\n".join(results) if results else ""
+
+
+async def calorie_lookup(query: str, context: dict = None) -> str:
+    """Estimate calories from food description. Uses Gemini knowledge (no API key needed)."""
+    # This is a pure-LLM skill — the orchestrator will call Gemini with a nutrition prompt
+    # We return empty to signal the orchestrator to handle it with a specialized prompt
+    return "__LLM_NUTRITION__"
+
+
+async def medical_image_analysis(query: str, context: dict = None) -> str:
+    """Analyze medical images (Xray, scan). Needs Gemini Pro Vision."""
+    # Signal the orchestrator to use Gemini Pro Vision with medical prompt
+    return "__LLM_MEDICAL_VISION__"
+
+
+# ══════════════════════════════════════════════════════════════════
+# FINANCE VERTICAL
+# ══════════════════════════════════════════════════════════════════
+
+async def gst_rate(query: str, context: dict = None) -> str:
+    """Indian GST rate lookup by product/service category."""
+    GST_RATES = {
+        # Common categories
+        "gold": ("Gold, silver, diamond jewelry", "3%"),
+        "jewelry": ("Gold, silver, diamond jewelry", "3%"),
+        "diamond": ("Cut and polished diamonds", "1.5%"),
+        "restaurant": ("Restaurant services (non-AC)", "5%"),
+        "hotel": ("Hotel rooms (tariff based)", "5% / 12% / 18% / 28%"),
+        "mobile": ("Mobile phones", "12%"),
+        "car": ("Cars (based on type)", "28% + cess"),
+        "cement": ("Cement", "28%"),
+        "software": ("IT services, SaaS", "18%"),
+        "consulting": ("Consulting, professional services", "18%"),
+        "textile": ("Textiles (up to 1000)", "5%"),
+        "medicine": ("Medicines, medical devices", "5% / 12%"),
+        "food": ("Packaged food items", "5% / 12% / 18%"),
+        "electronics": ("Electronics, appliances", "18%"),
+        "insurance": ("Insurance premium", "18%"),
+        "banking": ("Banking, financial services", "18%"),
+        "transport": ("Goods transport", "5% / 12%"),
+        "education": ("Educational services", "Exempt"),
+        "health": ("Healthcare services", "Exempt"),
+        "agriculture": ("Agricultural produce (unprocessed)", "Exempt"),
+    }
+    q = query.lower()
+    for key, (desc, rate) in GST_RATES.items():
+        if key in q:
+            return f"*GST Rate*\n{desc}\nRate: *{rate}*\n\n_Verify at cbic-gst.gov.in for exact HSN/SAC code._"
+
+    return ""
+
+
+async def invoice_draft(query: str, context: dict = None) -> str:
+    """Signal orchestrator to draft an invoice using LLM."""
+    return "__LLM_INVOICE__"
+
+
+# ══════════════════════════════════════════════════════════════════
+# LEGAL VERTICAL
+# ══════════════════════════════════════════════════════════════════
+
+async def indian_law_search(query: str, context: dict = None) -> str:
+    """Search Indian legal cases and bare acts via Indian Kanoon."""
+    words = query.lower().replace("?", "").split()
+    stop = {"what", "is", "the", "law", "about", "case", "section", "act",
+            "find", "search", "legal", "kanoon", "kya", "hai"}
+    terms = [w for w in words if w not in stop and len(w) > 2]
+    search = " ".join(terms) if terms else ""
+    if not search:
+        return ""
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Indian Kanoon has a public search page we can scrape
+            resp = await client.get(
+                f"https://indiankanoon.org/search/?formInput={search}",
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            if resp.status_code != 200:
+                return ""
+            import re
+            # Extract case titles from results
+            titles = re.findall(r'class="result_title"[^>]*>(.*?)</a>', resp.text)
+            if not titles:
+                return ""
+            lines = [f"*Indian Kanoon: {search}*\n"]
+            for i, t in enumerate(titles[:5], 1):
+                t = re.sub(r'<[^>]+>', '', t).strip()
+                lines.append(f"{i}. {t}")
+            lines.append(f"\nFull results: indiankanoon.org/search/?formInput={search}")
+            return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+# ══════════════════════════════════════════════════════════════════
+# GENERAL BUSINESS
+# ══════════════════════════════════════════════════════════════════
+
+# Email drafting, meeting notes, reminders — already in dedicated services.
+# These are referenced here for the orchestrator's routing table.
+
+
+# ══════════════════════════════════════════════════════════════════
+# SKILL REGISTRY — the routing table the orchestrator uses
+# ══════════════════════════════════════════════════════════════════
+
+SKILL_REGISTRY = [
+    # ── Universal ────────────────────────────────────────────
+    {
+        "name": "weather",
+        "description": "Current weather for any city",
+        "keywords": ["weather", "temperature", "mausam", "barish", "rain", "forecast",
+                      "garmi", "thand", "thandi", "climate"],
+        "vertical": "universal",
+        "execute": weather,
+    },
+    {
+        "name": "currency_convert",
+        "description": "Convert any currency with amounts",
+        "keywords": ["convert", "currency", "exchange rate", "AED", "USD", "EUR", "GBP",
+                      "to INR", "to USD", "kitne rupees", "dollars", "dirhams", "pounds"],
+        "vertical": "universal",
+        "execute": currency_convert,
+    },
+    {
+        "name": "stock_price",
+        "description": "Live stock prices — Indian and international",
+        "keywords": ["share price", "stock price", "NSE", "BSE", "nifty", "sensex",
+                      "reliance", "tcs", "hdfc", "infosys", "adani", "titan",
+                      "apple", "google", "tesla", "banknifty"],
+        "vertical": "universal",
+        "execute": stock_price,
+    },
+    {
+        "name": "dictionary",
+        "description": "English word definitions and meaning",
+        "keywords": ["meaning of", "define", "definition", "word meaning", "matlab",
+                      "english word", "vocabulary"],
+        "vertical": "universal",
+        "execute": dictionary_lookup,
+    },
+    {
+        "name": "news",
+        "description": "Latest news search by topic",
+        "keywords": ["news", "latest news", "headlines", "khabar", "samachar",
+                      "what happened", "current events"],
+        "vertical": "universal",
+        "execute": news_search,
+    },
+
+    # ── Jewelry ──────────────────────────────────────────────
+    {
+        "name": "gemstone_info",
+        "description": "Gemstone identification, grading, pricing reference",
+        "keywords": ["stone", "gemstone", "diamond", "ruby", "sapphire", "emerald",
+                      "pearl", "opal", "tanzanite", "clarity", "4c", "carat",
+                      "gem", "heera", "neelam", "panna", "moti"],
+        "vertical": "jewelry",
+        "execute": gemstone_info,
+    },
+    {
+        "name": "jewelry_pricing",
+        "description": "Calculate jewelry price from weight + making charges",
+        "keywords": ["price this", "cost of", "gram gold", "making charge",
+                      "jewelry price", "ring price", "chain price", "bangle price",
+                      "kitna padega", "rate kya hoga"],
+        "vertical": "jewelry",
+        "execute": jewelry_pricing,
+    },
+
+    # ── Health ───────────────────────────────────────────────
+    {
+        "name": "drug_interactions",
+        "description": "Check drug interactions from FDA database",
+        "keywords": ["drug interaction", "medicine interaction", "medication",
+                      "warfarin", "aspirin", "metformin", "side effect",
+                      "contraindication", "prescribe", "dava", "dawai"],
+        "vertical": "health",
+        "execute": drug_interactions,
+    },
+    {
+        "name": "calorie_lookup",
+        "description": "Estimate calories and nutrition from food description",
+        "keywords": ["calorie", "calories", "nutrition", "protein", "carb",
+                      "fat content", "kitni calorie", "healthy", "diet"],
+        "vertical": "health",
+        "execute": calorie_lookup,
+    },
+    {
+        "name": "medical_image",
+        "description": "Analyze medical images — Xray, scan, report",
+        "keywords": ["xray", "x-ray", "scan", "mri", "ct scan", "report",
+                      "chest xray", "analyze this scan"],
+        "vertical": "health",
+        "execute": medical_image_analysis,
+    },
+
+    # ── Finance ──────────────────────────────────────────────
+    {
+        "name": "gst_rate",
+        "description": "Indian GST rate lookup by product/service",
+        "keywords": ["gst", "gst rate", "tax rate", "hsn", "sac code",
+                      "goods and services tax", "kitna tax"],
+        "vertical": "finance",
+        "execute": gst_rate,
+    },
+    {
+        "name": "invoice_draft",
+        "description": "Draft a professional invoice or quotation",
+        "keywords": ["invoice", "quotation", "bill banao", "estimate",
+                      "proforma", "challan"],
+        "vertical": "finance",
+        "execute": invoice_draft,
+    },
+
+    # ── Legal ────────────────────────────────────────────────
+    {
+        "name": "indian_law",
+        "description": "Search Indian legal cases and bare acts",
+        "keywords": ["section", "act", "ipc", "crpc", "case law", "supreme court",
+                      "high court", "legal", "kanoon", "law", "bare act",
+                      "judgment", "faisla"],
+        "vertical": "legal",
+        "execute": indian_law_search,
+    },
+]
+
+# ── Vertical keyword mapping ─────────────────────────────────────
+
+VERTICAL_KEYWORDS = {
+    "jewelry": ["jewel", "gold", "diamond", "ornament", "sona", "heera", "jewelry", "jewellery"],
+    "health": ["doctor", "clinic", "health", "fitness", "medical", "hospital", "patient", "cardio", "trainer"],
+    "finance": ["ca", "accountant", "finance", "tax", "audit", "chartered", "gst", "banking"],
+    "legal": ["lawyer", "legal", "advocate", "court", "law firm", "attorney"],
+}
+
+
+def get_user_vertical(business_type: str) -> str:
+    """Detect which vertical a user belongs to from their business_type."""
+    if not business_type:
+        return "general"
+    bt = business_type.lower()
+    for vertical, keywords in VERTICAL_KEYWORDS.items():
+        if any(kw in bt for kw in keywords):
+            return vertical
+    return "general"
+
+
+def get_skills_for_user(business_type: str) -> list:
+    """Get all skills available to this user — universal + their vertical."""
+    vertical = get_user_vertical(business_type)
+    return [
+        s for s in SKILL_REGISTRY
+        if s["vertical"] == "universal" or s["vertical"] == vertical
+    ]
+
+
+async def find_and_execute(query: str, business_type: str, context: dict = None) -> str:
+    """
+    Find the best matching prebuilt skill for this query and execute it.
+    Returns the skill's response, or empty string if no match.
+    """
+    available = get_skills_for_user(business_type)
+    query_lower = query.lower()
+
+    for skill in available:
+        if any(kw in query_lower for kw in skill["keywords"]):
+            try:
+                result = await skill["execute"](query, context)
+                if result and not result.startswith("__"):
+                    logger.info(f"Prebuilt skill matched: {skill['name']}")
+                    return result
+                elif result and result.startswith("__"):
+                    # Signal for orchestrator — special handling needed
+                    return result
+            except Exception as e:
+                logger.error(f"Prebuilt skill {skill['name']} failed: {e}")
+                continue
+
+    return ""

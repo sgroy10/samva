@@ -67,3 +67,7 @@
 {"eventId":"evt_b064eb93bfcd","type":"context_generated","at":"2026-03-25T16:56:37.953Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
 {"eventId":"evt_f60243eacc4a","type":"manual_change","at":"2026-03-25T18:20:04.364Z","files":["api/app/services/skill_builder.py","api/app/main.py"],"summary":"5 prebuilt skills (FDA, weather, Indian stocks, currency converter, gemstone) + admin overview dashboard","patchPath":".speclock/patches/evt_f60243eacc4a.patch"}
 {"eventId":"evt_75f8ae83f353","type":"context_generated","at":"2026-03-25T18:20:04.399Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_6fd2a6080038","type":"manual_change","at":"2026-03-26T16:49:16.942Z","files":["api/app/services/prebuilt_skills.py"],"summary":"Prebuilt skills library: 13 skills across 5 verticals + universal","patchPath":""}
+{"eventId":"evt_b71ceac788ac","type":"context_generated","at":"2026-03-26T16:49:16.983Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_466f4fe8628a","type":"decision_added","at":"2026-03-26T16:49:17.270Z","files":[],"summary":"Decision: Prebuilt is the 20% safety net. Sam self-builds 80%. Orchestrator tries self-bui","patchPath":""}
+{"eventId":"evt_7dfe4bad6bc8","type":"context_generated","at":"2026-03-26T16:49:17.302Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}

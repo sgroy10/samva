@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-25T18:20:04.399Z
+> Generated: 2026-03-26T16:49:17.302Z
 > Project: **samva**
-> Repo: branch `main` @ `d56b21b`
+> Repo: branch `main` @ `ca8e634`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -19,6 +19,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - **[LOCK]** Never touch JewelClaw code — Samva is a completely separate repo at /Users/gadgetzone/samva _(user, 2026-03-24)_
 
 ## Key Decisions
+- **[DEC]** Prebuilt is the 20% safety net. Sam self-builds 80%. Orchestrator tries self-build first, prebuilt as fallback. _(user, 2026-03-26)_
 - **[DEC]** Custom skills checked BEFORE general chat in routing. Keyword matching from trigger_keywords. _(user, 2026-03-25)_
 - **[DEC]** User skills stored in DB (user_skills table), not as files. Survives deploys. _(user, 2026-03-25)_
 - **[DEC]** Network matching is opt-in. Double confirmation before sharing any details. _(user, 2026-03-24)_
@@ -35,6 +36,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-26T16:49:16] Prebuilt skills library: 13 skills across 5 verticals + universal (api/app/services/prebuilt_skills.py)
 - [2026-03-25T18:20:04] 5 prebuilt skills (FDA, weather, Indian stocks, currency converter, gemstone) + admin overview dashboard (api/app/services/skill_builder.py, api/app/main.py)
 - [2026-03-25T16:56:37] Subprocess sandbox + rate limiting for self-plugin builder (api/app/services/skill_builder.py)
 - [2026-03-25T16:30:41] THE INVENTION: Sam's self-plugin builder — detect need, find API, write code, test, activate (api/app/services/skill_builder.py, api/app/services/agent.py, api/app/models.py)
