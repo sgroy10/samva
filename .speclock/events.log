@@ -81,3 +81,5 @@
 {"eventId":"evt_5f6207a529e7","type":"context_generated","at":"2026-03-26T17:16:49.761Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
 {"eventId":"evt_6653e642c799","type":"decision_added","at":"2026-03-26T17:16:50.039Z","files":[],"summary":"Decision: LLM selection: flash for chat, pro for medical vision, sonnet for code gen. All ","patchPath":""}
 {"eventId":"evt_d2a3ea610a89","type":"context_generated","at":"2026-03-26T17:16:50.072Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_d9e4d3a1b3c8","type":"manual_change","at":"2026-03-26T17:42:20.163Z","files":["api/app/services/prebuilt_skills.py","api/app/services/orchestrator.py","bridge/src/sessionManager.js"],"summary":"Wire JewelCraft/GemLens APIs: fix orchestrator image signal, add v1-analyze, bridge sends images via WhatsApp","patchPath":".speclock/patches/evt_d9e4d3a1b3c8.patch"}
+{"eventId":"evt_4c634cee25a7","type":"context_generated","at":"2026-03-26T17:42:20.198Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}

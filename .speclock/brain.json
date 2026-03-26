@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-26T17:16:50.072Z"
+    "updatedAt": "2026-03-26T17:42:20.198Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -213,6 +213,16 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_d9e4d3a1b3c8",
+        "summary": "Wire JewelCraft/GemLens APIs: fix orchestrator image signal, add v1-analyze, bridge sends images via WhatsApp",
+        "files": [
+          "api/app/services/prebuilt_skills.py",
+          "api/app/services/orchestrator.py",
+          "bridge/src/sessionManager.js"
+        ],
+        "at": "2026-03-26T17:42:20.163Z"
+      },
+      {
         "eventId": "evt_1fda6f7afb95",
         "summary": "THE ORCHESTRATOR: 5-layer routing brain above all skills",
         "files": [
@@ -379,7 +389,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_d2a3ea610a89",
-    "count": 83
+    "lastEventId": "evt_4c634cee25a7",
+    "count": 85
   }
 }

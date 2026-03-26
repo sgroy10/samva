@@ -353,6 +353,46 @@ async def gemlens_analyze(query: str, context: dict = None) -> str:
         return ""
 
 
+async def jewelcraft_analyze(query: str, context: dict = None) -> str:
+    """Analyze jewelry image with JewelCraft — identify metals, stones, settings, era."""
+    from ..config import settings
+    if not settings.jewelcraft_api_key:
+        return ""
+
+    image_b64 = context.get("image_base64") if context else None
+    if not image_b64:
+        return "__NEED_IMAGE__"
+
+    if not image_b64.startswith("data:"):
+        image_b64 = f"data:image/jpeg;base64,{image_b64}"
+
+    try:
+        base = settings.jewelcraft_base_url.rstrip("/")
+        data = {"image": image_b64}
+        if query and len(query) > 5:
+            data["prompt"] = query
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{base}/v1-analyze",
+                json=data,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-api-key": settings.jewelcraft_api_key,
+                },
+            )
+            result = resp.json()
+
+        analysis = result.get("analysis", "")
+        if not analysis:
+            return ""
+
+        return f"*Jewelry Analysis:*\n{analysis}\n\nRender chahiye? Ad banana hai? Price nikalu?"
+    except Exception as e:
+        logger.error(f"JewelCraft analyze error: {e}")
+        return ""
+
+
 async def jewelcraft_render(query: str, context: dict = None) -> str:
     """Render a jewelry design from text description via JewelCraft."""
     from ..config import settings
@@ -1082,8 +1122,16 @@ SKILL_REGISTRY = [
         "execute": jewelry_pricing,
     },
     {
+        "name": "jewelcraft_analyze",
+        "description": "Analyze any jewelry image — identify metals, stones, settings, era",
+        "keywords": ["analyze", "identify", "what is this", "kya hai ye", "is photo mein",
+                      "describe", "batao ye kya hai"],
+        "vertical": "jewelry",
+        "execute": jewelcraft_analyze,
+    },
+    {
         "name": "gemlens_analyze",
-        "description": "Analyze jewelry photo — BOM, stone ID, metal, weight",
+        "description": "Detailed BOM — bill of materials, stone ID, metal, weight",
         "keywords": ["analyze", "bom", "identify", "stone id", "kya hai ye",
                       "is photo mein", "breakdown", "bill of material"],
         "vertical": "jewelry",

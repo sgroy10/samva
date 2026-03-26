@@ -1,0 +1,152 @@
+diff --git a/api/app/services/orchestrator.py b/api/app/services/orchestrator.py
+index c65d7ac..d6fde2a 100644
+--- a/api/app/services/orchestrator.py
++++ b/api/app/services/orchestrator.py
+@@ -119,22 +119,24 @@ async def orchestrate(
+     prebuilt_result = await prebuilt_skills.find_and_execute(text, business_type, context)
+ 
+     if prebuilt_result:
+-        # Handle LLM signals from prebuilt skills
+-        if prebuilt_result.startswith("__"):
++        # Image response — pass through to bridge for WhatsApp image send
++        if prebuilt_result.startswith("__IMAGE__"):
++            logger.info(f"[{user_id}] Prebuilt returned image")
++            return prebuilt_result
++
++        # User needs to send a photo first
++        if prebuilt_result == "__NEED_IMAGE__":
++            return "Photo bhejo — main analyze kar dungi!"
++
++        # LLM signals — skill needs specialized LLM processing
++        if prebuilt_result.startswith("__LLM_") or prebuilt_result.startswith("__"):
+             reply = await _handle_llm_signal(db, user_id, user, soul, text, prebuilt_result, image_base64)
+             if reply:
+                 return reply
+             # Signal not handled — fall through to general chat
+ 
+-        elif prebuilt_result.startswith("__IMAGE__"):
+-            # Image response — return with marker for bridge to send as image
+-            return prebuilt_result
+-
+-        elif prebuilt_result == "__NEED_IMAGE__":
+-            return "Photo bhejo — main analyze kar dungi!"
+-
++        # Direct prebuilt result — return it
+         else:
+-            # Direct prebuilt result — return it
+             logger.info(f"[{user_id}] Prebuilt skill answered")
+             return prebuilt_result
+ 
+diff --git a/api/app/services/prebuilt_skills.py b/api/app/services/prebuilt_skills.py
+index 5d0971f..0dd71d7 100644
+--- a/api/app/services/prebuilt_skills.py
++++ b/api/app/services/prebuilt_skills.py
+@@ -353,6 +353,46 @@ async def gemlens_analyze(query: str, context: dict = None) -> str:
+         return ""
+ 
+ 
++async def jewelcraft_analyze(query: str, context: dict = None) -> str:
++    """Analyze jewelry image with JewelCraft — identify metals, stones, settings, era."""
++    from ..config import settings
++    if not settings.jewelcraft_api_key:
++        return ""
++
++    image_b64 = context.get("image_base64") if context else None
++    if not image_b64:
++        return "__NEED_IMAGE__"
++
++    if not image_b64.startswith("data:"):
++        image_b64 = f"data:image/jpeg;base64,{image_b64}"
++
++    try:
++        base = settings.jewelcraft_base_url.rstrip("/")
++        data = {"image": image_b64}
++        if query and len(query) > 5:
++            data["prompt"] = query
++
++        async with httpx.AsyncClient(timeout=30.0) as client:
++            resp = await client.post(
++                f"{base}/v1-analyze",
++                json=data,
++                headers={
++                    "Content-Type": "application/json",
++                    "x-api-key": settings.jewelcraft_api_key,
++                },
++            )
++            result = resp.json()
++
++        analysis = result.get("analysis", "")
++        if not analysis:
++            return ""
++
++        return f"*Jewelry Analysis:*\n{analysis}\n\nRender chahiye? Ad banana hai? Price nikalu?"
++    except Exception as e:
++        logger.error(f"JewelCraft analyze error: {e}")
++        return ""
++
++
+ async def jewelcraft_render(query: str, context: dict = None) -> str:
+     """Render a jewelry design from text description via JewelCraft."""
+     from ..config import settings
+@@ -1081,9 +1121,17 @@ SKILL_REGISTRY = [
+         "vertical": "jewelry",
+         "execute": jewelry_pricing,
+     },
++    {
++        "name": "jewelcraft_analyze",
++        "description": "Analyze any jewelry image — identify metals, stones, settings, era",
++        "keywords": ["analyze", "identify", "what is this", "kya hai ye", "is photo mein",
++                      "describe", "batao ye kya hai"],
++        "vertical": "jewelry",
++        "execute": jewelcraft_analyze,
++    },
+     {
+         "name": "gemlens_analyze",
+-        "description": "Analyze jewelry photo — BOM, stone ID, metal, weight",
++        "description": "Detailed BOM — bill of materials, stone ID, metal, weight",
+         "keywords": ["analyze", "bom", "identify", "stone id", "kya hai ye",
+                       "is photo mein", "breakdown", "bill of material"],
+         "vertical": "jewelry",
+diff --git a/bridge/src/sessionManager.js b/bridge/src/sessionManager.js
+index 41cace7..8c4a4cc 100644
+--- a/bridge/src/sessionManager.js
++++ b/bridge/src/sessionManager.js
+@@ -269,7 +269,38 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
+ 
+   if (result.reply) {
+     const replyJid = isSelfChat ? sessionData.ownJid : jid;
+-    await rateLimitedSend(socket, replyJid, result.reply);
++
++    // Check if reply contains image data from JewelCraft/GemLens
++    if (result.reply.includes('__IMAGE__')) {
++      const parts = result.reply.split('__IMAGE__');
++      const textPart = parts[0].trim();
++      const imageData = parts[1].trim();
++
++      // Send text part first if any
++      if (textPart) {
++        await rateLimitedSend(socket, replyJid, textPart);
++      }
++
++      // Send image
++      if (imageData) {
++        try {
++          // imageData is a data URI: data:image/png;base64,...
++          const base64 = imageData.includes(',') ? imageData.split(',')[1] : imageData;
++          const buffer = Buffer.from(base64, 'base64');
++          await socket.sendMessage(replyJid, {
++            image: buffer,
++            mimetype: 'image/png',
++            caption: textPart || '',
++          });
++          console.log(`[session] Sent image to ${replyJid} (${(buffer.length / 1024).toFixed(0)}KB)`);
++        } catch (imgErr) {
++          console.error(`[session] Image send failed:`, imgErr.message);
++          await rateLimitedSend(socket, replyJid, 'Image generate ho gayi but send nahi ho paayi. Thodi der mein try karo.');
++        }
++      }
++    } else {
++      await rateLimitedSend(socket, replyJid, result.reply);
++    }
+   }
+ }

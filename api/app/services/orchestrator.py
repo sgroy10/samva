@@ -119,22 +119,24 @@ async def orchestrate(
     prebuilt_result = await prebuilt_skills.find_and_execute(text, business_type, context)
 
     if prebuilt_result:
-        # Handle LLM signals from prebuilt skills
-        if prebuilt_result.startswith("__"):
+        # Image response — pass through to bridge for WhatsApp image send
+        if prebuilt_result.startswith("__IMAGE__"):
+            logger.info(f"[{user_id}] Prebuilt returned image")
+            return prebuilt_result
+
+        # User needs to send a photo first
+        if prebuilt_result == "__NEED_IMAGE__":
+            return "Photo bhejo — main analyze kar dungi!"
+
+        # LLM signals — skill needs specialized LLM processing
+        if prebuilt_result.startswith("__LLM_") or prebuilt_result.startswith("__"):
             reply = await _handle_llm_signal(db, user_id, user, soul, text, prebuilt_result, image_base64)
             if reply:
                 return reply
             # Signal not handled — fall through to general chat
 
-        elif prebuilt_result.startswith("__IMAGE__"):
-            # Image response — return with marker for bridge to send as image
-            return prebuilt_result
-
-        elif prebuilt_result == "__NEED_IMAGE__":
-            return "Photo bhejo — main analyze kar dungi!"
-
+        # Direct prebuilt result — return it
         else:
-            # Direct prebuilt result — return it
             logger.info(f"[{user_id}] Prebuilt skill answered")
             return prebuilt_result
 

@@ -269,7 +269,38 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
 
   if (result.reply) {
     const replyJid = isSelfChat ? sessionData.ownJid : jid;
-    await rateLimitedSend(socket, replyJid, result.reply);
+
+    // Check if reply contains image data from JewelCraft/GemLens
+    if (result.reply.includes('__IMAGE__')) {
+      const parts = result.reply.split('__IMAGE__');
+      const textPart = parts[0].trim();
+      const imageData = parts[1].trim();
+
+      // Send text part first if any
+      if (textPart) {
+        await rateLimitedSend(socket, replyJid, textPart);
+      }
+
+      // Send image
+      if (imageData) {
+        try {
+          // imageData is a data URI: data:image/png;base64,...
+          const base64 = imageData.includes(',') ? imageData.split(',')[1] : imageData;
+          const buffer = Buffer.from(base64, 'base64');
+          await socket.sendMessage(replyJid, {
+            image: buffer,
+            mimetype: 'image/png',
+            caption: textPart || '',
+          });
+          console.log(`[session] Sent image to ${replyJid} (${(buffer.length / 1024).toFixed(0)}KB)`);
+        } catch (imgErr) {
+          console.error(`[session] Image send failed:`, imgErr.message);
+          await rateLimitedSend(socket, replyJid, 'Image generate ho gayi but send nahi ho paayi. Thodi der mein try karo.');
+        }
+      }
+    } else {
+      await rateLimitedSend(socket, replyJid, result.reply);
+    }
   }
 }
 

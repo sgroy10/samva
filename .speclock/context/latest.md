@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-26T17:16:50.072Z
+> Generated: 2026-03-26T17:42:20.198Z
 > Project: **samva**
-> Repo: branch `main` @ `df2f491`
+> Repo: branch `main` @ `50f8e0f`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -37,6 +37,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-26T17:42:20] Wire JewelCraft/GemLens APIs: fix orchestrator image signal, add v1-analyze, bridge sends images via WhatsApp (api/app/services/prebuilt_skills.py, api/app/services/orchestrator.py, bridge/src/sessionManager.js)
 - [2026-03-26T17:16:49] THE ORCHESTRATOR: 5-layer routing brain above all skills (api/app/services/orchestrator.py, api/app/services/agent.py)
 - [2026-03-26T17:12:44] Astrology vertical: 7 skills — panchang, kundli, rashifal, gun milan, muhurat, vastu, graha sthiti (api/app/services/prebuilt_skills.py)
 - [2026-03-26T17:02:52] Full JewelClaw jewelry suite: GemLens BOM, JewelCraft render/enhance/ad/VTO + API keys set (api/app/services/prebuilt_skills.py, api/app/config.py)
