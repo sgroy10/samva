@@ -385,17 +385,34 @@ async def design_skill(user_id: str, need: str, category: str = "other") -> dict
             logger.info(f"[{user_id}] Keyword match to PREBUILT skill: {prebuilt['skill_name']}")
             return prebuilt
 
-    # No prebuilt match — ask Gemini to generate
-    result = await call_gemini_json(
+    # ── Step 1: Use Perplexity to RESEARCH the best API ──────────
+    # Perplexity reads real documentation and returns examples.
+    # This solves the FDA problem — Perplexity finds the right syntax.
+    api_research = ""
+    try:
+        api_research = await _call_perplexity(
+            f"Find the best FREE REST API for this need: {need}\n"
+            f"Return: API name, base URL, exact endpoint, authentication method, "
+            f"and a working curl example. Focus on APIs with no API key required "
+            f"or generous free tiers. Prefer well-documented APIs.",
+            user_id=user_id,
+        )
+        logger.info(f"[{user_id}] Perplexity research: {api_research[:100]}...")
+    except Exception as e:
+        logger.warning(f"[{user_id}] Perplexity research failed, using registry: {e}")
+
+    # ── Step 2: Use Claude Sonnet to WRITE the code ────────────
+    # Sonnet writes better connectors than Gemini for complex APIs.
+    api_context = f"\nPERPLEXITY RESEARCH:\n{api_research}\n" if api_research else ""
+
+    result = await _call_code_llm(
         f"""You are a senior Python developer building an API connector.
 
 TASK: Build a skill that fulfills this need: "{need}"
 
 AVAILABLE APIs (prefer these — they're free and tested):
 {REGISTRY_TEXT}
-
-If none of the above fit, suggest ANY well-known free/freemium REST API.
-
+{api_context}
 Write a Python async function that:
 1. Takes a 'query' string parameter (the user's question in plain text)
 2. Calls the appropriate API using httpx
@@ -420,15 +437,90 @@ CRITICAL RULES for python_code:
 - Handle all exceptions — return error string, never raise
 - Keep response SHORT — this is WhatsApp, not a report
 - Do NOT import anything — httpx and json are pre-imported
-- The function receives the user's EXACT words as 'query'
-- IMPORTANT: The query is natural language. EXTRACT the key parameter (drug name, stock symbol, city, etc.) from the query BEFORE calling the API. Do NOT pass the raw query string directly to API search parameters.
+- The query is natural language. EXTRACT the key parameter from the query BEFORE calling the API.
 - Example: if query is 'drug interaction for warfarin', extract 'warfarin' and use that in the API URL.""",
         f"Need: {need}\nCategory: {category}",
         user_id=user_id,
-        max_tokens=2000,  # Code + JSON needs more tokens
     )
 
     return result
+
+
+async def _call_perplexity(prompt: str, user_id: str = "") -> str:
+    """Call Perplexity Sonar via OpenRouter for API research."""
+    import httpx as hx
+    from ..config import settings
+
+    try:
+        async with hx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.openrouter_api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://samva.in",
+                },
+                json={
+                    "model": "perplexity/sonar-pro",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 800,
+                },
+            )
+            resp.raise_for_status()
+            return resp.json()["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        logger.warning(f"[{user_id}] Perplexity call failed: {e}")
+        return ""
+
+
+async def _call_code_llm(system_prompt: str, user_message: str, user_id: str = "") -> dict:
+    """Call Claude Sonnet via OpenRouter for code generation. Falls back to Gemini."""
+    import httpx as hx
+    from ..config import settings
+
+    # Try Sonnet first — best at code
+    for model in ["anthropic/claude-sonnet-4", settings.samva_model]:
+        try:
+            async with hx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://samva.in",
+                    },
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_message},
+                        ],
+                        "max_tokens": 2000,
+                        "temperature": 0.3,
+                    },
+                )
+                resp.raise_for_status()
+                raw = resp.json()["choices"][0]["message"]["content"].strip()
+
+                # Parse JSON from response
+                import json as json_mod
+                text = raw
+                if text.startswith("```json"):
+                    text = text[7:]
+                elif text.startswith("```"):
+                    text = text[3:]
+                if text.endswith("```"):
+                    text = text[:-3]
+
+                result = json_mod.loads(text.strip())
+                logger.info(f"[{user_id}] Code generated by {model}")
+                return result
+
+        except Exception as e:
+            logger.warning(f"[{user_id}] {model} code gen failed: {e}")
+            continue
+
+    return {}
 
 
 # ── Step 3: Test the skill in isolated subprocess ────────────────

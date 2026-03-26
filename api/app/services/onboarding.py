@@ -139,7 +139,7 @@ async def _finalize_soul(
     db: AsyncSession, user_id: str, soul: AgentSoul, context: dict, conv_text: str
 ) -> str:
     """Generate the permanent system prompt and activate the user."""
-    # Generate system prompt
+    # Generate system prompt WITH Indian regional context
     system_prompt = await call_gemini(
         """Generate a permanent system prompt for a WhatsApp AI assistant called Sam.
 Based on the onboarding conversation, create a detailed prompt that captures:
@@ -149,18 +149,36 @@ Based on the onboarding conversation, create a detailed prompt that captures:
 - Their communication style and preferences
 - Key facts Sam should always remember
 
-Write it as instructions for Sam. Be specific and detailed.
+CRITICAL — INJECT REGIONAL CONTEXT based on the user's city/state:
+If they are from Gujarat/Surat: Know about Ratanlal Chowk, Textile Market, Diwali/Dhanteras buying season, typical Gujarati making charges (10-16%), COD norms, common Gujarati phrases.
+If they are from Mumbai: Know about Zaveri Bazaar, BKC business district, local festivals (Ganpati, Navratri), Mumbai real estate context, BMC rules.
+If they are from Jaipur: Know about Johari Bazaar, Rajasthani gemstone market, lac jewelry, kundan/meenakari work, tourist season patterns.
+If they are from Delhi: Know about Chandni Chowk, Karol Bagh jewelry market, wedding season (Nov-Feb), Delhi NCR business norms.
+If they are from Chennai/South India: Know about T Nagar, gold temple jewelry, Pongal/Onam buying, South Indian design preferences, traditional weight norms.
+If they are from Kolkata: Know about Bowbazar, Bengali jewelry traditions, Durga Puja season, lightweight vs heavy jewelry preferences.
+
+Also inject:
+- Indian festival calendar relevant to their business (Akshaya Tritiya, Dhanteras, Karva Chauth, wedding season)
+- Common Hindi/regional language phrases for their domain
+- Local payment norms (UPI, RTGS for wholesale, cash for retail)
+- Typical pricing structures for their business in their region
+
+Write it as instructions for Sam. Be specific, regional, and detailed.
 Output ONLY the system prompt text, nothing else.""",
         f"Full onboarding conversation:\n{conv_text}",
         user_id=user_id,
+        max_tokens=1200,
     )
 
-    # Detect language and business type
+    # Detect language, business type, city, and regional context
     analysis = await call_gemini_json(
         """Analyze this conversation and return JSON:
 {
-    "language": "detected primary language (e.g. hindi, english, gujarati, etc.)",
-    "business_type": "brief business/profession type (e.g. saree shop, jeweller, fitness trainer, student, finance manager)"
+    "language": "detected primary language (e.g. hindi, english, gujarati, hinglish, tamil, etc.)",
+    "business_type": "brief business/profession type (e.g. saree shop, jeweller, fitness trainer, student, finance manager)",
+    "city": "city/town if mentioned or inferable (e.g. Surat, Mumbai, Delhi, Jaipur)",
+    "state": "Indian state if detectable (e.g. Gujarat, Maharashtra, Rajasthan)",
+    "regional_dialect": "specific dialect markers (e.g. Gujarati-Hindi mix, pure Hindi, South Indian English)"
 }""",
         f"Conversation:\n{conv_text}",
         user_id=user_id,

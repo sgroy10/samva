@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-26T17:42:20.198Z
+> Generated: 2026-03-26T17:47:04.366Z
 > Project: **samva**
-> Repo: branch `main` @ `50f8e0f`
+> Repo: branch `main` @ `aa28b26`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -19,6 +19,8 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - **[LOCK]** Never touch JewelClaw code — Samva is a completely separate repo at /Users/gadgetzone/samva _(user, 2026-03-24)_
 
 ## Key Decisions
+- **[DEC]** Soul generation injects Indian regional context: city markets, festivals, dialect, payment norms _(user, 2026-03-26)_
+- **[DEC]** Self-builder pipeline: Perplexity researches API → Claude Sonnet writes code → subprocess tests → activate _(user, 2026-03-26)_
 - **[DEC]** LLM selection: flash for chat, pro for medical vision, sonnet for code gen. All via OpenRouter. _(user, 2026-03-26)_
 - **[DEC]** Orchestrator routing order: prebuilt → custom-built → image → LLM chat → background self-build _(user, 2026-03-26)_
 - **[DEC]** Prebuilt is the 20% safety net. Sam self-builds 80%. Orchestrator tries self-build first, prebuilt as fallback. _(user, 2026-03-26)_
@@ -29,14 +31,13 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - **[DEC]** Soul Evolution APPENDS to system_prompt, never deletes. Runs Sunday 11pm IST. _(user, 2026-03-24)_
 - **[DEC]** OpenRouter for Gemini 2.5 Flash — all LLM calls go through OpenRouter _(user, 2026-03-24)_
 - **[DEC]** PostgreSQL on Railway, DATABASE_URL auto-injected _(user, 2026-03-24)_
-- **[DEC]** Razorpay live keys active — rzp_live_6B2TJ6eDeIzIqX _(user, 2026-03-24)_
-- **[DEC]** Dockerfile uses node:22-slim + python3 for dual runtime _(user, 2026-03-24)_
 
 ## Deploy Facts
 - Provider: **Railway**
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-26T17:47:03] Indian regional context in soul generation + Perplexity API research + Claude Sonnet code gen (api/app/services/onboarding.py, api/app/services/skill_builder.py)
 - [2026-03-26T17:42:20] Wire JewelCraft/GemLens APIs: fix orchestrator image signal, add v1-analyze, bridge sends images via WhatsApp (api/app/services/prebuilt_skills.py, api/app/services/orchestrator.py, bridge/src/sessionManager.js)
 - [2026-03-26T17:16:49] THE ORCHESTRATOR: 5-layer routing brain above all skills (api/app/services/orchestrator.py, api/app/services/agent.py)
 - [2026-03-26T17:12:44] Astrology vertical: 7 skills — panchang, kundli, rashifal, gun milan, muhurat, vastu, graha sthiti (api/app/services/prebuilt_skills.py)

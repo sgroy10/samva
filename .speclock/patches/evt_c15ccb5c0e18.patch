@@ -1,0 +1,194 @@
+diff --git a/api/app/services/onboarding.py b/api/app/services/onboarding.py
+index 06cc1aa..eb3f203 100644
+--- a/api/app/services/onboarding.py
++++ b/api/app/services/onboarding.py
+@@ -139,7 +139,7 @@ async def _finalize_soul(
+     db: AsyncSession, user_id: str, soul: AgentSoul, context: dict, conv_text: str
+ ) -> str:
+     """Generate the permanent system prompt and activate the user."""
+-    # Generate system prompt
++    # Generate system prompt WITH Indian regional context
+     system_prompt = await call_gemini(
+         """Generate a permanent system prompt for a WhatsApp AI assistant called Sam.
+ Based on the onboarding conversation, create a detailed prompt that captures:
+@@ -149,18 +149,36 @@ Based on the onboarding conversation, create a detailed prompt that captures:
+ - Their communication style and preferences
+ - Key facts Sam should always remember
+ 
+-Write it as instructions for Sam. Be specific and detailed.
++CRITICAL — INJECT REGIONAL CONTEXT based on the user's city/state:
++If they are from Gujarat/Surat: Know about Ratanlal Chowk, Textile Market, Diwali/Dhanteras buying season, typical Gujarati making charges (10-16%), COD norms, common Gujarati phrases.
++If they are from Mumbai: Know about Zaveri Bazaar, BKC business district, local festivals (Ganpati, Navratri), Mumbai real estate context, BMC rules.
++If they are from Jaipur: Know about Johari Bazaar, Rajasthani gemstone market, lac jewelry, kundan/meenakari work, tourist season patterns.
++If they are from Delhi: Know about Chandni Chowk, Karol Bagh jewelry market, wedding season (Nov-Feb), Delhi NCR business norms.
++If they are from Chennai/South India: Know about T Nagar, gold temple jewelry, Pongal/Onam buying, South Indian design preferences, traditional weight norms.
++If they are from Kolkata: Know about Bowbazar, Bengali jewelry traditions, Durga Puja season, lightweight vs heavy jewelry preferences.
++
++Also inject:
++- Indian festival calendar relevant to their business (Akshaya Tritiya, Dhanteras, Karva Chauth, wedding season)
++- Common Hindi/regional language phrases for their domain
++- Local payment norms (UPI, RTGS for wholesale, cash for retail)
++- Typical pricing structures for their business in their region
++
++Write it as instructions for Sam. Be specific, regional, and detailed.
+ Output ONLY the system prompt text, nothing else.""",
+         f"Full onboarding conversation:\n{conv_text}",
+         user_id=user_id,
++        max_tokens=1200,
+     )
+ 
+-    # Detect language and business type
++    # Detect language, business type, city, and regional context
+     analysis = await call_gemini_json(
+         """Analyze this conversation and return JSON:
+ {
+-    "language": "detected primary language (e.g. hindi, english, gujarati, etc.)",
+-    "business_type": "brief business/profession type (e.g. saree shop, jeweller, fitness trainer, student, finance manager)"
++    "language": "detected primary language (e.g. hindi, english, gujarati, hinglish, tamil, etc.)",
++    "business_type": "brief business/profession type (e.g. saree shop, jeweller, fitness trainer, student, finance manager)",
++    "city": "city/town if mentioned or inferable (e.g. Surat, Mumbai, Delhi, Jaipur)",
++    "state": "Indian state if detectable (e.g. Gujarat, Maharashtra, Rajasthan)",
++    "regional_dialect": "specific dialect markers (e.g. Gujarati-Hindi mix, pure Hindi, South Indian English)"
+ }""",
+         f"Conversation:\n{conv_text}",
+         user_id=user_id,
+diff --git a/api/app/services/skill_builder.py b/api/app/services/skill_builder.py
+index 51fde71..145ae26 100644
+--- a/api/app/services/skill_builder.py
++++ b/api/app/services/skill_builder.py
+@@ -385,17 +385,34 @@ async def design_skill(user_id: str, need: str, category: str = "other") -> dict
+             logger.info(f"[{user_id}] Keyword match to PREBUILT skill: {prebuilt['skill_name']}")
+             return prebuilt
+ 
+-    # No prebuilt match — ask Gemini to generate
+-    result = await call_gemini_json(
++    # ── Step 1: Use Perplexity to RESEARCH the best API ──────────
++    # Perplexity reads real documentation and returns examples.
++    # This solves the FDA problem — Perplexity finds the right syntax.
++    api_research = ""
++    try:
++        api_research = await _call_perplexity(
++            f"Find the best FREE REST API for this need: {need}\n"
++            f"Return: API name, base URL, exact endpoint, authentication method, "
++            f"and a working curl example. Focus on APIs with no API key required "
++            f"or generous free tiers. Prefer well-documented APIs.",
++            user_id=user_id,
++        )
++        logger.info(f"[{user_id}] Perplexity research: {api_research[:100]}...")
++    except Exception as e:
++        logger.warning(f"[{user_id}] Perplexity research failed, using registry: {e}")
++
++    # ── Step 2: Use Claude Sonnet to WRITE the code ────────────
++    # Sonnet writes better connectors than Gemini for complex APIs.
++    api_context = f"\nPERPLEXITY RESEARCH:\n{api_research}\n" if api_research else ""
++
++    result = await _call_code_llm(
+         f"""You are a senior Python developer building an API connector.
+ 
+ TASK: Build a skill that fulfills this need: "{need}"
+ 
+ AVAILABLE APIs (prefer these — they're free and tested):
+ {REGISTRY_TEXT}
+-
+-If none of the above fit, suggest ANY well-known free/freemium REST API.
+-
++{api_context}
+ Write a Python async function that:
+ 1. Takes a 'query' string parameter (the user's question in plain text)
+ 2. Calls the appropriate API using httpx
+@@ -420,17 +437,92 @@ CRITICAL RULES for python_code:
+ - Handle all exceptions — return error string, never raise
+ - Keep response SHORT — this is WhatsApp, not a report
+ - Do NOT import anything — httpx and json are pre-imported
+-- The function receives the user's EXACT words as 'query'
+-- IMPORTANT: The query is natural language. EXTRACT the key parameter (drug name, stock symbol, city, etc.) from the query BEFORE calling the API. Do NOT pass the raw query string directly to API search parameters.
++- The query is natural language. EXTRACT the key parameter from the query BEFORE calling the API.
+ - Example: if query is 'drug interaction for warfarin', extract 'warfarin' and use that in the API URL.""",
+         f"Need: {need}\nCategory: {category}",
+         user_id=user_id,
+-        max_tokens=2000,  # Code + JSON needs more tokens
+     )
+ 
+     return result
+ 
+ 
++async def _call_perplexity(prompt: str, user_id: str = "") -> str:
++    """Call Perplexity Sonar via OpenRouter for API research."""
++    import httpx as hx
++    from ..config import settings
++
++    try:
++        async with hx.AsyncClient(timeout=30.0) as client:
++            resp = await client.post(
++                "https://openrouter.ai/api/v1/chat/completions",
++                headers={
++                    "Authorization": f"Bearer {settings.openrouter_api_key}",
++                    "Content-Type": "application/json",
++                    "HTTP-Referer": "https://samva.in",
++                },
++                json={
++                    "model": "perplexity/sonar-pro",
++                    "messages": [{"role": "user", "content": prompt}],
++                    "max_tokens": 800,
++                },
++            )
++            resp.raise_for_status()
++            return resp.json()["choices"][0]["message"]["content"].strip()
++    except Exception as e:
++        logger.warning(f"[{user_id}] Perplexity call failed: {e}")
++        return ""
++
++
++async def _call_code_llm(system_prompt: str, user_message: str, user_id: str = "") -> dict:
++    """Call Claude Sonnet via OpenRouter for code generation. Falls back to Gemini."""
++    import httpx as hx
++    from ..config import settings
++
++    # Try Sonnet first — best at code
++    for model in ["anthropic/claude-sonnet-4", settings.samva_model]:
++        try:
++            async with hx.AsyncClient(timeout=60.0) as client:
++                resp = await client.post(
++                    "https://openrouter.ai/api/v1/chat/completions",
++                    headers={
++                        "Authorization": f"Bearer {settings.openrouter_api_key}",
++                        "Content-Type": "application/json",
++                        "HTTP-Referer": "https://samva.in",
++                    },
++                    json={
++                        "model": model,
++                        "messages": [
++                            {"role": "system", "content": system_prompt},
++                            {"role": "user", "content": user_message},
++                        ],
++                        "max_tokens": 2000,
++                        "temperature": 0.3,
++                    },
++                )
++                resp.raise_for_status()
++                raw = resp.json()["choices"][0]["message"]["content"].strip()
++
++                # Parse JSON from response
++                import json as json_mod
++                text = raw
++                if text.startswith("```json"):
++                    text = text[7:]
++                elif text.startswith("```"):
++                    text = text[3:]
++                if text.endswith("```"):
++                    text = text[:-3]
++
++                result = json_mod.loads(text.strip())
++                logger.info(f"[{user_id}] Code generated by {model}")
++                return result
++
++        except Exception as e:
++            logger.warning(f"[{user_id}] {model} code gen failed: {e}")
++            continue
++
++    return {}
++
++
+ # ── Step 3: Test the skill in isolated subprocess ────────────────
+ 
+ # Runner script template — executed in a separate process

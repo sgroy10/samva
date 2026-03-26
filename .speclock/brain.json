@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-26T17:42:20.198Z"
+    "updatedAt": "2026-03-26T17:47:04.366Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -88,6 +88,20 @@
     ]
   },
   "decisions": [
+    {
+      "id": "dec_ea7055b0131f",
+      "text": "Soul generation injects Indian regional context: city markets, festivals, dialect, payment norms",
+      "createdAt": "2026-03-26T17:47:04.336Z",
+      "source": "user",
+      "tags": []
+    },
+    {
+      "id": "dec_a4cbc98c22bc",
+      "text": "Self-builder pipeline: Perplexity researches API → Claude Sonnet writes code → subprocess tests → activate",
+      "createdAt": "2026-03-26T17:47:04.021Z",
+      "source": "user",
+      "tags": []
+    },
     {
       "id": "dec_7829cd8ace55",
       "text": "LLM selection: flash for chat, pro for medical vision, sonnet for code gen. All via OpenRouter.",
@@ -212,6 +226,15 @@
       "capturedAt": "2026-03-24T01:09:48.687Z"
     },
     "recentChanges": [
+      {
+        "eventId": "evt_c15ccb5c0e18",
+        "summary": "Indian regional context in soul generation + Perplexity API research + Claude Sonnet code gen",
+        "files": [
+          "api/app/services/onboarding.py",
+          "api/app/services/skill_builder.py"
+        ],
+        "at": "2026-03-26T17:47:03.708Z"
+      },
       {
         "eventId": "evt_d9e4d3a1b3c8",
         "summary": "Wire JewelCraft/GemLens APIs: fix orchestrator image signal, add v1-analyze, bridge sends images via WhatsApp",
@@ -389,7 +412,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_4c634cee25a7",
-    "count": 85
+    "lastEventId": "evt_85a1be2d9762",
+    "count": 91
   }
 }
