@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-26T16:49:17.302Z
+> Generated: 2026-03-26T17:02:52.916Z
 > Project: **samva**
-> Repo: branch `main` @ `ca8e634`
+> Repo: branch `main` @ `6db4325`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -36,6 +36,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-26T17:02:52] Full JewelClaw jewelry suite: GemLens BOM, JewelCraft render/enhance/ad/VTO + API keys set (api/app/services/prebuilt_skills.py, api/app/config.py)
 - [2026-03-26T16:49:16] Prebuilt skills library: 13 skills across 5 verticals + universal (api/app/services/prebuilt_skills.py)
 - [2026-03-25T18:20:04] 5 prebuilt skills (FDA, weather, Indian stocks, currency converter, gemstone) + admin overview dashboard (api/app/services/skill_builder.py, api/app/main.py)
 - [2026-03-25T16:56:37] Subprocess sandbox + rate limiting for self-plugin builder (api/app/services/skill_builder.py)

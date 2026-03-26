@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     samva_model: str = "google/gemini-2.5-flash"
     gemini_api_key: str = ""  # voice transcription
     encryption_key: str = ""  # IMAP passwords
+    gemlens_api_key: str = ""  # GemLens jewelry image analysis
+    jewelcraft_api_key: str = ""  # JewelCraft AI (render, enhance, ads, VTO)
+    jewelcraft_base_url: str = "https://ihggfkujfvfdiadpqnnn.supabase.co/functions/v1"
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
     owner_phone: str = ""

@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-26T16:49:17.302Z"
+    "updatedAt": "2026-03-26T17:02:52.917Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -199,6 +199,15 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_5a3534f1b2e2",
+        "summary": "Full JewelClaw jewelry suite: GemLens BOM, JewelCraft render/enhance/ad/VTO + API keys set",
+        "files": [
+          "api/app/services/prebuilt_skills.py",
+          "api/app/config.py"
+        ],
+        "at": "2026-03-26T17:02:52.882Z"
+      },
+      {
         "eventId": "evt_6fd2a6080038",
         "summary": "Prebuilt skills library: 13 skills across 5 verticals + universal",
         "files": [
@@ -339,7 +348,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_7dfe4bad6bc8",
-    "count": 73
+    "lastEventId": "evt_468c71be69f1",
+    "count": 75
   }
 }

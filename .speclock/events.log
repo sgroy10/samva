@@ -71,3 +71,5 @@
 {"eventId":"evt_b71ceac788ac","type":"context_generated","at":"2026-03-26T16:49:16.983Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
 {"eventId":"evt_466f4fe8628a","type":"decision_added","at":"2026-03-26T16:49:17.270Z","files":[],"summary":"Decision: Prebuilt is the 20% safety net. Sam self-builds 80%. Orchestrator tries self-bui","patchPath":""}
 {"eventId":"evt_7dfe4bad6bc8","type":"context_generated","at":"2026-03-26T16:49:17.302Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_5a3534f1b2e2","type":"manual_change","at":"2026-03-26T17:02:52.882Z","files":["api/app/services/prebuilt_skills.py","api/app/config.py"],"summary":"Full JewelClaw jewelry suite: GemLens BOM, JewelCraft render/enhance/ad/VTO + API keys set","patchPath":".speclock/patches/evt_5a3534f1b2e2.patch"}
+{"eventId":"evt_468c71be69f1","type":"context_generated","at":"2026-03-26T17:02:52.917Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
