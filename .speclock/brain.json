@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-26T17:02:52.917Z"
+    "updatedAt": "2026-03-26T17:12:44.520Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -199,6 +199,14 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_361993d9d9f7",
+        "summary": "Astrology vertical: 7 skills — panchang, kundli, rashifal, gun milan, muhurat, vastu, graha sthiti",
+        "files": [
+          "api/app/services/prebuilt_skills.py"
+        ],
+        "at": "2026-03-26T17:12:44.485Z"
+      },
+      {
         "eventId": "evt_5a3534f1b2e2",
         "summary": "Full JewelClaw jewelry suite: GemLens BOM, JewelCraft render/enhance/ad/VTO + API keys set",
         "files": [
@@ -348,7 +356,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_468c71be69f1",
-    "count": 75
+    "lastEventId": "evt_7aaa87267859",
+    "count": 77
   }
 }

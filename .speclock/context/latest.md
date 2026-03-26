@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-26T17:02:52.916Z
+> Generated: 2026-03-26T17:12:44.519Z
 > Project: **samva**
-> Repo: branch `main` @ `6db4325`
+> Repo: branch `main` @ `85bf331`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -36,6 +36,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-26T17:12:44] Astrology vertical: 7 skills — panchang, kundli, rashifal, gun milan, muhurat, vastu, graha sthiti (api/app/services/prebuilt_skills.py)
 - [2026-03-26T17:02:52] Full JewelClaw jewelry suite: GemLens BOM, JewelCraft render/enhance/ad/VTO + API keys set (api/app/services/prebuilt_skills.py, api/app/config.py)
 - [2026-03-26T16:49:16] Prebuilt skills library: 13 skills across 5 verticals + universal (api/app/services/prebuilt_skills.py)
 - [2026-03-25T18:20:04] 5 prebuilt skills (FDA, weather, Indian stocks, currency converter, gemstone) + admin overview dashboard (api/app/services/skill_builder.py, api/app/main.py)

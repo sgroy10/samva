@@ -679,6 +679,334 @@ async def indian_law_search(query: str, context: dict = None) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════
+# ASTROLOGY VERTICAL — Vedic/Jyotish (universal for Indian users)
+# Uses VedAstro (free, MIT licensed, no auth needed)
+# ══════════════════════════════════════════════════════════════════
+
+VEDASTRO_BASE = "https://api.vedastro.org/api"
+
+# Rashi names for reference
+RASHI_MAP = {
+    "mesh": "Aries", "aries": "Aries", "vrishabh": "Taurus", "taurus": "Taurus",
+    "mithun": "Gemini", "gemini": "Gemini", "kark": "Cancer", "cancer": "Cancer",
+    "simha": "Leo", "singh": "Leo", "leo": "Leo", "kanya": "Virgo", "virgo": "Virgo",
+    "tula": "Libra", "libra": "Libra", "vrishchik": "Scorpio", "scorpio": "Scorpio",
+    "dhanu": "Sagittarius", "sagittarius": "Sagittarius",
+    "makar": "Capricorn", "capricorn": "Capricorn",
+    "kumbh": "Aquarius", "aquarius": "Aquarius",
+    "meen": "Pisces", "pisces": "Pisces",
+}
+
+
+async def daily_panchang(query: str, context: dict = None) -> str:
+    """Today's Panchang — tithi, nakshatra, yoga, karana, shubh muhurat."""
+    from datetime import datetime
+    import pytz
+    ist = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(ist)
+    date_str = now.strftime("%d/%m/%Y")
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(
+                f"{VEDASTRO_BASE}/Calculate/PanchangaAtTime/Location/Mumbai/Time/{date_str}/00:00/+05:30"
+            )
+            if resp.status_code != 200:
+                # Fallback: basic panchang from Gemini knowledge
+                return "__LLM_PANCHANG__"
+            data = resp.json()
+
+        # Parse VedAstro response
+        payload = data.get("Payload", {}).get("PanchangaAtTime", {})
+        if not payload:
+            return "__LLM_PANCHANG__"
+
+        tithi = payload.get("Tithi", {}).get("Name", "?")
+        nakshatra = payload.get("Nakshatra", {}).get("Name", "?")
+        yoga = payload.get("NithyaYoga", {}).get("Name", "?")
+        karana = payload.get("Karana", {}).get("Name", "?")
+        day = now.strftime("%A")
+
+        lines = [
+            f"*Aaj ka Panchang* -- {now.strftime('%d %b %Y')} ({day})\n",
+            f"Tithi: *{tithi}*",
+            f"Nakshatra: *{nakshatra}*",
+            f"Yoga: *{yoga}*",
+            f"Karana: *{karana}*",
+        ]
+
+        # Add sunrise/sunset if available
+        sunrise = payload.get("Sunrise", "")
+        sunset = payload.get("Sunset", "")
+        if sunrise:
+            lines.append(f"\nSunrise: {sunrise}")
+        if sunset:
+            lines.append(f"Sunset: {sunset}")
+
+        lines.append("\n_Shubh din ho!_")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error(f"Panchang error: {e}")
+        return "__LLM_PANCHANG__"
+
+
+async def kundli_generate(query: str, context: dict = None) -> str:
+    """Generate kundli from birth details. Asks for DOB, time, place if not provided."""
+    import re
+
+    q = query.lower()
+
+    # Try to extract date, time, place from query
+    # Patterns: "15 march 1990 2:30pm mumbai", "1990-03-15 14:30 delhi"
+    date_match = re.search(r"(\d{1,2})[/\-\s](\d{1,2}|\w+)[/\-\s](\d{4})", q)
+    time_match = re.search(r"(\d{1,2})[:\.](\d{2})\s*(am|pm)?", q)
+
+    if not date_match:
+        return (
+            "Kundli ke liye mujhe chahiye:\n"
+            "1. *Janam tithi* (date of birth) — e.g., 15 March 1990\n"
+            "2. *Janam samay* (time of birth) — e.g., 2:30 PM\n"
+            "3. *Janam sthan* (place of birth) — e.g., Mumbai\n\n"
+            "Sab ek message mein bhej do!"
+        )
+
+    # Extract parts
+    day = date_match.group(1)
+    month_raw = date_match.group(2)
+    year = date_match.group(3)
+
+    # Convert month name to number if needed
+    MONTHS = {"jan": "01", "feb": "02", "mar": "03", "apr": "04", "may": "05", "jun": "06",
+              "jul": "07", "aug": "08", "sep": "09", "oct": "10", "nov": "11", "dec": "12",
+              "january": "01", "february": "02", "march": "03", "april": "04",
+              "june": "06", "july": "07", "august": "08", "september": "09",
+              "october": "10", "november": "11", "december": "12"}
+    month = MONTHS.get(month_raw.lower(), month_raw.zfill(2))
+
+    hour = "12"
+    minute = "00"
+    if time_match:
+        h = int(time_match.group(1))
+        minute = time_match.group(2)
+        ampm = time_match.group(3) or ""
+        if ampm.lower() == "pm" and h < 12:
+            h += 12
+        elif ampm.lower() == "am" and h == 12:
+            h = 0
+        hour = str(h).zfill(2)
+
+    # Extract city (last meaningful word)
+    stop = {"kundli", "kundali", "janam", "patri", "patrika", "birth", "chart",
+            "generate", "banao", "meri", "my", "ka", "ki", "ke", "am", "pm",
+            day, month_raw, year, time_match.group(0) if time_match else ""}
+    words = [w for w in q.split() if w not in stop and len(w) > 2 and not w.isdigit()]
+    city = words[-1].title() if words else "Mumbai"
+
+    date_formatted = f"{day}/{month}/{year}"
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(
+                f"{VEDASTRO_BASE}/Calculate/AllPlanetDataAtTime/Location/{city}/Time/{date_formatted}/{hour}:{minute}/+05:30"
+            )
+            if resp.status_code != 200:
+                return f"Kundli generation mein dikkat aa rahi hai. Baad mein try karo."
+
+            data = resp.json()
+            planets = data.get("Payload", {}).get("AllPlanetDataAtTime", [])
+
+        if not planets:
+            return "__LLM_KUNDLI__"
+
+        lines = [f"*Kundli* -- {day}/{month}/{year}, {hour}:{minute}, {city}\n"]
+
+        for planet_data in planets:
+            name = planet_data.get("Name", "?")
+            sign = planet_data.get("PlanetZodiacSign", {}).get("Name", "?")
+            house = planet_data.get("HouseNumber", "?")
+            nakshatra = planet_data.get("PlanetConstellation", {}).get("Name", "?")
+            lines.append(f"{name}: *{sign}* (House {house}, {nakshatra})")
+
+        lines.append("\nDasha, dosha, ya compatibility check chahiye? Bolo!")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error(f"Kundli error: {e}")
+        return "__LLM_KUNDLI__"
+
+
+async def rashi_horoscope(query: str, context: dict = None) -> str:
+    """Daily horoscope by rashi — uses LLM with planetary context."""
+    q = query.lower()
+    rashi = None
+    for key, value in RASHI_MAP.items():
+        if key in q:
+            rashi = value
+            break
+
+    if not rashi:
+        return (
+            "Aapki rashi batao:\n"
+            "Mesh | Vrishabh | Mithun | Kark | Simha | Kanya\n"
+            "Tula | Vrishchik | Dhanu | Makar | Kumbh | Meen\n\n"
+            "_Ya English mein: Aries, Taurus, Gemini..._"
+        )
+
+    # Signal orchestrator to use LLM with astrology prompt + planetary positions
+    return f"__LLM_HOROSCOPE__{rashi}"
+
+
+async def compatibility_match(query: str, context: dict = None) -> str:
+    """Gun Milan / Kundli matching for marriage compatibility."""
+    # This needs both birth details — complex interaction
+    return (
+        "Gun Milan ke liye dono ki details chahiye:\n\n"
+        "*Person 1:*\nJanam tithi, samay, sthan\n\n"
+        "*Person 2:*\nJanam tithi, samay, sthan\n\n"
+        "Dono ki details bhejo — main 36 gun mein se kitne milte hain bata dungi!"
+    )
+
+
+async def muhurat_check(query: str, context: dict = None) -> str:
+    """Check auspicious timing (muhurat) for events."""
+    q = query.lower()
+
+    # Common events people ask muhurat for
+    events = {
+        "shadi": "Vivah (Marriage)", "vivah": "Vivah (Marriage)", "marriage": "Vivah (Marriage)", "wedding": "Vivah (Marriage)",
+        "griha pravesh": "Griha Pravesh", "house": "Griha Pravesh", "ghar": "Griha Pravesh",
+        "mundan": "Mundan (Head Shaving)", "namkaran": "Namkaran (Naming)", "naming": "Namkaran (Naming)",
+        "business": "Vyapar Arambh", "dukan": "Vyapar Arambh", "shop": "Vyapar Arambh",
+        "travel": "Yatra", "yatra": "Yatra", "safar": "Yatra",
+        "car": "Vahan (Vehicle Purchase)", "vehicle": "Vahan (Vehicle Purchase)", "gaadi": "Vahan (Vehicle Purchase)",
+        "property": "Bhoomi (Property)", "zameen": "Bhoomi (Property)", "plot": "Bhoomi (Property)",
+    }
+
+    event = None
+    for key, value in events.items():
+        if key in q:
+            event = value
+            break
+
+    if event:
+        return f"__LLM_MUHURAT__{event}"
+
+    return (
+        "Kis kaam ka muhurat chahiye?\n\n"
+        "Shadi | Griha Pravesh | Mundan | Namkaran\n"
+        "Business | Travel | Vehicle | Property\n\n"
+        "_Batao, main shubh din aur samay dhundh deti hoon!_"
+    )
+
+
+async def vastu_tips(query: str, context: dict = None) -> str:
+    """Vastu Shastra tips and recommendations."""
+    q = query.lower()
+
+    VASTU = {
+        "bedroom": (
+            "*Vastu — Bedroom*\n"
+            "Direction: Southwest is best for master bedroom\n"
+            "Bed: Head towards South or East while sleeping\n"
+            "Mirror: Never place mirror facing the bed\n"
+            "Colors: Light pink, blue, or green for walls\n"
+            "Electronics: Avoid TV/laptop in bedroom — disturbs sleep energy"
+        ),
+        "kitchen": (
+            "*Vastu — Kitchen*\n"
+            "Direction: Southeast corner (Agni kon) is ideal\n"
+            "Stove: Face East while cooking\n"
+            "Sink: North or Northeast — water and fire should not be adjacent\n"
+            "Fridge: Southwest or West wall\n"
+            "Colors: Yellow, orange, or red accents"
+        ),
+        "office": (
+            "*Vastu — Office/Workspace*\n"
+            "Desk: Face North or East while working\n"
+            "Safe/Locker: Southwest corner, opens towards North\n"
+            "Entrance: North or East facing is auspicious\n"
+            "Boss cabin: Southwest corner of office\n"
+            "Plants: Bamboo or money plant in Southeast"
+        ),
+        "entrance": (
+            "*Vastu — Main Entrance*\n"
+            "Best: North or East facing door\n"
+            "Avoid: South-West facing entrance\n"
+            "Threshold: Should be slightly elevated\n"
+            "Decor: Toran, rangoli, or nameplate on right side\n"
+            "Shoes: Keep shoe rack outside or in West direction"
+        ),
+        "pooja": (
+            "*Vastu — Pooja Room*\n"
+            "Direction: Northeast corner (Ishan kon) is ideal\n"
+            "Face: Face East or North while praying\n"
+            "Idols: Should not face each other or the South wall\n"
+            "Height: Idols at chest level, not on ground\n"
+            "Lamp: Light diya in Southeast corner of pooja room"
+        ),
+        "bathroom": (
+            "*Vastu — Bathroom/Toilet*\n"
+            "Direction: Northwest or West is best\n"
+            "Avoid: Northeast corner (sacred direction)\n"
+            "Toilet seat: Face North or South, never East\n"
+            "Drainage: Water should flow North or East\n"
+            "Ventilation: Window in East or North wall"
+        ),
+    }
+
+    for key, tips in VASTU.items():
+        if key in q:
+            return tips
+
+    # Check for general vastu query
+    if any(w in q for w in ["direction", "disha", "konsa", "facing", "placement"]):
+        return "__LLM_VASTU__"
+
+    return (
+        "*Vastu Guide*\nKis room ka vastu chahiye?\n\n"
+        "Bedroom | Kitchen | Office | Entrance\n"
+        "Pooja Room | Bathroom\n\n"
+        "_Ya koi specific sawal pucho — direction, placement, colors_"
+    )
+
+
+async def graha_sthiti(query: str, context: dict = None) -> str:
+    """Current planetary positions — graha sthiti."""
+    from datetime import datetime
+    import pytz
+    ist = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(ist)
+    date_str = now.strftime("%d/%m/%Y")
+    time_str = now.strftime("%H:%M")
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(
+                f"{VEDASTRO_BASE}/Calculate/AllPlanetDataAtTime/Location/Mumbai/Time/{date_str}/{time_str}/+05:30"
+            )
+            if resp.status_code != 200:
+                return "__LLM_PLANETS__"
+
+            data = resp.json()
+            planets = data.get("Payload", {}).get("AllPlanetDataAtTime", [])
+
+        if not planets:
+            return "__LLM_PLANETS__"
+
+        lines = [f"*Graha Sthiti* -- {now.strftime('%d %b %Y, %I:%M %p')} IST\n"]
+        for p in planets:
+            name = p.get("Name", "?")
+            sign = p.get("PlanetZodiacSign", {}).get("Name", "?")
+            retro = " (R)" if p.get("IsRetrograde") else ""
+            lines.append(f"{name}: *{sign}*{retro}")
+
+        lines.append("\n_R = Retrograde (vakri)_")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error(f"Graha sthiti error: {e}")
+        return "__LLM_PLANETS__"
+
+
+# ══════════════════════════════════════════════════════════════════
 # GENERAL BUSINESS
 # ══════════════════════════════════════════════════════════════════
 
@@ -792,6 +1120,70 @@ SKILL_REGISTRY = [
                       "how it looks", "model pe dikhao", "wear"],
         "vertical": "jewelry",
         "execute": jewelcraft_vto,
+    },
+
+    # ── Astrology (universal — every Indian user) ─────────────
+    {
+        "name": "daily_panchang",
+        "description": "Today's Panchang — tithi, nakshatra, yoga, karana",
+        "keywords": ["panchang", "tithi", "nakshatra", "yoga", "karana",
+                      "aaj ka panchang", "hindu calendar", "panchangam"],
+        "vertical": "universal",
+        "execute": daily_panchang,
+    },
+    {
+        "name": "kundli",
+        "description": "Generate kundli / birth chart from birth details",
+        "keywords": ["kundli", "kundali", "janam patri", "birth chart", "janam kundli",
+                      "patrika", "horoscope chart", "janam patrika"],
+        "vertical": "universal",
+        "execute": kundli_generate,
+    },
+    {
+        "name": "rashi_horoscope",
+        "description": "Daily horoscope by rashi / zodiac sign",
+        "keywords": ["rashi", "rashifal", "horoscope", "zodiac", "mesh", "vrishabh",
+                      "mithun", "kark", "simha", "kanya", "tula", "vrishchik",
+                      "dhanu", "makar", "kumbh", "meen", "aries", "taurus",
+                      "gemini", "cancer", "leo", "virgo", "libra", "scorpio",
+                      "sagittarius", "capricorn", "aquarius", "pisces",
+                      "aaj ka rashifal", "daily horoscope"],
+        "vertical": "universal",
+        "execute": rashi_horoscope,
+    },
+    {
+        "name": "compatibility",
+        "description": "Gun Milan / kundli matching for marriage",
+        "keywords": ["gun milan", "kundli milan", "compatibility", "match",
+                      "shaadi match", "marriage match", "36 gun"],
+        "vertical": "universal",
+        "execute": compatibility_match,
+    },
+    {
+        "name": "muhurat",
+        "description": "Find auspicious timing (muhurat) for events",
+        "keywords": ["muhurat", "shubh muhurat", "auspicious", "shubh din",
+                      "shubh samay", "good time", "griha pravesh", "vivah muhurat"],
+        "vertical": "universal",
+        "execute": muhurat_check,
+    },
+    {
+        "name": "vastu",
+        "description": "Vastu Shastra tips for home, office, rooms",
+        "keywords": ["vastu", "vaastu", "direction", "disha", "placement",
+                      "bedroom vastu", "kitchen vastu", "office vastu",
+                      "pooja room", "feng shui"],
+        "vertical": "universal",
+        "execute": vastu_tips,
+    },
+    {
+        "name": "graha_sthiti",
+        "description": "Current planetary positions — graha sthiti",
+        "keywords": ["graha", "planet", "graha sthiti", "planetary position",
+                      "shani", "rahu", "ketu", "mangal", "shukra", "guru",
+                      "budh", "surya", "chandra", "retrograde", "vakri"],
+        "vertical": "universal",
+        "execute": graha_sthiti,
     },
 
     # ── Health ───────────────────────────────────────────────
