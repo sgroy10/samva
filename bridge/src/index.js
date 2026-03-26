@@ -1,5 +1,14 @@
 require('dotenv').config({ path: ['.env', '../../.env'] });
 
+// Catch Baileys unhandled errors — prevent server crash
+process.on('uncaughtException', (err) => {
+  console.error(`[UNCAUGHT] ${err.message}`);
+  // Don't exit — Baileys throws Connection Closed errors that are recoverable
+});
+process.on('unhandledRejection', (err) => {
+  console.error(`[UNHANDLED] ${err?.message || err}`);
+});
+
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
