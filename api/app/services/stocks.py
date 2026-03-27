@@ -3,7 +3,7 @@ import httpx
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from ..models import StockWatchlist
+from ..models import StockWatchlist, Reminder
 from .llm import call_gemini_json
 
 logger = logging.getLogger("samva.stocks")
@@ -194,20 +194,35 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
         price = price_data["price"]
         name = price_data.get("name", item.symbol)
 
+        triggered = False
+
         if item.target_high and price >= item.target_high:
             alerts.append(
                 f"\ud83d\udea8 *Alert:* {name} crossed \u20b9{item.target_high:,.0f} \u2014 now at \u20b9{price:,.1f}"
             )
+            triggered = True
 
         if item.target_low and price <= item.target_low:
             alerts.append(
                 f"\ud83d\udea8 *Alert:* {name} dropped below \u20b9{item.target_low:,.0f} \u2014 now at \u20b9{price:,.1f}"
             )
+            triggered = True
+
+        # Create urgent reminder that auto-escalates to phone call if no response
+        if triggered:
+            from datetime import timedelta
+            db.add(Reminder(
+                user_id=user_id,
+                text=f"Stock alert: {name} at \u20b9{price:,.1f} — take action",
+                remind_at=datetime.utcnow() + timedelta(minutes=30),
+                type="custom",
+                is_urgent=True,
+            ))
 
         item.last_price = price
         item.last_checked = datetime.utcnow()
 
-    if alerts:
+    if items:
         await db.commit()
 
     return alerts
