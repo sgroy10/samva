@@ -175,6 +175,25 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
         remoteJid.endsWith('@lid')
     );
 
+    // ── STORE ALL MESSAGES TO INBOX (like JewelClaw's chat intelligence) ──
+    // This is what makes Sam an AGENT — Sam sees everything
+    const msgText = mc.conversation || mc.extendedTextMessage?.text || mc.imageMessage?.caption || '';
+    if (!isSelfChat && msgText.trim()) {
+        try {
+            await coreClient.storeInboxMessage(userId, {
+                chatId: remoteJid,
+                chatName: msg.pushName || remoteJid.split('@')[0],
+                senderName: fromMe ? null : (msg.pushName || null),
+                senderId: remoteJid,
+                content: msgText.trim(),
+                fromMe: fromMe,
+                timestamp: msg.messageTimestamp || Math.floor(Date.now() / 1000),
+            });
+        } catch (err) {
+            // Silent — don't break message flow
+        }
+    }
+
     // For non-self chats: only process incoming messages (someone messaging the user)
     // For self-chat: only process messages the user sends to themselves
     if (!isSelfChat && fromMe) return;
@@ -361,4 +380,17 @@ async function sendVoiceToUser(userId, audioBase64, mimetype) {
     }
 }
 
-module.exports = { startSession, getSessionStatus, getActiveCount, reconnectAll, checkAllAlerts, sendAlertToUser, sendVoiceToUser, deleteSession };
+async function sendMessageToChat(userId, chatJid, text) {
+    const sd = activeSessions.get(userId);
+    if (!sd || !sd.socket) return false;
+    try {
+        await rateLimitedSend(sd.socket, chatJid, text);
+        console.log(`[session] Sent message to ${chatJid} for ${userId}`);
+        return true;
+    } catch (err) {
+        console.error(`[session] sendMessageToChat failed:`, err.message);
+        return false;
+    }
+}
+
+module.exports = { startSession, getSessionStatus, getActiveCount, reconnectAll, checkAllAlerts, sendAlertToUser, sendVoiceToUser, sendMessageToChat, deleteSession };

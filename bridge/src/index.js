@@ -318,6 +318,21 @@ app.listen(PORT, async () => {
     }
   }, { timezone: 'Asia/Kolkata' });
 
+  // Auto-reply to waiting customers: every 30 minutes
+  cron.schedule('*/30 * * * *', async () => {
+    try {
+      const resp = await coreClient.callCron('/cron/auto-reply');
+      if (resp.auto_replies && resp.auto_replies.length > 0) {
+        for (const ar of resp.auto_replies) {
+          await sessionManager.sendMessageToChat(ar.user_id, ar.chat_id, ar.message);
+        }
+        console.log(`[Cron] Auto-replies: ${resp.count}`);
+      }
+    } catch (err) {
+      // Silent
+    }
+  });
+
   // Urgent reminder escalation: every 15 minutes
   cron.schedule('*/15 * * * *', async () => {
     try {

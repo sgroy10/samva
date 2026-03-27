@@ -150,9 +150,28 @@ async def orchestrate(
     if image_base64:
         return await _handle_image(db, user_id, user, soul, text, image_base64, business_type)
 
+    # ── LAYER 2.5: Inbox commands (Sam as agent) ───────────────
+    from . import inbox
+    text_lower = (text or "").lower()
+    inbox_triggers = ["check messages", "messages dikhao", "inbox", "unread",
+                       "kaun aaya", "notifications", "messages", "message check",
+                       "kaun kaun aaya", "new messages", "koi message aaya"]
+    if any(kw in text_lower for kw in inbox_triggers):
+        return await inbox.get_inbox_summary(db, user_id)
+
+    # Reply to someone from inbox: "Priya ko reply karo", "tell Ahmed..."
+    reply_patterns = ["reply karo", "ko bolo", "ko batao", "tell ", "reply to "]
+    if any(p in text_lower for p in reply_patterns):
+        # Extract contact name and instruction
+        for p in reply_patterns:
+            if p in text_lower:
+                parts = text_lower.split(p, 1)
+                contact = parts[0].strip().split()[-1] if parts[0].strip() else ""
+                instruction = parts[1].strip() if len(parts) > 1 else ""
+                if contact:
+                    return await inbox.draft_reply(db, user_id, contact, instruction)
+
     # ── LAYER 3.5: Let intent-based skills through ───────────────
-    # These need DB writes that the orchestrator doesn't handle.
-    # Return empty so agent.py routes them via intent detection.
     intent_keywords = [
         "remind", "yaad", "reminder", "set reminder",
         "email", "mail", "bhejo", "send email", "check mail", "check my mail",
@@ -161,7 +180,6 @@ async def orchestrate(
         "connect email",
         "business card",
     ]
-    text_lower = (text or "").lower()
     if any(kw in text_lower for kw in intent_keywords):
         return ""  # Let agent.py handle via intent detection
 

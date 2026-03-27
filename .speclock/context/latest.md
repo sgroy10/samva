@@ -1,13 +1,14 @@
 # SpecLock Context Pack
-> Generated: 2026-03-27T15:59:54.521Z
+> Generated: 2026-03-27T17:16:34.310Z
 > Project: **samva**
-> Repo: branch `main` @ `18a8ed3`
+> Repo: branch `main` @ `f31ea77`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
 
 ## SpecLock (Non-Negotiables)
 > **These constraints MUST be followed. Do not violate any lock.**
+- **[LOCK]** ALL WhatsApp messages stored in inbox_messages table — Sam sees everything, not just self-chat _(user, 2026-03-27)_
 - **[LOCK]** Max 3 skill builds per user per day — rate limited to prevent credit exhaustion _(user, 2026-03-25)_
 - **[LOCK]** Skill execution MUST run in isolated subprocess — never exec() in main process _(user, 2026-03-25)_
 - **[LOCK]** Self-plugin builder: generated code runs in exec() sandbox with ONLY httpx and json available. No filesystem, no os, no subprocess. _(user, 2026-03-25)_
@@ -37,6 +38,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-27T17:16:33] CORE AGENT: inbox reading, reply drafting, auto-reply, morning inbox summary, message storage (api/app/services/inbox.py, api/app/services/orchestrator.py, api/app/main.py, api/app/models.py, bridge/src/sessionManager.js, bridge/src/coreClient.js, bridge/src/index.js)
 - [2026-03-27T15:59:54] Emergency calls + voice morning brief + call me intent + urgent reminders (api/app/services/reminders.py, api/app/services/agent.py, api/app/main.py, api/app/models.py, bridge/src/index.js, bridge/src/sessionManager.js, .env.example)
 - [2026-03-27T15:39:57] WhatsApp voice conversations: user speaks → Sam speaks back as voice note (api/app/services/llm.py, api/app/main.py, bridge/src/sessionManager.js)
 - [2026-03-27T15:25:28] Twilio voice calls: inbound answer + speech processing + outbound calls (api/app/services/voice.py, api/app/main.py, api/app/config.py, bridge/src/index.js)
@@ -56,7 +58,6 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - [2026-03-24T01:50:12] Complete gold brief rewrite: gold_rate intent, 9am timing with dedup, price alerts >150/gm, JewelClaw-exact format with 14K+platinum+expert view (api/app/services/gold.py, api/app/services/agent.py, api/app/models.py)
 - [2026-03-24T01:38:05] Wired IMAP email reading, Playwright web search, email connect command (api/app/services/email_draft.py, api/app/services/web_search.py, api/app/services/agent.py, Dockerfile, api/requirements.txt)
 - [2026-03-24T01:24:59] Added quick guide after onboarding, help command, FAQ section on landing page (api/app/services/onboarding.py, api/app/services/agent.py, web/public/index.html)
-- [2026-03-24T01:19:29] Fix Baileys 405 disconnect — use Browsers.ubuntu + fetchLatestBaileysVersion, fix reconnect counter (bridge/src/sessionManager.js)
 
 ## Pinned Notes
 - **[NOTE]** Railway env vars: OPENROUTER_API_KEY, GEMINI_API_KEY, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, DATABASE_URL, SAMVA_MODE=true

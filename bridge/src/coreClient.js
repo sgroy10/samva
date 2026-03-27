@@ -60,7 +60,16 @@ module.exports = {
   checkAlerts,
   healthCheck,
   callCron,
+  storeInboxMessage,
 };
+
+async function storeInboxMessage(userId, msg) {
+  try {
+    await client.post('/inbox/store', { userId, ...msg }, { timeout: 5000 });
+  } catch (err) {
+    // Silent — inbox storage should never block message flow
+  }
+}
 
 async function callCron(path) {
   try {

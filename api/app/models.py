@@ -169,6 +169,24 @@ class SessionHealth(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
+class InboxMessage(Base):
+    """ALL WhatsApp messages — from customers, contacts, groups. Sam's inbox."""
+    __tablename__ = "inbox_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False)       # Sam owner
+    chat_id = Column(String(100), nullable=False)       # WhatsApp JID of the sender
+    chat_name = Column(String(200), nullable=True)      # Contact/group name
+    sender_name = Column(String(200), nullable=True)    # Push name
+    sender_id = Column(String(100), nullable=True)
+    content = Column(Text, nullable=False)
+    from_me = Column(Boolean, default=False)            # Owner's outgoing replies
+    msg_timestamp = Column(Integer, nullable=False)     # Unix timestamp
+    replied = Column(Boolean, default=False)             # Has owner replied to this thread
+    auto_replied = Column(Boolean, default=False)        # Did Sam auto-reply
+    created_at = Column(DateTime, default=func.now())
+
+
 class SoulEvolution(Base):
     __tablename__ = "soul_evolutions"
 

@@ -357,6 +357,48 @@ async def handle_enterprise(
     return {"status": "ok"}
 
 
+# --- Inbox Endpoints ---
+
+class InboxStoreRequest(BaseModel):
+    userId: str
+    chatId: str
+    chatName: Optional[str] = ""
+    senderName: Optional[str] = ""
+    senderId: Optional[str] = ""
+    content: str
+    fromMe: Optional[bool] = False
+    timestamp: Optional[int] = 0
+
+
+@app.post("/inbox/store")
+async def store_inbox(req: InboxStoreRequest, db: AsyncSession = Depends(get_db)):
+    """Store a WhatsApp message to Sam's inbox."""
+    from .services.inbox import store_message
+    await store_message(
+        db, req.userId, req.chatId, req.chatName,
+        req.senderName, req.senderId, req.content,
+        req.fromMe, req.timestamp or int(datetime.now().timestamp()),
+    )
+    return {"stored": True}
+
+
+@app.post("/cron/auto-reply")
+async def handle_auto_reply(db: AsyncSession = Depends(get_db)):
+    """Check for customers waiting 2+ hours. Auto-reply on behalf of owner."""
+    from .services.inbox import check_auto_reply_needed
+    result = await db.execute(select(User).where(User.status == "active"))
+    users = result.scalars().all()
+
+    all_replies = []
+    for user in users:
+        replies = await check_auto_reply_needed(db, user.id)
+        for r in replies:
+            r["user_id"] = user.id
+        all_replies.extend(replies)
+
+    return {"auto_replies": all_replies, "count": len(all_replies)}
+
+
 # --- Voice Endpoints (Twilio webhooks) ---
 
 @app.post("/voice/answer")
@@ -571,17 +613,26 @@ async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
     briefs = []
     for user in users:
         try:
+            # Gold brief for jewellers
+            brief_text = ""
             if await should_get_gold_brief(db, user.id):
                 brief_text = await get_gold_brief(db, user.id)
                 if brief_text:
-                    # Generate voice version
-                    audio_b64 = await text_to_speech(brief_text, user.id)
                     await mark_brief_sent(db, user.id)
-                    briefs.append({
-                        "user_id": user.id,
-                        "text": brief_text,
-                        "audio": {"data": audio_b64, "mimetype": "audio/mp4"} if audio_b64 else None,
-                    })
+
+            # Inbox summary for ALL users
+            from .services.inbox import get_morning_inbox_summary
+            inbox_summary = await get_morning_inbox_summary(db, user.id)
+
+            # Combine
+            full_brief = (brief_text or "") + (inbox_summary or "")
+            if full_brief.strip():
+                audio_b64 = await text_to_speech(full_brief, user.id)
+                briefs.append({
+                    "user_id": user.id,
+                    "text": full_brief,
+                    "audio": {"data": audio_b64, "mimetype": "audio/mp4"} if audio_b64 else None,
+                })
         except Exception as e:
             logger.error(f"Morning brief voice error for {user.id}: {e}")
 
