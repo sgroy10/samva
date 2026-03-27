@@ -49,7 +49,9 @@ async function startSession(userId) {
     if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
     if (!waVersion) await fetchVersion();
 
+    console.log(`[session] Loading auth from ${sessionDir}`);
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+    console.log(`[session] Auth loaded, creating socket...`);
 
     // Match JewelClaw's exact config — v7 + Windows Desktop + no history sync
     const sockOpts = {
@@ -59,11 +61,13 @@ async function startSession(userId) {
         syncFullHistory: false,
         fireInitQueries: true,
         markOnlineOnConnect: false,
-        logger: pino({ level: 'silent' }),
+        logger: pino({ level: 'warn' }),  // Changed from silent to see Baileys errors
     };
     if (waVersion) sockOpts.version = waVersion;
 
+    console.log(`[session] Connecting ${userId}...`);
     const sock = makeWASocket(sockOpts);
+    console.log(`[session] Socket created for ${userId}`);
     const sessionData = {
         socket: sock,
         ownJid: '',      // Phone JID: 919876543210@s.whatsapp.net
