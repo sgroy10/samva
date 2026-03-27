@@ -346,4 +346,19 @@ async function sendAlertToUser(userId, message) {
     catch (err) { console.error(`[session] Alert send failed ${userId}:`, err.message); return false; }
 }
 
-module.exports = { startSession, getSessionStatus, getActiveCount, reconnectAll, checkAllAlerts, sendAlertToUser, deleteSession };
+async function sendVoiceToUser(userId, audioBase64, mimetype) {
+    const sd = activeSessions.get(userId);
+    if (!sd || !sd.ownJid) return false;
+    try {
+        const jid = getReplyJid(sd);
+        const buf = Buffer.from(audioBase64, 'base64');
+        await sd.socket.sendMessage(jid, { audio: buf, mimetype: mimetype || 'audio/mp4', ptt: true });
+        console.log(`[session] Sent voice note to ${userId} (${(buf.length / 1024).toFixed(0)}KB)`);
+        return true;
+    } catch (err) {
+        console.error(`[session] Voice send failed for ${userId}:`, err.message);
+        return false;
+    }
+}
+
+module.exports = { startSession, getSessionStatus, getActiveCount, reconnectAll, checkAllAlerts, sendAlertToUser, sendVoiceToUser, deleteSession };

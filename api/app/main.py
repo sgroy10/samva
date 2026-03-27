@@ -535,6 +535,59 @@ async def handle_evolution_notify(
     return {"count": len(messages), "messages": messages}
 
 
+@app.post("/cron/urgent-escalations")
+async def handle_urgent_escalations(db: AsyncSession = Depends(get_db)):
+    """Every 15 min — check urgent reminders, call users who haven't responded."""
+    from .services.reminders import check_urgent_escalations
+    from .services.voice import make_outbound_call
+
+    calls = await check_urgent_escalations(db)
+    results = []
+    for call in calls:
+        result = await make_outbound_call(call["phone"], call["message"])
+        results.append({
+            "user_id": call["user_id"],
+            "phone": call["phone"],
+            "success": result.get("success", False),
+        })
+        logger.info(f"[Urgent] Called {call['phone']}: {result}")
+
+    return {"calls_made": len(results), "results": results}
+
+
+@app.post("/cron/morning-brief-voice")
+async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
+    """
+    Morning brief as voice note — send gold brief as audio to jeweller users.
+    Called by bridge cron at user's chosen brief time.
+    Returns list of {user_id, text, audio_base64} for bridge to send as voice notes.
+    """
+    from .services.gold import should_get_gold_brief, get_gold_brief, mark_brief_sent
+    from .services.llm import text_to_speech
+
+    result_list = await db.execute(select(User).where(User.status == "active"))
+    users = result_list.scalars().all()
+
+    briefs = []
+    for user in users:
+        try:
+            if await should_get_gold_brief(db, user.id):
+                brief_text = await get_gold_brief(db, user.id)
+                if brief_text:
+                    # Generate voice version
+                    audio_b64 = await text_to_speech(brief_text, user.id)
+                    await mark_brief_sent(db, user.id)
+                    briefs.append({
+                        "user_id": user.id,
+                        "text": brief_text,
+                        "audio": {"data": audio_b64, "mimetype": "audio/mp4"} if audio_b64 else None,
+                    })
+        except Exception as e:
+            logger.error(f"Morning brief voice error for {user.id}: {e}")
+
+    return {"count": len(briefs), "briefs": briefs}
+
+
 # --- Admin Endpoints ---
 
 @app.get("/admin/skills")

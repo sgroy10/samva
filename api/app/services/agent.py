@@ -147,6 +147,28 @@ async def process_message(
         # Fast commands — no AI cost
         lower = (text or "").strip().lower()
 
+        # "Call me" — user wants Sam to call them immediately
+        call_triggers = {"call me", "mujhe call karo", "call karo", "urgent call",
+                          "phone karo", "ring me", "call kar", "mujhe phone karo"}
+        if lower in call_triggers:
+            user_phone = user.phone if user.phone and user.phone.startswith("+") else f"+91{user.phone}" if user.phone else None
+            if user_phone:
+                from .voice import make_outbound_call
+                call_result = await make_outbound_call(
+                    user_phone,
+                    "Namaste! Main Sam hoon, aapki Samva assistant. Aapne mujhe call karne ko bola tha. Boliye, kya madad chahiye?",
+                )
+                if call_result.get("success"):
+                    reply = "Call aa rahi hai aapke phone pe! \U0001f4de"
+                else:
+                    reply = "Call nahi lag paayi. WhatsApp pe baat karte hain."
+            else:
+                reply = "Aapka phone number nahi mila. Pehle apna number save karo."
+            db.add(Conversation(user_id=user_id, role="user", content=text))
+            db.add(Conversation(user_id=user_id, role="assistant", content=reply))
+            await db.commit()
+            return {"reply": reply, "actions": []}
+
         # Network permission response (right after onboarding asks)
         # Check if user hasn't set permission yet (None means just asked)
         if soul.network_permission is None or (soul.onboarding_complete and not soul.network_permission):

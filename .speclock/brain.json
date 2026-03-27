@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-27T15:39:57.620Z"
+    "updatedAt": "2026-03-27T15:59:54.522Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -234,6 +234,20 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_3af1bd99ea69",
+        "summary": "Emergency calls + voice morning brief + call me intent + urgent reminders",
+        "files": [
+          "api/app/services/reminders.py",
+          "api/app/services/agent.py",
+          "api/app/main.py",
+          "api/app/models.py",
+          "bridge/src/index.js",
+          "bridge/src/sessionManager.js",
+          ".env.example"
+        ],
+        "at": "2026-03-27T15:59:54.485Z"
+      },
+      {
         "eventId": "evt_cb8efab26177",
         "summary": "WhatsApp voice conversations: user speaks → Sam speaks back as voice note",
         "files": [
@@ -423,24 +437,12 @@
           "bridge/src/sessionManager.js"
         ],
         "at": "2026-03-24T01:19:29.602Z"
-      },
-      {
-        "eventId": "evt_258719ad34dd",
-        "summary": "Samva v1 deployed to Railway — 28 files, 4274 lines, all endpoints live",
-        "files": [
-          "Dockerfile",
-          "start.sh",
-          "bridge/src/index.js",
-          "api/app/main.py",
-          "web/public/index.html"
-        ],
-        "at": "2026-03-24T01:10:40.424Z"
       }
     ],
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_1beae53783cf",
-    "count": 97
+    "lastEventId": "evt_16e515c8d4c1",
+    "count": 99
   }
 }

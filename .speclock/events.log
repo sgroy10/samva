@@ -95,3 +95,5 @@
 {"eventId":"evt_9b4416feac61","type":"context_generated","at":"2026-03-27T15:39:57.308Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
 {"eventId":"evt_4ec0b2536258","type":"decision_added","at":"2026-03-27T15:39:57.590Z","files":[],"summary":"Decision: Voice note reply: when user sends voice note, Sam replies with voice note (ptt:t","patchPath":""}
 {"eventId":"evt_1beae53783cf","type":"context_generated","at":"2026-03-27T15:39:57.620Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_3af1bd99ea69","type":"manual_change","at":"2026-03-27T15:59:54.485Z","files":["api/app/services/reminders.py","api/app/services/agent.py","api/app/main.py","api/app/models.py","bridge/src/index.js","bridge/src/sessionManager.js",".env.example"],"summary":"Emergency calls + voice morning brief + call me intent + urgent reminders","patchPath":".speclock/patches/evt_3af1bd99ea69.patch"}
+{"eventId":"evt_16e515c8d4c1","type":"context_generated","at":"2026-03-27T15:59:54.521Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}

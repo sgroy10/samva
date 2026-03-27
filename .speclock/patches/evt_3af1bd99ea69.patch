@@ -1,0 +1,419 @@
+diff --git a/.env.example b/.env.example
+index fbe0f7e..005d09e 100644
+--- a/.env.example
++++ b/.env.example
+@@ -5,8 +5,14 @@ GEMINI_API_KEY=
+ ENCRYPTION_KEY=
+ RAZORPAY_KEY_ID=
+ RAZORPAY_KEY_SECRET=
++GEMLENS_API_KEY=
++JEWELCRAFT_API_KEY=
++JEWELCRAFT_BASE_URL=https://ihggfkujfvfdiadpqnnn.supabase.co/functions/v1
++TWILIO_ACCOUNT_SID=
++TWILIO_AUTH_TOKEN=
++TWILIO_PHONE_NUMBER=+18145264242
++ADMIN_PHONE=
+ CORE_API_URL=http://localhost:8000
+ TIMEZONE=Asia/Kolkata
+ PORT=3000
+ SESSION_DIR=./data/sessions
+-OWNER_PHONE=
+diff --git a/api/app/database.py b/api/app/database.py
+index 4dbfef3..f8ae324 100644
+--- a/api/app/database.py
++++ b/api/app/database.py
+@@ -58,6 +58,8 @@ async def _run_migrations():
+     migrations = [
+         "ALTER TABLE agent_souls ADD COLUMN IF NOT EXISTS last_gold_brief_date DATE",
+         "ALTER TABLE agent_souls ADD COLUMN IF NOT EXISTS network_permission BOOLEAN DEFAULT FALSE",
++        "ALTER TABLE reminders ADD COLUMN IF NOT EXISTS is_urgent BOOLEAN DEFAULT FALSE",
++        "ALTER TABLE reminders ADD COLUMN IF NOT EXISTS call_attempted BOOLEAN DEFAULT FALSE",
+     ]
+     async with engine.begin() as conn:
+         for sql in migrations:
+diff --git a/api/app/main.py b/api/app/main.py
+index c8cc51b..8d24fe5 100644
+--- a/api/app/main.py
++++ b/api/app/main.py
+@@ -535,6 +535,59 @@ async def handle_evolution_notify(
+     return {"count": len(messages), "messages": messages}
+ 
+ 
++@app.post("/cron/urgent-escalations")
++async def handle_urgent_escalations(db: AsyncSession = Depends(get_db)):
++    """Every 15 min — check urgent reminders, call users who haven't responded."""
++    from .services.reminders import check_urgent_escalations
++    from .services.voice import make_outbound_call
++
++    calls = await check_urgent_escalations(db)
++    results = []
++    for call in calls:
++        result = await make_outbound_call(call["phone"], call["message"])
++        results.append({
++            "user_id": call["user_id"],
++            "phone": call["phone"],
++            "success": result.get("success", False),
++        })
++        logger.info(f"[Urgent] Called {call['phone']}: {result}")
++
++    return {"calls_made": len(results), "results": results}
++
++
++@app.post("/cron/morning-brief-voice")
++async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
++    """
++    Morning brief as voice note — send gold brief as audio to jeweller users.
++    Called by bridge cron at user's chosen brief time.
++    Returns list of {user_id, text, audio_base64} for bridge to send as voice notes.
++    """
++    from .services.gold import should_get_gold_brief, get_gold_brief, mark_brief_sent
++    from .services.llm import text_to_speech
++
++    result_list = await db.execute(select(User).where(User.status == "active"))
++    users = result_list.scalars().all()
++
++    briefs = []
++    for user in users:
++        try:
++            if await should_get_gold_brief(db, user.id):
++                brief_text = await get_gold_brief(db, user.id)
++                if brief_text:
++                    # Generate voice version
++                    audio_b64 = await text_to_speech(brief_text, user.id)
++                    await mark_brief_sent(db, user.id)
++                    briefs.append({
++                        "user_id": user.id,
++                        "text": brief_text,
++                        "audio": {"data": audio_b64, "mimetype": "audio/mp4"} if audio_b64 else None,
++                    })
++        except Exception as e:
++            logger.error(f"Morning brief voice error for {user.id}: {e}")
++
++    return {"count": len(briefs), "briefs": briefs}
++
++
+ # --- Admin Endpoints ---
+ 
+ @app.get("/admin/skills")
+diff --git a/api/app/models.py b/api/app/models.py
+index b9e0466..082dfef 100644
+--- a/api/app/models.py
++++ b/api/app/models.py
+@@ -96,6 +96,8 @@ class Reminder(Base):
+     repeat_type = Column(String(20), default="none")  # none, daily, weekly, monthly, yearly
+     type = Column(String(20), default="custom")  # birthday, anniversary, payment, meeting, custom
+     sent = Column(Boolean, default=False)
++    is_urgent = Column(Boolean, default=False)
++    call_attempted = Column(Boolean, default=False)
+     created_at = Column(DateTime, default=func.now())
+ 
+ 
+diff --git a/api/app/services/agent.py b/api/app/services/agent.py
+index 8cc5dcd..6477343 100644
+--- a/api/app/services/agent.py
++++ b/api/app/services/agent.py
+@@ -147,6 +147,28 @@ async def process_message(
+         # Fast commands — no AI cost
+         lower = (text or "").strip().lower()
+ 
++        # "Call me" — user wants Sam to call them immediately
++        call_triggers = {"call me", "mujhe call karo", "call karo", "urgent call",
++                          "phone karo", "ring me", "call kar", "mujhe phone karo"}
++        if lower in call_triggers:
++            user_phone = user.phone if user.phone and user.phone.startswith("+") else f"+91{user.phone}" if user.phone else None
++            if user_phone:
++                from .voice import make_outbound_call
++                call_result = await make_outbound_call(
++                    user_phone,
++                    "Namaste! Main Sam hoon, aapki Samva assistant. Aapne mujhe call karne ko bola tha. Boliye, kya madad chahiye?",
++                )
++                if call_result.get("success"):
++                    reply = "Call aa rahi hai aapke phone pe! \U0001f4de"
++                else:
++                    reply = "Call nahi lag paayi. WhatsApp pe baat karte hain."
++            else:
++                reply = "Aapka phone number nahi mila. Pehle apna number save karo."
++            db.add(Conversation(user_id=user_id, role="user", content=text))
++            db.add(Conversation(user_id=user_id, role="assistant", content=reply))
++            await db.commit()
++            return {"reply": reply, "actions": []}
++
+         # Network permission response (right after onboarding asks)
+         # Check if user hasn't set permission yet (None means just asked)
+         if soul.network_permission is None or (soul.onboarding_complete and not soul.network_permission):
+diff --git a/api/app/services/reminders.py b/api/app/services/reminders.py
+index ffde2aa..fcc1633 100644
+--- a/api/app/services/reminders.py
++++ b/api/app/services/reminders.py
+@@ -2,14 +2,14 @@ import logging
+ from datetime import datetime, timedelta
+ from sqlalchemy.ext.asyncio import AsyncSession
+ from sqlalchemy import select, update
+-from ..models import Reminder
++from ..models import Reminder, User
+ from .llm import call_gemini_json
+ 
+ logger = logging.getLogger("samva.reminders")
+ 
+ 
+ async def create_reminder(db: AsyncSession, user_id: str, text: str) -> str:
+-    """Parse natural language and create a reminder."""
++    """Parse natural language and create a reminder. Detects urgency."""
+     now = datetime.now()
+ 
+     extracted = await call_gemini_json(
+@@ -20,12 +20,15 @@ Return JSON:
+     "date": "YYYY-MM-DD",
+     "time": "HH:MM (24h format, default 09:00)",
+     "repeat": "none|daily|weekly|monthly|yearly",
+-    "type": "birthday|anniversary|payment|meeting|custom"
++    "type": "birthday|anniversary|payment|meeting|custom",
++    "is_urgent": true/false
+ }}
++Mark is_urgent=true if: words like "urgent", "zaruri", "important", "critical", "ASAP",
++"jaldi", "turant", "emergency" appear. Or if it's a payment/meeting due today.
+ Examples:
+-- "Remind me to call Rahul tomorrow" -> date: tomorrow, time: 09:00, repeat: none
+-- "Mummy ka birthday 15 March" -> date: 2027-03-15, time: 09:00, repeat: yearly, type: birthday
+-- "Rent due every month 1st" -> date: next 1st, repeat: monthly, type: payment""",
++- "Remind me to call Rahul tomorrow" -> repeat: none, is_urgent: false
++- "URGENT: call bank about loan before 5pm" -> is_urgent: true
++- "Mummy ka birthday 15 March" -> repeat: yearly, type: birthday""",
+         text,
+         user_id=user_id,
+     )
+@@ -38,8 +41,8 @@ Examples:
+     time_str = extracted.get("time", "09:00")
+     repeat = extracted.get("repeat", "none")
+     rem_type = extracted.get("type", "custom")
++    is_urgent = extracted.get("is_urgent", False)
+ 
+-    # Parse date
+     try:
+         if date_str:
+             remind_at = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+@@ -48,11 +51,9 @@ Examples:
+     except (ValueError, TypeError):
+         remind_at = now + timedelta(hours=1)
+ 
+-    # If remind_at is in the past and it's a yearly event, move to next year
+     if remind_at < now and repeat == "yearly":
+         remind_at = remind_at.replace(year=now.year + 1)
+     elif remind_at < now and repeat == "none":
+-        # If past, set for tomorrow same time
+         remind_at = remind_at + timedelta(days=1)
+ 
+     reminder = Reminder(
+@@ -61,24 +62,21 @@ Examples:
+         remind_at=remind_at,
+         repeat_type=repeat,
+         type=rem_type,
++        is_urgent=is_urgent,
+     )
+     db.add(reminder)
+     await db.commit()
+ 
+-    # Format confirmation
+     date_display = remind_at.strftime("%d %b %Y, %I:%M %p")
+-    repeat_text = ""
+-    if repeat != "none":
+-        repeat_text = f" (repeats {repeat})"
++    repeat_text = f" (repeats {repeat})" if repeat != "none" else ""
++    urgent_text = "\n\U0001f6a8 *URGENT* — agar 30 min mein respond nahi kiya toh Sam call karegi!" if is_urgent else ""
+ 
+     emoji = {
+-        "birthday": "\ud83c\udf82",
+-        "anniversary": "\ud83d\udc9d",
+-        "payment": "\ud83d\udcb0",
+-        "meeting": "\ud83d\udcbc",
++        "birthday": "\U0001f382", "anniversary": "\U0001f49d",
++        "payment": "\U0001f4b0", "meeting": "\U0001f4bc",
+     }.get(rem_type, "\u23f0")
+ 
+-    return f"{emoji} Reminder set: {reminder_text}\n\ud83d\udcc5 {date_display}{repeat_text}"
++    return f"{emoji} Reminder set: {reminder_text}\n\U0001f4c5 {date_display}{repeat_text}{urgent_text}"
+ 
+ 
+ async def check_due_reminders(db: AsyncSession, user_id: str) -> list[str]:
+@@ -99,28 +97,21 @@ async def check_due_reminders(db: AsyncSession, user_id: str) -> list[str]:
+     alerts = []
+     for rem in reminders:
+         emoji = {
+-            "birthday": "\ud83c\udf82",
+-            "anniversary": "\ud83d\udc9d",
+-            "payment": "\ud83d\udcb0",
+-            "meeting": "\ud83d\udcbc",
++            "birthday": "\U0001f382", "anniversary": "\U0001f49d",
++            "payment": "\U0001f4b0", "meeting": "\U0001f4bc",
+         }.get(rem.type, "\u23f0")
+ 
+-        alerts.append(f"{emoji} *Reminder:* {rem.text}")
++        urgent_tag = " \U0001f6a8 *URGENT*" if rem.is_urgent else ""
++        alerts.append(f"{emoji} *Reminder:*{urgent_tag} {rem.text}")
+ 
+-        # Mark as sent
+         rem.sent = True
+ 
+-        # Handle recurring
+         if rem.repeat_type != "none":
+             next_at = _next_occurrence(rem.remind_at, rem.repeat_type)
+-            new_reminder = Reminder(
+-                user_id=user_id,
+-                text=rem.text,
+-                remind_at=next_at,
+-                repeat_type=rem.repeat_type,
+-                type=rem.type,
+-            )
+-            db.add(new_reminder)
++            db.add(Reminder(
++                user_id=user_id, text=rem.text, remind_at=next_at,
++                repeat_type=rem.repeat_type, type=rem.type, is_urgent=rem.is_urgent,
++            ))
+ 
+     if reminders:
+         await db.commit()
+@@ -128,8 +119,62 @@ async def check_due_reminders(db: AsyncSession, user_id: str) -> list[str]:
+     return alerts
+ 
+ 
++async def check_urgent_escalations(db: AsyncSession) -> list[dict]:
++    """
++    Check for urgent reminders sent 30+ minutes ago with no user response.
++    Returns list of {user_id, phone, message} for outbound calls.
++    Called by cron every 15 minutes.
++    """
++    now = datetime.now()
++    thirty_min_ago = now - timedelta(minutes=30)
++
++    # Find urgent reminders that were sent but user hasn't responded
++    result = await db.execute(
++        select(Reminder).where(
++            Reminder.is_urgent == True,
++            Reminder.sent == True,
++            Reminder.call_attempted == False,
++            Reminder.remind_at <= thirty_min_ago,
++        )
++    )
++    urgent_reminders = result.scalars().all()
++
++    calls = []
++    for rem in urgent_reminders:
++        # Get user phone
++        user_result = await db.execute(select(User).where(User.id == rem.user_id))
++        user = user_result.scalar_one_or_none()
++        if not user or not user.phone:
++            continue
++
++        # Check if user responded after reminder (any conversation in last 30 min)
++        from ..models import Conversation
++        conv_result = await db.execute(
++            select(Conversation).where(
++                Conversation.user_id == rem.user_id,
++                Conversation.role == "user",
++                Conversation.created_at >= rem.remind_at,
++            ).limit(1)
++        )
++        if conv_result.scalar_one_or_none():
++            # User responded — no need to call
++            rem.call_attempted = True
++            continue
++
++        # No response — escalate to phone call
++        phone = user.phone if user.phone.startswith("+") else f"+{user.phone}"
++        calls.append({
++            "user_id": rem.user_id,
++            "phone": phone,
++            "message": f"Urgent reminder from Sam: {rem.text}. Aapne 30 minute se respond nahi kiya. Please check your WhatsApp.",
++        })
++        rem.call_attempted = True
++
++    await db.commit()
++    return calls
++
++
+ def _next_occurrence(current: datetime, repeat_type: str) -> datetime:
+-    """Calculate next occurrence for recurring reminders."""
+     if repeat_type == "daily":
+         return current + timedelta(days=1)
+     elif repeat_type == "weekly":
+@@ -143,7 +188,6 @@ def _next_occurrence(current: datetime, repeat_type: str) -> datetime:
+         try:
+             return current.replace(year=year, month=month)
+         except ValueError:
+-            # Handle months with fewer days
+             return current.replace(year=year, month=month, day=28)
+     elif repeat_type == "yearly":
+         try:
+diff --git a/bridge/src/index.js b/bridge/src/index.js
+index f8cf58a..121b351 100644
+--- a/bridge/src/index.js
++++ b/bridge/src/index.js
+@@ -317,4 +317,43 @@ app.listen(PORT, async () => {
+       console.error('[Cron] Subscription check error:', err.message);
+     }
+   }, { timezone: 'Asia/Kolkata' });
++
++  // Urgent reminder escalation: every 15 minutes
++  cron.schedule('*/15 * * * *', async () => {
++    try {
++      const resp = await coreClient.callCron('/cron/urgent-escalations');
++      if (resp.calls_made > 0) {
++        console.log(`[Cron] Urgent calls made: ${resp.calls_made}`);
++      }
++    } catch (err) {
++      // Silent — don't spam logs every 15 min
++    }
++  });
++
++  // Morning brief as VOICE NOTE: every minute, check who needs brief
++  cron.schedule('* * * * *', async () => {
++    try {
++      const resp = await coreClient.callCron('/cron/morning-brief-voice');
++      if (resp.briefs && resp.briefs.length > 0) {
++        for (const brief of resp.briefs) {
++          // Send voice note if available
++          if (brief.audio && brief.audio.data) {
++            const sent = await sessionManager.sendVoiceToUser(
++              brief.user_id, brief.audio.data, brief.audio.mimetype
++            );
++            if (!sent) {
++              // Fallback to text
++              await sessionManager.sendAlertToUser(brief.user_id, brief.text);
++            }
++          } else {
++            // No audio — send as text
++            await sessionManager.sendAlertToUser(brief.user_id, brief.text);
++          }
++        }
++        console.log(`[Cron] Morning briefs: ${resp.briefs.length} sent`);
++      }
++    } catch (err) {
++      // Silent — runs every minute
++    }
++  }, { timezone: 'Asia/Kolkata' });
+ });
+diff --git a/bridge/src/sessionManager.js b/bridge/src/sessionManager.js
+index 1e49f9c..444b7a1 100644
+--- a/bridge/src/sessionManager.js
++++ b/bridge/src/sessionManager.js
+@@ -346,4 +346,19 @@ async function sendAlertToUser(userId, message) {
+     catch (err) { console.error(`[session] Alert send failed ${userId}:`, err.message); return false; }
+ }
+ 
+-module.exports = { startSession, getSessionStatus, getActiveCount, reconnectAll, checkAllAlerts, sendAlertToUser, deleteSession };
++async function sendVoiceToUser(userId, audioBase64, mimetype) {
++    const sd = activeSessions.get(userId);
++    if (!sd || !sd.ownJid) return false;
++    try {
++        const jid = getReplyJid(sd);
++        const buf = Buffer.from(audioBase64, 'base64');
++        await sd.socket.sendMessage(jid, { audio: buf, mimetype: mimetype || 'audio/mp4', ptt: true });
++        console.log(`[session] Sent voice note to ${userId} (${(buf.length / 1024).toFixed(0)}KB)`);
++        return true;
++    } catch (err) {
++        console.error(`[session] Voice send failed for ${userId}:`, err.message);
++        return false;
++    }
++}
++
++module.exports = { startSession, getSessionStatus, getActiveCount, reconnectAll, checkAllAlerts, sendAlertToUser, sendVoiceToUser, deleteSession };

@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-27T15:39:57.620Z
+> Generated: 2026-03-27T15:59:54.521Z
 > Project: **samva**
-> Repo: branch `main` @ `3fa0321`
+> Repo: branch `main` @ `18a8ed3`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -37,6 +37,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-27T15:59:54] Emergency calls + voice morning brief + call me intent + urgent reminders (api/app/services/reminders.py, api/app/services/agent.py, api/app/main.py, api/app/models.py, bridge/src/index.js, bridge/src/sessionManager.js, .env.example)
 - [2026-03-27T15:39:57] WhatsApp voice conversations: user speaks → Sam speaks back as voice note (api/app/services/llm.py, api/app/main.py, bridge/src/sessionManager.js)
 - [2026-03-27T15:25:28] Twilio voice calls: inbound answer + speech processing + outbound calls (api/app/services/voice.py, api/app/main.py, api/app/config.py, bridge/src/index.js)
 - [2026-03-26T17:47:03] Indian regional context in soul generation + Perplexity API research + Claude Sonnet code gen (api/app/services/onboarding.py, api/app/services/skill_builder.py)
@@ -56,7 +57,6 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - [2026-03-24T01:38:05] Wired IMAP email reading, Playwright web search, email connect command (api/app/services/email_draft.py, api/app/services/web_search.py, api/app/services/agent.py, Dockerfile, api/requirements.txt)
 - [2026-03-24T01:24:59] Added quick guide after onboarding, help command, FAQ section on landing page (api/app/services/onboarding.py, api/app/services/agent.py, web/public/index.html)
 - [2026-03-24T01:19:29] Fix Baileys 405 disconnect — use Browsers.ubuntu + fetchLatestBaileysVersion, fix reconnect counter (bridge/src/sessionManager.js)
-- [2026-03-24T01:10:40] Samva v1 deployed to Railway — 28 files, 4274 lines, all endpoints live (Dockerfile, start.sh, bridge/src/index.js, api/app/main.py, web/public/index.html)
 
 ## Pinned Notes
 - **[NOTE]** Railway env vars: OPENROUTER_API_KEY, GEMINI_API_KEY, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, DATABASE_URL, SAMVA_MODE=true

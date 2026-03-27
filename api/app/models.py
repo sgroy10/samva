@@ -96,6 +96,8 @@ class Reminder(Base):
     repeat_type = Column(String(20), default="none")  # none, daily, weekly, monthly, yearly
     type = Column(String(20), default="custom")  # birthday, anniversary, payment, meeting, custom
     sent = Column(Boolean, default=False)
+    is_urgent = Column(Boolean, default=False)
+    call_attempted = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
 
 

@@ -317,4 +317,43 @@ app.listen(PORT, async () => {
       console.error('[Cron] Subscription check error:', err.message);
     }
   }, { timezone: 'Asia/Kolkata' });
+
+  // Urgent reminder escalation: every 15 minutes
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      const resp = await coreClient.callCron('/cron/urgent-escalations');
+      if (resp.calls_made > 0) {
+        console.log(`[Cron] Urgent calls made: ${resp.calls_made}`);
+      }
+    } catch (err) {
+      // Silent — don't spam logs every 15 min
+    }
+  });
+
+  // Morning brief as VOICE NOTE: every minute, check who needs brief
+  cron.schedule('* * * * *', async () => {
+    try {
+      const resp = await coreClient.callCron('/cron/morning-brief-voice');
+      if (resp.briefs && resp.briefs.length > 0) {
+        for (const brief of resp.briefs) {
+          // Send voice note if available
+          if (brief.audio && brief.audio.data) {
+            const sent = await sessionManager.sendVoiceToUser(
+              brief.user_id, brief.audio.data, brief.audio.mimetype
+            );
+            if (!sent) {
+              // Fallback to text
+              await sessionManager.sendAlertToUser(brief.user_id, brief.text);
+            }
+          } else {
+            // No audio — send as text
+            await sessionManager.sendAlertToUser(brief.user_id, brief.text);
+          }
+        }
+        console.log(`[Cron] Morning briefs: ${resp.briefs.length} sent`);
+      }
+    } catch (err) {
+      // Silent — runs every minute
+    }
+  }, { timezone: 'Asia/Kolkata' });
 });
