@@ -342,10 +342,15 @@ async function reconnectAll() {
     const reconnectable = stored.filter(s => s.status && !['logged_out', 'deleted', 'disconnected'].includes(s.status));
     console.log(`[session] Reconnecting ${reconnectable.length}/${stored.length} sessions...`);
     for (const s of reconnectable) {
-        const hasCreds = fs.existsSync(path.join(SESSION_DIR, s.userId, 'creds.json'));
+        const credsPath = path.join(SESSION_DIR, s.userId, 'creds.json');
+        const hasCreds = fs.existsSync(credsPath);
+        console.log(`[session] ${s.userId}: status=${s.status}, creds=${hasCreds}, path=${credsPath}`);
         if (hasCreds) {
             try { await startSession(s.userId); await new Promise(r => setTimeout(r, 2000)); }
             catch (err) { console.error(`[session] Reconnect failed ${s.userId}:`, err.message); }
+        } else {
+            console.log(`[session] No creds for ${s.userId} — needs fresh QR`);
+            sessionStore.updateSession(s.userId, { status: 'disconnected' });
         }
     }
 }
