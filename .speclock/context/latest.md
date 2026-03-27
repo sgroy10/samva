@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-26T17:47:04.366Z
+> Generated: 2026-03-27T15:25:28.763Z
 > Project: **samva**
-> Repo: branch `main` @ `aa28b26`
+> Repo: branch `main` @ `98cfb07`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -37,6 +37,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-27T15:25:28] Twilio voice calls: inbound answer + speech processing + outbound calls (api/app/services/voice.py, api/app/main.py, api/app/config.py, bridge/src/index.js)
 - [2026-03-26T17:47:03] Indian regional context in soul generation + Perplexity API research + Claude Sonnet code gen (api/app/services/onboarding.py, api/app/services/skill_builder.py)
 - [2026-03-26T17:42:20] Wire JewelCraft/GemLens APIs: fix orchestrator image signal, add v1-analyze, bridge sends images via WhatsApp (api/app/services/prebuilt_skills.py, api/app/services/orchestrator.py, bridge/src/sessionManager.js)
 - [2026-03-26T17:16:49] THE ORCHESTRATOR: 5-layer routing brain above all skills (api/app/services/orchestrator.py, api/app/services/agent.py)

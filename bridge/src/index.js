@@ -188,6 +188,34 @@ app.get('/pair/:token', (req, res) => {
 </html>`);
 });
 
+// --- Proxy /voice/* to Python backend (Twilio webhooks) ---
+app.all('/voice/*', async (req, res) => {
+  try {
+    const targetPath = req.path;
+    const url = `${CORE_URL}${targetPath}`;
+    const response = await axios({
+      method: req.method,
+      url,
+      data: req.body,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: 30000,
+      transformRequest: [(data) => {
+        // Twilio sends form-encoded data
+        if (typeof data === 'object') {
+          return Object.entries(data).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+        }
+        return data;
+      }],
+    });
+    res.set('Content-Type', response.headers['content-type'] || 'application/xml');
+    res.status(response.status).send(response.data);
+  } catch (err) {
+    console.error(`[Proxy] ${req.path} failed:`, err.message);
+    res.set('Content-Type', 'application/xml');
+    res.status(200).send(`<?xml version="1.0" encoding="UTF-8"?><Response><Say>Sorry, Sam is having trouble. Try WhatsApp.</Say></Response>`);
+  }
+});
+
 // --- Proxy /api/* to Python backend ---
 app.all('/api/*', async (req, res) => {
   try {

@@ -1,0 +1,153 @@
+diff --git a/api/app/config.py b/api/app/config.py
+index 60f0d5c..ee4c412 100644
+--- a/api/app/config.py
++++ b/api/app/config.py
+@@ -11,6 +11,9 @@ class Settings(BaseSettings):
+     gemlens_api_key: str = ""  # GemLens jewelry image analysis
+     jewelcraft_api_key: str = ""  # JewelCraft AI (render, enhance, ads, VTO)
+     jewelcraft_base_url: str = "https://ihggfkujfvfdiadpqnnn.supabase.co/functions/v1"
++    twilio_account_sid: str = ""
++    twilio_auth_token: str = ""
++    twilio_phone_number: str = ""
+     razorpay_key_id: str = ""
+     razorpay_key_secret: str = ""
+     owner_phone: str = ""
+diff --git a/api/app/main.py b/api/app/main.py
+index 11447e7..861f600 100644
+--- a/api/app/main.py
++++ b/api/app/main.py
+@@ -5,8 +5,9 @@ import hmac
+ from datetime import datetime, timedelta
+ from contextlib import asynccontextmanager
+ 
+-from fastapi import FastAPI, Depends, HTTPException
++from fastapi import FastAPI, Depends, HTTPException, Form, Request
+ from fastapi.middleware.cors import CORSMiddleware
++from fastapi.responses import Response
+ from pydantic import BaseModel
+ from typing import Optional
+ from sqlalchemy.ext.asyncio import AsyncSession
+@@ -345,6 +346,84 @@ async def handle_enterprise(
+     return {"status": "ok"}
+ 
+ 
++# --- Voice Endpoints (Twilio webhooks) ---
++
++@app.post("/voice/answer")
++async def voice_answer(request: Request):
++    """Twilio webhook — incoming call. Sam answers and listens."""
++    from .services.voice import generate_answer_twiml, identify_caller
++
++    form = await request.form()
++    caller = form.get("From", "")
++    logger.info(f"[Voice] Incoming call from {caller}")
++
++    # Try to identify the caller
++    caller_info = await identify_caller(caller)
++    name = caller_info.get("name", "there")
++
++    twiml = generate_answer_twiml(name)
++    return Response(content=twiml, media_type="application/xml")
++
++
++@app.post("/voice/process")
++async def voice_process(request: Request):
++    """Twilio webhook — user spoke. Transcribe + Sam responds."""
++    from .services.voice import generate_response_twiml, generate_error_twiml, identify_caller, process_speech
++
++    form = await request.form()
++    speech_text = form.get("SpeechResult", "")
++    caller = form.get("From", "")
++    confidence = form.get("Confidence", "0")
++
++    logger.info(f"[Voice] Speech from {caller}: '{speech_text}' (confidence: {confidence})")
++
++    if not speech_text:
++        return Response(
++            content=generate_response_twiml("Samajh nahi aaya. Phir se boliye?"),
++            media_type="application/xml",
++        )
++
++    try:
++        # Identify caller
++        caller_info = await identify_caller(caller)
++        user_id = caller_info.get("user_id")
++        language = caller_info.get("language", "hi")
++
++        if not user_id:
++            # Unknown caller — still respond with general Sam
++            from .services.llm import call_gemini
++            reply = await call_gemini(
++                "You are Sam, a helpful WhatsApp assistant. Someone called you. Answer their question concisely. Speak in Hindi or English based on what they said.",
++                speech_text,
++            )
++        else:
++            # Known user — full Sam with Soul context
++            reply = await process_speech(user_id, speech_text)
++
++        # Pick language for TTS
++        lang_code = "hi-IN"
++        if language in ("english",):
++            lang_code = "en-IN"
++
++        twiml = generate_response_twiml(reply, lang_code)
++        return Response(content=twiml, media_type="application/xml")
++
++    except Exception as e:
++        logger.error(f"[Voice] Process error: {e}", exc_info=True)
++        return Response(content=generate_error_twiml(), media_type="application/xml")
++
++
++@app.post("/voice/call")
++async def voice_outbound(
++    phone: str = Form(...),
++    message: str = Form(...),
++):
++    """Make an outbound call from Sam. Admin only."""
++    from .services.voice import make_outbound_call
++    result = await make_outbound_call(phone, message)
++    return result
++
++
+ # --- Cron Endpoints (called by bridge scheduler) ---
+ 
+ @app.post("/cron/check-subscriptions")
+diff --git a/bridge/src/index.js b/bridge/src/index.js
+index 43568e4..f8cf58a 100644
+--- a/bridge/src/index.js
++++ b/bridge/src/index.js
+@@ -188,6 +188,34 @@ app.get('/pair/:token', (req, res) => {
+ </html>`);
+ });
+ 
++// --- Proxy /voice/* to Python backend (Twilio webhooks) ---
++app.all('/voice/*', async (req, res) => {
++  try {
++    const targetPath = req.path;
++    const url = `${CORE_URL}${targetPath}`;
++    const response = await axios({
++      method: req.method,
++      url,
++      data: req.body,
++      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
++      timeout: 30000,
++      transformRequest: [(data) => {
++        // Twilio sends form-encoded data
++        if (typeof data === 'object') {
++          return Object.entries(data).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
++        }
++        return data;
++      }],
++    });
++    res.set('Content-Type', response.headers['content-type'] || 'application/xml');
++    res.status(response.status).send(response.data);
++  } catch (err) {
++    console.error(`[Proxy] ${req.path} failed:`, err.message);
++    res.set('Content-Type', 'application/xml');
++    res.status(200).send(`<?xml version="1.0" encoding="UTF-8"?><Response><Say>Sorry, Sam is having trouble. Try WhatsApp.</Say></Response>`);
++  }
++});
++
+ // --- Proxy /api/* to Python backend ---
+ app.all('/api/*', async (req, res) => {
+   try {

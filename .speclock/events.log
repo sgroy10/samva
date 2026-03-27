@@ -89,3 +89,5 @@
 {"eventId":"evt_457dd40647b5","type":"context_generated","at":"2026-03-26T17:47:04.053Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
 {"eventId":"evt_cce76f062545","type":"decision_added","at":"2026-03-26T17:47:04.336Z","files":[],"summary":"Decision: Soul generation injects Indian regional context: city markets, festivals, dialec","patchPath":""}
 {"eventId":"evt_85a1be2d9762","type":"context_generated","at":"2026-03-26T17:47:04.366Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_0d308fdfa91f","type":"manual_change","at":"2026-03-27T15:25:28.728Z","files":["api/app/services/voice.py","api/app/main.py","api/app/config.py","bridge/src/index.js"],"summary":"Twilio voice calls: inbound answer + speech processing + outbound calls","patchPath":".speclock/patches/evt_0d308fdfa91f.patch"}
+{"eventId":"evt_e6998f962eed","type":"context_generated","at":"2026-03-27T15:25:28.763Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}

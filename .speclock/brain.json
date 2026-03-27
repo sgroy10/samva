@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-26T17:47:04.366Z"
+    "updatedAt": "2026-03-27T15:25:28.763Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -227,6 +227,17 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_0d308fdfa91f",
+        "summary": "Twilio voice calls: inbound answer + speech processing + outbound calls",
+        "files": [
+          "api/app/services/voice.py",
+          "api/app/main.py",
+          "api/app/config.py",
+          "bridge/src/index.js"
+        ],
+        "at": "2026-03-27T15:25:28.728Z"
+      },
+      {
         "eventId": "evt_c15ccb5c0e18",
         "summary": "Indian regional context in soul generation + Perplexity API research + Claude Sonnet code gen",
         "files": [
@@ -412,7 +423,7 @@
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_85a1be2d9762",
-    "count": 91
+    "lastEventId": "evt_e6998f962eed",
+    "count": 93
   }
 }

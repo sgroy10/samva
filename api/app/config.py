@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     gemlens_api_key: str = ""  # GemLens jewelry image analysis
     jewelcraft_api_key: str = ""  # JewelCraft AI (render, enhance, ads, VTO)
     jewelcraft_base_url: str = "https://ihggfkujfvfdiadpqnnn.supabase.co/functions/v1"
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_phone_number: str = ""
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
     owner_phone: str = ""
