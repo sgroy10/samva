@@ -88,6 +88,61 @@ async def call_gemini_json(
         return {"error": "parse_error", "raw": raw}
 
 
+async def text_to_speech(text: str, user_id: str = "") -> str:
+    """
+    Convert text to speech using Gemini TTS.
+    Returns base64-encoded audio, or empty string on failure.
+    Voice: Kore (Indian accent, works great for Hindi/English).
+    """
+    if not settings.gemini_api_key:
+        return ""
+
+    # Clean for speech — strip markdown, symbols
+    clean = text.replace("*", "").replace("_", "").replace("`", "")
+    clean = clean.replace("\u20b9", "rupees ").replace("\u2192", "")
+    clean = clean.replace("\u2501", "").replace("\u25b8", "")
+    clean = clean.replace("\u2191", "up ").replace("\u2193", "down ")
+    # Keep it short for voice
+    if len(clean) > 600:
+        clean = clean[:600] + "... baaki details text mein bhej rahi hoon."
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={settings.gemini_api_key}",
+                json={
+                    "contents": [{
+                        "parts": [{
+                            "text": f"Read this aloud naturally, like you're telling a friend on WhatsApp. If it has Hindi words, pronounce them in Hindi:\n\n{clean}"
+                        }]
+                    }],
+                    "generationConfig": {
+                        "response_modalities": ["AUDIO"],
+                        "speech_config": {
+                            "voice_config": {
+                                "prebuilt_voice_config": {"voice_name": "Kore"}
+                            }
+                        }
+                    }
+                },
+            )
+            data = resp.json()
+
+        # Extract audio from response
+        parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+        for part in parts:
+            inline = part.get("inlineData", {})
+            if inline.get("mimeType", "").startswith("audio/"):
+                logger.info(f"TTS generated for {user_id}: {len(inline.get('data', ''))} chars")
+                return inline.get("data", "")
+
+        logger.warning(f"TTS: no audio in response for {user_id}")
+        return ""
+    except Exception as e:
+        logger.error(f"TTS error for {user_id}: {e}")
+        return ""
+
+
 async def transcribe_audio(audio_base64: str, user_id: str = "") -> str:
     """Transcribe audio using Gemini API directly (not OpenRouter)."""
     if not settings.gemini_api_key:

@@ -105,6 +105,17 @@ async def handle_message(req: MessageRequest, db: AsyncSession = Depends(get_db)
         audio_base64=req.audioBase64,
         sender_jid=req.senderJid,
     )
+
+    # If user sent a voice note, Sam replies with a voice note too
+    if req.audioBase64 and result.get("reply") and not result["reply"].startswith("__IMAGE__"):
+        try:
+            from .services.llm import text_to_speech
+            audio_b64 = await text_to_speech(result["reply"], req.userId)
+            if audio_b64:
+                result["audio"] = {"data": audio_b64, "mimetype": "audio/mp4"}
+        except Exception as e:
+            logger.error(f"TTS for voice reply failed: {e}")
+
     return result
 
 

@@ -1,7 +1,7 @@
 # SpecLock Context Pack
-> Generated: 2026-03-27T15:25:28.763Z
+> Generated: 2026-03-27T15:39:57.620Z
 > Project: **samva**
-> Repo: branch `main` @ `98cfb07`
+> Repo: branch `main` @ `3fa0321`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
@@ -19,6 +19,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - **[LOCK]** Never touch JewelClaw code — Samva is a completely separate repo at /Users/gadgetzone/samva _(user, 2026-03-24)_
 
 ## Key Decisions
+- **[DEC]** Voice note reply: when user sends voice note, Sam replies with voice note (ptt:true). Text always sent too as fallback. _(user, 2026-03-27)_
 - **[DEC]** Soul generation injects Indian regional context: city markets, festivals, dialect, payment norms _(user, 2026-03-26)_
 - **[DEC]** Self-builder pipeline: Perplexity researches API → Claude Sonnet writes code → subprocess tests → activate _(user, 2026-03-26)_
 - **[DEC]** LLM selection: flash for chat, pro for medical vision, sonnet for code gen. All via OpenRouter. _(user, 2026-03-26)_
@@ -30,13 +31,13 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - **[DEC]** Confidence tagging only on chat intent. max_tokens:50 for speed. _(user, 2026-03-24)_
 - **[DEC]** Soul Evolution APPENDS to system_prompt, never deletes. Runs Sunday 11pm IST. _(user, 2026-03-24)_
 - **[DEC]** OpenRouter for Gemini 2.5 Flash — all LLM calls go through OpenRouter _(user, 2026-03-24)_
-- **[DEC]** PostgreSQL on Railway, DATABASE_URL auto-injected _(user, 2026-03-24)_
 
 ## Deploy Facts
 - Provider: **Railway**
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-27T15:39:57] WhatsApp voice conversations: user speaks → Sam speaks back as voice note (api/app/services/llm.py, api/app/main.py, bridge/src/sessionManager.js)
 - [2026-03-27T15:25:28] Twilio voice calls: inbound answer + speech processing + outbound calls (api/app/services/voice.py, api/app/main.py, api/app/config.py, bridge/src/index.js)
 - [2026-03-26T17:47:03] Indian regional context in soul generation + Perplexity API research + Claude Sonnet code gen (api/app/services/onboarding.py, api/app/services/skill_builder.py)
 - [2026-03-26T17:42:20] Wire JewelCraft/GemLens APIs: fix orchestrator image signal, add v1-analyze, bridge sends images via WhatsApp (api/app/services/prebuilt_skills.py, api/app/services/orchestrator.py, bridge/src/sessionManager.js)

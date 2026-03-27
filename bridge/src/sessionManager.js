@@ -223,7 +223,22 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
     if (result.reply) {
         const replyJid = isSelfChat ? getReplyJid(sessionData) : remoteJid;
 
-        if (result.reply.includes('__IMAGE__')) {
+        // Send voice note reply if API returned audio (user sent voice → Sam speaks back)
+        if (result.audio && result.audio.data) {
+            try {
+                const audioBuf = Buffer.from(result.audio.data, 'base64');
+                await socket.sendMessage(replyJid, {
+                    audio: audioBuf,
+                    mimetype: result.audio.mimetype || 'audio/mp4',
+                    ptt: true,  // This makes it a WhatsApp voice note (blue play button)
+                });
+                console.log(`[session] Sent voice reply (${(audioBuf.length / 1024).toFixed(0)}KB)`);
+            } catch (audioErr) {
+                console.error(`[session] Voice reply failed:`, audioErr.message);
+                // Fallback to text
+                await rateLimitedSend(socket, replyJid, result.reply);
+            }
+        } else if (result.reply.includes('__IMAGE__')) {
             const parts = result.reply.split('__IMAGE__');
             const textPart = parts[0].trim();
             const imageData = parts[1].trim();

@@ -1,0 +1,116 @@
+diff --git a/api/app/main.py b/api/app/main.py
+index 861f600..c8cc51b 100644
+--- a/api/app/main.py
++++ b/api/app/main.py
+@@ -105,6 +105,17 @@ async def handle_message(req: MessageRequest, db: AsyncSession = Depends(get_db)
+         audio_base64=req.audioBase64,
+         sender_jid=req.senderJid,
+     )
++
++    # If user sent a voice note, Sam replies with a voice note too
++    if req.audioBase64 and result.get("reply") and not result["reply"].startswith("__IMAGE__"):
++        try:
++            from .services.llm import text_to_speech
++            audio_b64 = await text_to_speech(result["reply"], req.userId)
++            if audio_b64:
++                result["audio"] = {"data": audio_b64, "mimetype": "audio/mp4"}
++        except Exception as e:
++            logger.error(f"TTS for voice reply failed: {e}")
++
+     return result
+ 
+ 
+diff --git a/api/app/services/llm.py b/api/app/services/llm.py
+index 8bc2216..8edc62c 100644
+--- a/api/app/services/llm.py
++++ b/api/app/services/llm.py
+@@ -88,6 +88,61 @@ async def call_gemini_json(
+         return {"error": "parse_error", "raw": raw}
+ 
+ 
++async def text_to_speech(text: str, user_id: str = "") -> str:
++    """
++    Convert text to speech using Gemini TTS.
++    Returns base64-encoded audio, or empty string on failure.
++    Voice: Kore (Indian accent, works great for Hindi/English).
++    """
++    if not settings.gemini_api_key:
++        return ""
++
++    # Clean for speech — strip markdown, symbols
++    clean = text.replace("*", "").replace("_", "").replace("`", "")
++    clean = clean.replace("\u20b9", "rupees ").replace("\u2192", "")
++    clean = clean.replace("\u2501", "").replace("\u25b8", "")
++    clean = clean.replace("\u2191", "up ").replace("\u2193", "down ")
++    # Keep it short for voice
++    if len(clean) > 600:
++        clean = clean[:600] + "... baaki details text mein bhej rahi hoon."
++
++    try:
++        async with httpx.AsyncClient(timeout=30.0) as client:
++            resp = await client.post(
++                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={settings.gemini_api_key}",
++                json={
++                    "contents": [{
++                        "parts": [{
++                            "text": f"Read this aloud naturally, like you're telling a friend on WhatsApp. If it has Hindi words, pronounce them in Hindi:\n\n{clean}"
++                        }]
++                    }],
++                    "generationConfig": {
++                        "response_modalities": ["AUDIO"],
++                        "speech_config": {
++                            "voice_config": {
++                                "prebuilt_voice_config": {"voice_name": "Kore"}
++                            }
++                        }
++                    }
++                },
++            )
++            data = resp.json()
++
++        # Extract audio from response
++        parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
++        for part in parts:
++            inline = part.get("inlineData", {})
++            if inline.get("mimeType", "").startswith("audio/"):
++                logger.info(f"TTS generated for {user_id}: {len(inline.get('data', ''))} chars")
++                return inline.get("data", "")
++
++        logger.warning(f"TTS: no audio in response for {user_id}")
++        return ""
++    except Exception as e:
++        logger.error(f"TTS error for {user_id}: {e}")
++        return ""
++
++
+ async def transcribe_audio(audio_base64: str, user_id: str = "") -> str:
+     """Transcribe audio using Gemini API directly (not OpenRouter)."""
+     if not settings.gemini_api_key:
+diff --git a/bridge/src/sessionManager.js b/bridge/src/sessionManager.js
+index e1ab198..1e49f9c 100644
+--- a/bridge/src/sessionManager.js
++++ b/bridge/src/sessionManager.js
+@@ -223,7 +223,22 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
+     if (result.reply) {
+         const replyJid = isSelfChat ? getReplyJid(sessionData) : remoteJid;
+ 
+-        if (result.reply.includes('__IMAGE__')) {
++        // Send voice note reply if API returned audio (user sent voice → Sam speaks back)
++        if (result.audio && result.audio.data) {
++            try {
++                const audioBuf = Buffer.from(result.audio.data, 'base64');
++                await socket.sendMessage(replyJid, {
++                    audio: audioBuf,
++                    mimetype: result.audio.mimetype || 'audio/mp4',
++                    ptt: true,  // This makes it a WhatsApp voice note (blue play button)
++                });
++                console.log(`[session] Sent voice reply (${(audioBuf.length / 1024).toFixed(0)}KB)`);
++            } catch (audioErr) {
++                console.error(`[session] Voice reply failed:`, audioErr.message);
++                // Fallback to text
++                await rateLimitedSend(socket, replyJid, result.reply);
++            }
++        } else if (result.reply.includes('__IMAGE__')) {
+             const parts = result.reply.split('__IMAGE__');
+             const textPart = parts[0].trim();
+             const imageData = parts[1].trim();
