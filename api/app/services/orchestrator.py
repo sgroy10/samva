@@ -150,6 +150,21 @@ async def orchestrate(
     if image_base64:
         return await _handle_image(db, user_id, user, soul, text, image_base64, business_type)
 
+    # ── LAYER 3.5: Let intent-based skills through ───────────────
+    # These need DB writes that the orchestrator doesn't handle.
+    # Return empty so agent.py routes them via intent detection.
+    intent_keywords = [
+        "remind", "yaad", "reminder", "set reminder",
+        "email", "mail", "bhejo", "send email", "check mail", "check my mail",
+        "meeting", "note", "meeting note",
+        "contact", "number", "ka number", "phone number",
+        "connect email",
+        "business card",
+    ]
+    text_lower = (text or "").lower()
+    if any(kw in text_lower for kw in intent_keywords):
+        return ""  # Let agent.py handle via intent detection
+
     # ── LAYER 4: General Chat (with confidence tagging) ──────────
     system = await _build_system_prompt(db, user_id, user, soul)
     reply = await call_gemini(system, text, user_id=user_id)
