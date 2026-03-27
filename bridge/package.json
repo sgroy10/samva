@@ -7,7 +7,7 @@
     "start": "node src/index.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "6.7.21",
+    "@whiskeysockets/baileys": "7.0.0-rc.9",
     "express": "^4.21.1",
     "axios": "^1.7.0",
     "better-sqlite3": "^11.0.0",

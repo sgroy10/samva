@@ -1,6 +1,10 @@
 /**
- * Samva Session Manager — based on JewelClaw's PROVEN working code.
- * Do not change the Baileys config or session lifecycle without testing.
+ * Samva Session Manager — matches JewelClaw v7 (post-LID fix).
+ * Baileys v7.0.0-rc.9 required for current WhatsApp protocol.
+ *
+ * KEY: WhatsApp now uses LID (@lid) for linked device self-chat.
+ * Must store both sock.user.id (phone JID) and sock.user.lid (LID).
+ * Reply to LID first, fallback to phone JID.
  */
 
 const { makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, fetchLatestBaileysVersion, downloadMediaMessage } = require('@whiskeysockets/baileys');
@@ -17,9 +21,13 @@ const MAX_SESSIONS = 100;
 const activeSessions = new Map();
 let waVersion = null;
 
-// Rate limiting
 const sendTimestamps = new Map();
 const SEND_INTERVAL_MS = 2000;
+
+function normalizeJid(jid) {
+    if (!jid) return '';
+    return jid.replace(/:(\d+)@/, '@');
+}
 
 async function fetchVersion() {
     try {
@@ -32,7 +40,6 @@ async function fetchVersion() {
 }
 
 async function startSession(userId) {
-    // Guard: don't create duplicate sessions
     if (activeSessions.has(userId)) return;
     if (activeSessions.size >= MAX_SESSIONS) {
         throw new Error('Max sessions reached');
@@ -43,11 +50,28 @@ async function startSession(userId) {
     if (!waVersion) await fetchVersion();
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-    const sockOpts = { auth: state, browser: Browsers.ubuntu('Chrome'), logger: pino({ level: 'silent' }) };
+
+    // Match JewelClaw's exact config — v7 + Windows Desktop + no history sync
+    const sockOpts = {
+        auth: state,
+        browser: Browsers.windows('Desktop'),
+        shouldSyncHistoryMessage: () => false,
+        syncFullHistory: false,
+        fireInitQueries: true,
+        markOnlineOnConnect: false,
+        logger: pino({ level: 'silent' }),
+    };
     if (waVersion) sockOpts.version = waVersion;
 
     const sock = makeWASocket(sockOpts);
-    const sessionData = { socket: sock, ownJid: '', qrDataUrl: null, saveCreds, onboarded: false };
+    const sessionData = {
+        socket: sock,
+        ownJid: '',      // Phone JID: 919876543210@s.whatsapp.net
+        ownLid: '',      // Linked ID: 5550123456@lid (new protocol)
+        qrDataUrl: null,
+        saveCreds,
+        onboarded: false,
+    };
     activeSessions.set(userId, sessionData);
 
     sock.ev.on('creds.update', saveCreds);
@@ -66,10 +90,13 @@ async function startSession(userId) {
         }
 
         if (connection === 'open') {
-            sessionData.ownJid = sock.user?.id || '';
+            // Store BOTH phone JID and LID — critical for self-chat detection
+            sessionData.ownJid = normalizeJid(sock.user?.id || '');
+            sessionData.ownLid = normalizeJid(sock.user?.lid || '');
             sessionData.qrDataUrl = null;
-            const phone = sessionData.ownJid.split(':')[0] || sessionData.ownJid.split('@')[0] || '';
-            console.log(`[session] CONNECTED ${userId} as ${phone}`);
+
+            const phone = sessionData.ownJid.split('@')[0].split(':')[0] || '';
+            console.log(`[session] CONNECTED ${userId} | JID: ${sessionData.ownJid} | LID: ${sessionData.ownLid}`);
 
             sessionStore.updateSession(userId, {
                 status: 'connected',
@@ -85,8 +112,9 @@ async function startSession(userId) {
                         const pushName = sock.user?.name || '';
                         const result = await coreClient.onboardUser(userId, phone, pushName);
                         if (result.messages && result.messages.length > 0) {
+                            const replyJid = getReplyJid(sessionData);
                             for (const msg of result.messages) {
-                                await rateLimitedSend(sock, sessionData.ownJid, msg);
+                                await rateLimitedSend(sock, replyJid, msg);
                                 await new Promise(r => setTimeout(r, 1500));
                             }
                         }
@@ -109,14 +137,12 @@ async function startSession(userId) {
                 setTimeout(() => startSession(userId), 3000);
             } else {
                 sessionStore.updateSession(userId, { status: 'disconnected' });
-                // Wipe auth on logout so next connect gets fresh QR
                 const authDir = path.join(SESSION_DIR, userId);
                 try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (_) {}
             }
         }
     });
 
-    // Message handler
     sock.ev.on('messages.upsert', async ({ messages: msgs, type }) => {
         if (type !== 'notify') return;
         for (const msg of msgs) {
@@ -129,18 +155,30 @@ async function startSession(userId) {
     });
 }
 
+// Reply to LID first (new protocol), fallback to phone JID
+function getReplyJid(sessionData) {
+    return sessionData.ownLid || sessionData.ownJid;
+}
+
 async function handleIncomingMessage(userId, socket, sessionData, msg) {
     if (!msg.message) return;
-    const jid = msg.key.remoteJid;
-    if (jid === 'status@broadcast') return;
-    if (jid?.endsWith('@g.us')) return;
+    const remoteJid = normalizeJid(msg.key.remoteJid || '');
+    if (remoteJid === 'status@broadcast') return;
+    if (remoteJid.endsWith('@g.us')) return;
 
-    const ownNumber = sessionData.ownJid?.split(':')[0] || '';
-    const senderNumber = jid?.split('@')[0] || '';
-    const isSelfChat = senderNumber === ownNumber;
+    const fromMe = msg.key.fromMe === true;
 
-    if (!isSelfChat && msg.key.fromMe) return;
-    if (isSelfChat && !msg.key.fromMe) return;
+    // LID-aware self-chat detection — checks BOTH formats
+    const isSelfChat = fromMe && (
+        remoteJid === sessionData.ownJid ||
+        (sessionData.ownLid && remoteJid === sessionData.ownLid) ||
+        remoteJid.endsWith('@lid')
+    );
+
+    // For non-self chats: only process incoming messages (someone messaging the user)
+    // For self-chat: only process messages the user sends to themselves
+    if (!isSelfChat && fromMe) return;
+    if (isSelfChat && !fromMe) return;
 
     let text = '';
     let messageType = 'text';
@@ -177,13 +215,13 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
 
     if (!text && !imageBase64 && !audioBase64) return;
 
-    console.log(`[session] ${userId} (${isSelfChat ? 'self' : senderNumber}): ${text?.substring(0, 50) || `[${messageType}]`}`);
+    console.log(`[session] ${userId} (${isSelfChat ? 'self' : remoteJid.split('@')[0]}): ${text?.substring(0, 50) || `[${messageType}]`}`);
 
-    const senderJid = isSelfChat ? null : jid;
+    const senderJid = isSelfChat ? null : remoteJid;
     const result = await coreClient.sendToApi(text, userId, messageType, imageBase64, audioBase64, senderJid);
 
     if (result.reply) {
-        const replyJid = isSelfChat ? sessionData.ownJid : jid;
+        const replyJid = isSelfChat ? getReplyJid(sessionData) : remoteJid;
 
         if (result.reply.includes('__IMAGE__')) {
             const parts = result.reply.split('__IMAGE__');
@@ -191,7 +229,6 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
             const imageData = parts[1].trim();
 
             if (textPart) await rateLimitedSend(socket, replyJid, textPart);
-
             if (imageData) {
                 try {
                     const base64 = imageData.includes(',') ? imageData.split(',')[1] : imageData;
@@ -215,7 +252,6 @@ async function rateLimitedSend(socket, jid, text) {
     const wait = Math.max(0, SEND_INTERVAL_MS - (now - lastSent));
     if (wait > 0) await new Promise(r => setTimeout(r, wait));
 
-    // Chunk long messages
     const MAX_LEN = 3500;
     if (text.length <= MAX_LEN) {
         await socket.sendMessage(jid, { text });
@@ -236,13 +272,12 @@ function getSessionStatus(userId) {
     const session = activeSessions.get(userId);
     const stored = sessionStore.getSession(userId);
     const status = stored?.status || 'unknown';
-
     return {
         status,
         statusMessage: status === 'connected' ? 'Sam is active' :
                         status === 'waiting_qr' ? 'Scan the QR code with WhatsApp' :
                         status === 'reconnecting' ? 'Reconnecting...' :
-                        'Disconnected — click Reconnect',
+                        'Disconnected',
         phone: stored?.phone || '',
         qrDataUrl: session?.qrDataUrl || null,
         hasQR: !!(session?.qrDataUrl),
@@ -252,9 +287,7 @@ function getSessionStatus(userId) {
 
 function deleteSession(userId) {
     const session = activeSessions.get(userId);
-    if (session && session.socket) {
-        try { session.socket.end(); } catch (_) {}
-    }
+    if (session?.socket) try { session.socket.end(); } catch (_) {}
     activeSessions.delete(userId);
     const authDir = path.join(SESSION_DIR, userId);
     try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (_) {}
@@ -262,64 +295,40 @@ function deleteSession(userId) {
     console.log(`[session] Deleted: ${userId}`);
 }
 
-function getActiveCount() {
-    return activeSessions.size;
-}
+function getActiveCount() { return activeSessions.size; }
 
 async function reconnectAll() {
     await fetchVersion();
     const stored = sessionStore.getAllSessions();
     const reconnectable = stored.filter(s => s.status && !['logged_out', 'deleted', 'disconnected'].includes(s.status));
     console.log(`[session] Reconnecting ${reconnectable.length}/${stored.length} sessions...`);
-
     for (const s of reconnectable) {
-        const sessionDir = path.join(SESSION_DIR, s.userId);
-        const hasCreds = fs.existsSync(path.join(sessionDir, 'creds.json'));
+        const hasCreds = fs.existsSync(path.join(SESSION_DIR, s.userId, 'creds.json'));
         if (hasCreds) {
-            try {
-                await startSession(s.userId);
-                await new Promise(r => setTimeout(r, 2000));
-            } catch (err) {
-                console.error(`[session] Reconnect failed ${s.userId}:`, err.message);
-            }
+            try { await startSession(s.userId); await new Promise(r => setTimeout(r, 2000)); }
+            catch (err) { console.error(`[session] Reconnect failed ${s.userId}:`, err.message); }
         }
     }
 }
 
 async function checkAllAlerts() {
-    for (const [userId, sessionData] of activeSessions) {
-        if (!sessionData.ownJid) continue;
+    for (const [userId, sd] of activeSessions) {
+        if (!sd.ownJid && !sd.ownLid) continue;
         try {
             const result = await coreClient.checkAlerts(userId);
-            if (result.alerts && result.alerts.length > 0) {
-                for (const alert of result.alerts) {
-                    await rateLimitedSend(sessionData.socket, sessionData.ownJid, alert);
-                }
+            if (result.alerts?.length > 0) {
+                const jid = getReplyJid(sd);
+                for (const alert of result.alerts) await rateLimitedSend(sd.socket, jid, alert);
             }
-        } catch (err) {
-            console.error(`[session] Alert error for ${userId}:`, err.message);
-        }
+        } catch (err) { console.error(`[session] Alert error ${userId}:`, err.message); }
     }
 }
 
 async function sendAlertToUser(userId, message) {
-    const session = activeSessions.get(userId);
-    if (!session || !session.ownJid) return false;
-    try {
-        await rateLimitedSend(session.socket, session.ownJid, message);
-        return true;
-    } catch (err) {
-        console.error(`[session] Alert send failed for ${userId}:`, err.message);
-        return false;
-    }
+    const sd = activeSessions.get(userId);
+    if (!sd) return false;
+    try { await rateLimitedSend(sd.socket, getReplyJid(sd), message); return true; }
+    catch (err) { console.error(`[session] Alert send failed ${userId}:`, err.message); return false; }
 }
 
-module.exports = {
-    startSession,
-    getSessionStatus,
-    getActiveCount,
-    reconnectAll,
-    checkAllAlerts,
-    sendAlertToUser,
-    deleteSession,
-};
+module.exports = { startSession, getSessionStatus, getActiveCount, reconnectAll, checkAllAlerts, sendAlertToUser, deleteSession };
