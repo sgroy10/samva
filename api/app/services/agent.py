@@ -169,9 +169,16 @@ async def process_message(
             await db.commit()
             return {"reply": reply, "actions": []}
 
-        # Network permission response (right after onboarding asks)
-        # Check if user hasn't set permission yet (None means just asked)
-        if soul.network_permission is None or (soul.onboarding_complete and not soul.network_permission):
+        # Network permission response — ONLY if the last Sam message was the permission question
+        # Check recent conversation to see if Sam just asked about network
+        from sqlalchemy import desc as sql_desc
+        last_sam = await db.execute(
+            select(Conversation).where(
+                Conversation.user_id == user_id, Conversation.role == "assistant"
+            ).order_by(sql_desc(Conversation.created_at)).limit(1)
+        )
+        last_msg = last_sam.scalar_one_or_none()
+        if last_msg and "connect kar sakti hoon" in (last_msg.content or ""):
             perm_reply = await network_svc.handle_permission_response(db, user_id, text)
             if perm_reply:
                 # If they said yes, next message will be their need/offer profile
@@ -198,17 +205,8 @@ async def process_message(
                     await db.commit()
                     return {"reply": reply, "actions": []}
 
-        # Email connect command: "connect email user@gmail.com password123"
-        if lower.startswith("connect email "):
-            parts = text.strip().split(None, 3)  # connect email addr pass
-            if len(parts) >= 4:
-                email_addr = parts[2]
-                password = parts[3]
-                reply = await email_draft.connect_email(db, user_id, email_addr, password)
-                db.add(Conversation(user_id=user_id, role="user", content="[connect email]"))
-                db.add(Conversation(user_id=user_id, role="assistant", content=reply))
-                await db.commit()
-                return {"reply": reply, "actions": []}
+        # Email commands handled by orchestrator's email_service (not the old email_draft)
+        # "connect email" passes through to orchestrator layer 2.7
 
         # Gold brief control — stop/start/change time
         if lower in ("stop gold brief", "stop brief", "no gold brief", "band karo brief",
@@ -477,20 +475,7 @@ async def _route_skill(
         return await call_gemini(system, text, user_id=user_id)
 
 
-async def _maybe_build_skill_bg(user_id, text, reply, soul_prompt):
-    """Background task: detect skill need and build if needed. Uses own DB session."""
-    try:
-        from ..database import async_session
-        async with async_session() as db:
-            notification = await skill_builder.maybe_build_skill(
-                db, user_id, text, reply, soul_prompt
-            )
-            if notification:
-                db.add(Conversation(user_id=user_id, role="assistant", content=notification))
-                await db.commit()
-                logger.info(f"[{user_id}] SKILL BUILT: {notification[:80]}")
-    except Exception as e:
-        logger.error(f"[{user_id}] Background skill build error: {e}", exc_info=True)
+# Dead code removed — skill building is handled by orchestrator._maybe_build_bg
 
 
 async def _update_memory(db: AsyncSession, user_id: str, text: str) -> str:

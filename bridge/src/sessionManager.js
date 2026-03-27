@@ -177,7 +177,8 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
 
     // ── STORE ALL MESSAGES TO INBOX (like JewelClaw's chat intelligence) ──
     // This is what makes Sam an AGENT — Sam sees everything
-    const msgText = mc.conversation || mc.extendedTextMessage?.text || mc.imageMessage?.caption || '';
+    const _mc = msg.message || {};
+    const msgText = _mc.conversation || _mc.extendedTextMessage?.text || _mc.imageMessage?.caption || '';
     if (!isSelfChat && msgText.trim()) {
         try {
             await coreClient.storeInboxMessage(userId, {

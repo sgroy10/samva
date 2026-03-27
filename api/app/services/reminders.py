@@ -1,5 +1,7 @@
 import logging
 from datetime import datetime, timedelta
+import pytz
+IST = pytz.timezone("Asia/Kolkata")
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from ..models import Reminder, User
@@ -10,7 +12,7 @@ logger = logging.getLogger("samva.reminders")
 
 async def create_reminder(db: AsyncSession, user_id: str, text: str) -> str:
     """Parse natural language and create a reminder. Detects urgency."""
-    now = datetime.now()
+    now = datetime.now(IST).replace(tzinfo=None)  # IST but naive for DB compat
 
     extracted = await call_gemini_json(
         f"""Parse this reminder request. Current date/time: {now.strftime('%Y-%m-%d %H:%M')}.
@@ -81,7 +83,7 @@ Examples:
 
 async def check_due_reminders(db: AsyncSession, user_id: str) -> list[str]:
     """Check for reminders that are due now."""
-    now = datetime.now()
+    now = datetime.now(IST).replace(tzinfo=None)  # IST but naive for DB compat
     window_start = now - timedelta(minutes=15)
 
     result = await db.execute(
@@ -125,7 +127,7 @@ async def check_urgent_escalations(db: AsyncSession) -> list[dict]:
     Returns list of {user_id, phone, message} for outbound calls.
     Called by cron every 15 minutes.
     """
-    now = datetime.now()
+    now = datetime.now(IST).replace(tzinfo=None)  # IST but naive for DB compat
     thirty_min_ago = now - timedelta(minutes=30)
 
     # Find urgent reminders that were sent but user hasn't responded

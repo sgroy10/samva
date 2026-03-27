@@ -1341,12 +1341,22 @@ async function handleSignup() {
         }
       };
 
+      // Wait for Razorpay SDK if not loaded yet
+      if (typeof Razorpay === 'undefined') {
+        await new Promise(resolve => {
+          const check = setInterval(() => {
+            if (typeof Razorpay !== 'undefined') { clearInterval(check); resolve(); }
+          }, 200);
+          // Timeout after 10 seconds
+          setTimeout(() => { clearInterval(check); resolve(); }, 10000);
+        });
+      }
       if (typeof Razorpay !== 'undefined') {
         const rzp = new Razorpay(options);
         rzp.open();
       } else {
-        // Razorpay not loaded — skip payment
-        await startQRFlow();
+        errorEl.textContent = 'Payment system loading failed. Please refresh and try again.';
+        errorEl.style.display = 'block';
       }
     }
   } catch (err) {
