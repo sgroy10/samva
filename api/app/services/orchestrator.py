@@ -171,13 +171,22 @@ async def orchestrate(
                 if contact:
                     return await inbox.draft_reply(db, user_id, contact, instruction)
 
+    # ── LAYER 2.7: Email intelligence ──────────────────────────
+    from . import email_service
+    email_triggers = ["check mail", "check my mail", "check email", "my mail", "emails",
+                       "mail dikhao", "email dikhao", "mail check", "inbox mail",
+                       "connect email", "gmail guide", "app password", "gmail setup",
+                       "email kaise connect", "how to connect email",
+                       "summarize mail", "email summary", "mail summary", "important mail"]
+    if any(kw in text_lower for kw in email_triggers) or text_lower.startswith("connect email"):
+        return await email_service.handle_email_command(db, user_id, text)
+
     # ── LAYER 3.5: Let intent-based skills through ───────────────
     intent_keywords = [
         "remind", "yaad", "reminder", "set reminder",
-        "email", "mail", "bhejo", "send email", "check mail", "check my mail",
+        "email", "mail", "bhejo", "send email",
         "meeting", "note", "meeting note",
         "contact", "number", "ka number", "phone number",
-        "connect email",
         "business card",
     ]
     if any(kw in text_lower for kw in intent_keywords):

@@ -624,8 +624,12 @@ async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
             from .services.inbox import get_morning_inbox_summary
             inbox_summary = await get_morning_inbox_summary(db, user.id)
 
+            # Email summary
+            from .services.email_service import get_morning_email_summary
+            email_summary = await get_morning_email_summary(db, user.id)
+
             # Combine
-            full_brief = (brief_text or "") + (inbox_summary or "")
+            full_brief = (brief_text or "") + (inbox_summary or "") + (email_summary or "")
             if full_brief.strip():
                 audio_b64 = await text_to_speech(full_brief, user.id)
                 briefs.append({
