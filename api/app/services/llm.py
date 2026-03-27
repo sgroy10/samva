@@ -102,9 +102,18 @@ async def text_to_speech(text: str, user_id: str = "") -> str:
     clean = clean.replace("\u20b9", "rupees ").replace("\u2192", "")
     clean = clean.replace("\u2501", "").replace("\u25b8", "")
     clean = clean.replace("\u2191", "up ").replace("\u2193", "down ")
-    # Keep it short for voice
+    clean = clean.replace("---", "").replace("___", "").replace("\n\n\n", "\n")
+    # Keep it conversational length
     if len(clean) > 600:
         clean = clean[:600] + "... baaki details text mein bhej rahi hoon."
+
+    # Detect language — pick best voice
+    # Kore = warm Indian male, Aoede = warm female, Puck = energetic
+    # For Hindi/Hinglish content: Kore works best
+    # For English content: Aoede is more natural
+    has_hindi = any(ord(c) > 0x0900 and ord(c) < 0x097F for c in clean)  # Devanagari
+    has_hindi_words = any(w in clean.lower() for w in ["hai", "hoon", "karo", "hain", "nahi", "aaj", "kal"])
+    voice = "Kore" if (has_hindi or has_hindi_words) else "Aoede"
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -113,14 +122,14 @@ async def text_to_speech(text: str, user_id: str = "") -> str:
                 json={
                     "contents": [{
                         "parts": [{
-                            "text": f"Read this aloud naturally, like you're telling a friend on WhatsApp. If it has Hindi words, pronounce them in Hindi:\n\n{clean}"
+                            "text": f"Read this aloud naturally and warmly, like Sam — a caring personal assistant talking to a friend on WhatsApp. Match the language — if Hindi, speak Hindi. If English, speak clear English with a warm Indian accent. Be expressive, not robotic:\n\n{clean}"
                         }]
                     }],
                     "generationConfig": {
                         "response_modalities": ["AUDIO"],
                         "speech_config": {
                             "voice_config": {
-                                "prebuilt_voice_config": {"voice_name": "Kore"}
+                                "prebuilt_voice_config": {"voice_name": voice}
                             }
                         }
                     }

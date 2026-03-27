@@ -556,6 +556,11 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
         if price_alert:
             alerts.append(price_alert)
 
+        # Personality nudges — lunch, evening, water, motivation, festivals
+        from .personality import get_proactive_nudges
+        nudges = await get_proactive_nudges(db, user_id)
+        alerts.extend(nudges)
+
     except Exception as e:
         logger.error(f"Alert check error for {user_id}: {e}", exc_info=True)
 

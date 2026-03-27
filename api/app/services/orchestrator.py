@@ -315,10 +315,21 @@ async def _handle_image(
                 image_base64=image_base64, user_id=user_id, max_tokens=600,
             )
 
-    # General image analysis — use Flash with Soul context
+    # Food photo detection — calorie counting
+    q = (text or "").lower()
+    food_words = ["food", "lunch", "dinner", "breakfast", "khana", "meal", "kha",
+                   "calorie", "calories", "nutrition", "snack", "nashta"]
+    if any(w in q for w in food_words) or not text:
+        # Try food analysis first — if no text caption, could be food
+        from .personality import analyze_food_photo
+        food_result = await analyze_food_photo(image_base64, user_id)
+        if food_result and "calorie" in food_result.lower():
+            return food_result
+
+    # General image analysis — use Flash with Soul + personality context
     system = await _build_system_prompt(db, user_id, user, soul)
     return await call_gemini(
-        system + "\n\nThe user sent an image. Analyze it and respond helpfully based on who they are and what they do.",
+        system + "\n\nThe user sent an image. Analyze it helpfully. If it looks like food, estimate calories. If it's a product, describe it. Be warm and conversational.",
         text or "What do you see?",
         image_base64=image_base64,
         user_id=user_id,
@@ -366,19 +377,19 @@ async def _build_system_prompt(
 
     now = datetime.now().strftime("%d %b %Y, %I:%M %p IST")
 
-    return f"""You are Sam -- a personal WhatsApp assistant for {name}.
+    from .personality import PERSONALITY_LAYER
 
-YOUR IDENTITY: You are warm, helpful, concise, and match the user's language automatically. You respond in short WhatsApp-friendly messages. Never send walls of text.
+    return f"""You are Sam -- a personal WhatsApp assistant for {name}.
+{PERSONALITY_LAYER}
 
 ABOUT {name.upper()}:
 {soul.system_prompt or 'Still learning about this user.'}
 
 YOUR RULES:
 - Never make unauthorized commitments on behalf of {name}
-- When unsure, ask {name} before responding to others
+- When unsure, ask rather than guess
 - Keep responses SHORT -- this is WhatsApp, not email
 - Match the user's language (Hindi, English, Gujarati, etc.)
-- Use emojis sparingly and naturally
 
 YOUR MEMORY:
 {memory_text}
