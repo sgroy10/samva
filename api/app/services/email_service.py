@@ -510,7 +510,10 @@ async def confirm_send_email(db: AsyncSession, user_id: str) -> str:
     )
     config = result.scalars().first()
     if not config:
-        del _pending_drafts[user_id]
+        from ..models import PendingEmailDraft
+        from sqlalchemy import delete as sql_del
+        await db.execute(sql_del(PendingEmailDraft).where(PendingEmailDraft.user_id == user_id))
+        await db.commit()
         return "Email not configured. Type 'connect email' first."
 
     try:
