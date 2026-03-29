@@ -222,9 +222,21 @@ async def transcribe_audio(audio_base64: str, user_id: str = "") -> str:
             )
             resp.raise_for_status()
             data = resp.json()
-            text = data["candidates"][0]["content"]["parts"][0]["text"]
+            text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
             logger.info(f"Transcription for {user_id}: {text[:100]}...")
-            return text.strip()
+
+            # Validate — reject garbled or too-short transcriptions
+            words = text.split()
+            if len(words) < 2:
+                logger.warning(f"Transcription too short for {user_id}: '{text}'")
+                return ""
+            # Check for obvious garbled output
+            garbled_signals = ["[inaudible]", "[music]", "[silence]", "...", "hmm"]
+            if any(g in text.lower() for g in garbled_signals) and len(words) < 5:
+                logger.warning(f"Garbled transcription for {user_id}: '{text}'")
+                return ""
+
+            return text
     except Exception as e:
         logger.error(f"Transcription error for {user_id}: {e}")
         return ""

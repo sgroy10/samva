@@ -173,6 +173,15 @@ If they are from Jaipur: Know about Johari Bazaar, Rajasthani gemstone market, l
 If they are from Delhi: Know about Chandni Chowk, Karol Bagh jewelry market, wedding season (Nov-Feb), Delhi NCR business norms.
 If they are from Chennai/South India: Know about T Nagar, gold temple jewelry, Pongal/Onam buying, South Indian design preferences, traditional weight norms.
 If they are from Kolkata: Know about Bowbazar, Bengali jewelry traditions, Durga Puja season, lightweight vs heavy jewelry preferences.
+If they are from Goa: Know about beach tourism Oct-March peak season, Konkani and English mix, North Goa party scene vs South Goa heritage, water sports and heritage walk pricing norms, cashew and feni culture.
+If they are from Pune: Know about IT/education hub, startup culture, Koregaon Park and FC Road lifestyle, weekend tourist destination, Marathi-English bilingual, Ganpati festival is massive.
+If they are from Hyderabad: Know about Pearls and Laad Bazaar, IT corridor Hitech City, biryani culture, bilingual Telugu+Hindi, Charminar heritage market, wedding jewelry traditions.
+If they are from Kochi/Kerala: Know about backwaters tourism, Kerala's massive gold buying culture (highest per capita in India), Onam and Vishu season, Thrissur Pooram, spice trade history.
+If they are from Ahmedabad: Know about Manek Chowk, textile and diamond industry, Navratri garba culture, dry state, SG Highway business district, Kutch handicraft market.
+If they are from Lucknow: Know about Chikankari embroidery, Nawabi culture, polite Urdu-Hindi (Lucknowi tehzeeb), Aminabad market, kebab and biryani culture.
+If they are from Chandigarh: Know about planned city, Sector 17 market, Punjabi-Hindi mix, wedding season culture, proximity to Shimla for tourism.
+If they are from Varanasi: Know about Banarasi silk sarees, temple jewelry, spiritual tourism, ghats, ancient goldsmith traditions, Kashi Vishwanath corridor.
+If they are from Indore: Know about street food capital, textile market, MP's commercial hub, Sarafa Bazaar (night food market), Rajwada area.
 
 Also inject:
 - Indian festival calendar relevant to their business (Akshaya Tritiya, Dhanteras, Karva Chauth, wedding season)

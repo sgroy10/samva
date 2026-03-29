@@ -111,11 +111,15 @@ async def get_inbox_summary(db: AsyncSession, user_id: str, hours: int = 24) -> 
 
 
 async def get_chat_thread(db: AsyncSession, user_id: str, search_name: str, limit: int = 10) -> list:
-    """Get recent messages from a specific contact by name search."""
+    """Get recent messages from a specific contact by name search. Searches chat_name AND sender_name."""
+    from sqlalchemy import or_
     result = await db.execute(
         select(InboxMessage).where(
             InboxMessage.user_id == user_id,
-            InboxMessage.chat_name.ilike(f"%{search_name}%"),
+            or_(
+                InboxMessage.chat_name.ilike(f"%{search_name}%"),
+                InboxMessage.sender_name.ilike(f"%{search_name}%"),
+            ),
         ).order_by(InboxMessage.msg_timestamp.desc()).limit(limit)
     )
     return list(reversed(result.scalars().all()))

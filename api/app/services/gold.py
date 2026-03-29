@@ -121,8 +121,18 @@ def _format_change(current: float, previous_str: str) -> str:
         return ""
 
 
-async def get_gold_brief(db: AsyncSession, user_id: str) -> str:
-    """Get formatted gold/silver/platinum brief. Works for ANY user."""
+async def get_gold_brief(db: AsyncSession, user_id: str, simple: bool = None) -> str:
+    """Get formatted gold/silver/platinum brief.
+    simple=True: just rates, no expert jewellery view.
+    simple=None: auto-detect from business_type.
+    """
+    # Auto-detect simple mode
+    if simple is None:
+        soul_result = await db.execute(
+            select(AgentSoul).where(AgentSoul.user_id == user_id)
+        )
+        soul = soul_result.scalar_one_or_none()
+        simple = not _is_jeweller(soul.business_type) if soul else True
     prices = await _fetch_prices()
     if not prices:
         return "Gold prices fetch nahi ho paaye. Thodi der mein try karo."
@@ -162,16 +172,17 @@ async def get_gold_brief(db: AsyncSession, user_id: str) -> str:
         lines.append(f"\u25b8 Silver ${prices['silver_usd_oz']:,.2f}/oz")
     lines.append(f"\u25b8 USD/INR \u20b9{prices['usd_inr']:.2f}")
 
-    # Expert view from Gemini
-    try:
-        expert = await call_gemini(
-            "You are a gold market expert. Give a ONE paragraph (3-4 lines max) expert analysis. Include: should jewellers BUY, HOLD, or WAIT today and why. Mention any trends. Be specific and actionable. No disclaimers.",
-            f"Gold 24K: Rs{prices['gold_24k']:,.0f}/gm, yesterday: Rs{yesterday_24k or 'unknown'}/gm. Silver: Rs{prices.get('silver_inr', 0):,.0f}/gm. International gold: ${prices['gold_usd_oz']:,.1f}/oz. Date: {date_str}",
-            user_id=user_id,
-        )
-        lines.append(f"\n\U0001f4a1 *EXPERT VIEW*\n{expert}")
-    except Exception as e:
-        logger.warning(f"Expert analysis failed: {e}")
+    # Expert view — only for jewellers (skip for simple mode)
+    if not simple:
+        try:
+            expert = await call_gemini(
+                "You are a gold market expert. Give a ONE paragraph (3-4 lines max) expert analysis. Include: should jewellers BUY, HOLD, or WAIT today and why. Mention any trends, festival buying patterns. Be specific and actionable. No disclaimers.",
+                f"Gold 24K: Rs{prices['gold_24k']:,.0f}/gm, yesterday: Rs{yesterday_24k or 'unknown'}/gm. Silver: Rs{prices.get('silver_inr', 0):,.0f}/gm. International gold: ${prices['gold_usd_oz']:,.1f}/oz. Date: {date_str}",
+                user_id=user_id,
+            )
+            lines.append(f"\n\U0001f4a1 *EXPERT VIEW*\n{expert}")
+        except Exception as e:
+            logger.warning(f"Expert analysis failed: {e}")
 
     lines.append(f"\nSay 'rates' anytime for live prices")
 

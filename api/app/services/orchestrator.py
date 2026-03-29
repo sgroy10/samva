@@ -181,6 +181,14 @@ async def orchestrate(
     text_lower = (text or "").lower()
 
     # ── LAYER 2.3: Confirm pending reply / email send ────────
+    # Auto-expire old pending records (older than 1 hour)
+    from ..models import PendingReply, PendingEmailDraft
+    from sqlalchemy import delete as sql_delete
+    from datetime import timedelta
+    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    await db.execute(sql_delete(PendingReply).where(PendingReply.created_at < one_hour_ago))
+    await db.execute(sql_delete(PendingEmailDraft).where(PendingEmailDraft.created_at < one_hour_ago))
+    await db.commit()
     from . import inbox
     from . import email_service as email_svc
     confirm_words = {"haan", "ha", "yes", "send", "bhej", "bhejo", "ok", "theek", "sure"}
