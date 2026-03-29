@@ -150,9 +150,46 @@ async def orchestrate(
     if image_base64:
         return await _handle_image(db, user_id, user, soul, text, image_base64, business_type)
 
+    text_lower = (text or "").lower()
+
+    # ── LAYER 2.3: Confirm pending reply / email send ────────
+    from . import inbox
+    from . import email_service as email_svc
+    confirm_words = {"haan", "ha", "yes", "send", "bhej", "bhejo", "ok", "theek", "sure"}
+    cancel_words = {"nahi", "nai", "no", "cancel", "mat", "ruk"}
+
+    if text_lower.strip() in confirm_words:
+        # Check pending chat reply first
+        if inbox.has_pending_reply(user_id):
+            send_data = await inbox.confirm_and_send_reply(user_id)
+            if send_data:
+                # Call bridge to send
+                import httpx as hx
+                try:
+                    async with hx.AsyncClient(timeout=10.0) as client:
+                        await client.post("http://localhost:3000/send-to-chat", json={
+                            "userId": user_id,
+                            "chatJid": send_data["chat_id"],
+                            "text": send_data["text"],
+                        })
+                    return f"Reply sent to {send_data['customer_name']} \u2705"
+                except Exception as e:
+                    return f"Send failed: {str(e)[:50]}. Try again."
+
+        # Check pending email draft
+        if email_svc.has_pending_draft(user_id):
+            return await email_svc.confirm_send_email(db, user_id)
+
+    if text_lower.strip() in cancel_words:
+        if inbox.has_pending_reply(user_id):
+            inbox._pending_chat_replies.pop(user_id, None)
+            return "Reply cancel kar diya."
+        if email_svc.has_pending_draft(user_id):
+            email_svc._pending_drafts.pop(user_id, None)
+            return "Draft cancel."
+
     # ── LAYER 2.5: Inbox / Chat Intelligence ────────────────────
     from . import chat_intelligence
-    text_lower = (text or "").lower()
     inbox_triggers = ["check messages", "messages dikhao", "inbox", "unread",
                        "kaun aaya", "notifications", "messages", "message check",
                        "kaun kaun aaya", "new messages", "koi message aaya",

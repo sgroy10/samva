@@ -177,6 +177,41 @@ RULES:
     return f"*Reply to {customer_name}:*\n\n{reply}\n\n_Bhejun? (haan/nahi)_\n_[chat:{chat_id}]_"
 
 
+# Pending chat replies — user must confirm
+_pending_chat_replies = {}  # user_id -> {chat_id, text, customer_name}
+
+
+async def store_pending_reply(user_id: str, chat_id: str, reply_text: str, customer_name: str):
+    """Store a pending reply waiting for owner confirmation."""
+    _pending_chat_replies[user_id] = {
+        "chat_id": chat_id,
+        "text": reply_text,
+        "customer_name": customer_name,
+    }
+
+
+async def confirm_and_send_reply(user_id: str) -> dict:
+    """
+    Owner said "haan" — send the pending reply to the customer via bridge.
+    Returns {chat_id, text} for bridge to send, or empty if no pending.
+    """
+    pending = _pending_chat_replies.get(user_id)
+    if not pending:
+        return {}
+
+    result = {
+        "chat_id": pending["chat_id"],
+        "text": pending["text"],
+        "customer_name": pending["customer_name"],
+    }
+    del _pending_chat_replies[user_id]
+    return result
+
+
+def has_pending_reply(user_id: str) -> bool:
+    return user_id in _pending_chat_replies
+
+
 async def check_auto_reply_needed(db: AsyncSession, user_id: str) -> list:
     """
     Find messages where customer has been waiting 2+ hours with no reply.

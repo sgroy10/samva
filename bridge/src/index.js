@@ -109,6 +109,18 @@ app.post('/sessions/:userId/reconnect', async (req, res) => {
   }
 });
 
+// --- Send message to a specific WhatsApp contact (owner confirmed) ---
+app.post('/send-to-chat', async (req, res) => {
+  const { userId, chatJid, text } = req.body;
+  if (!userId || !chatJid || !text) return res.status(400).json({ error: 'Missing fields' });
+  try {
+    const sent = await sessionManager.sendMessageToChat(userId, chatJid, text);
+    res.json({ sent });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- QR Code Page ---
 app.get('/pair/:token', (req, res) => {
   const session = sessionStore.getSessionByToken(req.params.token);

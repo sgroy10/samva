@@ -142,6 +142,8 @@ class EmailConfig(Base):
     smtp_port = Column(Integer, default=587)
     password_encrypted = Column(Text, nullable=True)
     enabled = Column(Boolean, default=True)
+    account_type = Column(String(50), default="personal")  # personal, work, business, side_hustle
+    is_primary = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
 
 
