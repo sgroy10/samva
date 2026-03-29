@@ -169,6 +169,38 @@ class SessionHealth(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
+class ChatMessage(Base):
+    """ALL WhatsApp messages — buffered every 15 min for chat intelligence."""
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False)
+    chat_id = Column(String(100), nullable=False)
+    chat_name = Column(String(200), nullable=True)
+    sender_name = Column(String(100), nullable=True)
+    content = Column(Text, nullable=False)
+    from_me = Column(Boolean, default=False)
+    msg_timestamp = Column(Integer, nullable=True)
+    analyzed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
+
+
+class ChatInsight(Base):
+    """AI-generated insights from chat analysis."""
+    __tablename__ = "chat_insights"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False)
+    chat_id = Column(String(100), nullable=True)
+    chat_name = Column(String(200), nullable=True)
+    summary = Column(Text, nullable=True)
+    category = Column(String(50), nullable=True)
+    suggested_reply = Column(Text, nullable=True)
+    priority = Column(String(20), default="medium")
+    delivered = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
+
+
 class InboxMessage(Base):
     """ALL WhatsApp messages — from customers, contacts, groups. Sam's inbox."""
     __tablename__ = "inbox_messages"

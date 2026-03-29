@@ -150,14 +150,15 @@ async def orchestrate(
     if image_base64:
         return await _handle_image(db, user_id, user, soul, text, image_base64, business_type)
 
-    # ── LAYER 2.5: Inbox commands (Sam as agent) ───────────────
-    from . import inbox
+    # ── LAYER 2.5: Inbox / Chat Intelligence ────────────────────
+    from . import chat_intelligence
     text_lower = (text or "").lower()
     inbox_triggers = ["check messages", "messages dikhao", "inbox", "unread",
                        "kaun aaya", "notifications", "messages", "message check",
-                       "kaun kaun aaya", "new messages", "koi message aaya"]
+                       "kaun kaun aaya", "new messages", "koi message aaya",
+                       "urgent kya hai", "important messages"]
     if any(kw in text_lower for kw in inbox_triggers):
-        return await inbox.get_inbox_summary(db, user_id)
+        return await chat_intelligence.get_chat_summary(db, user_id)
 
     # Reply to someone from inbox: "Priya ko reply karo", "tell Ahmed..."
     reply_patterns = ["reply karo", "ko bolo", "ko batao", "tell ", "reply to "]

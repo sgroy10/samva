@@ -199,10 +199,11 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
         }
     }
 
-    // For non-self chats: only process incoming messages (someone messaging the user)
-    // For self-chat: only process messages the user sends to themselves
-    if (!isSelfChat && fromMe) return;
-    if (isSelfChat && !fromMe) return;
+    // ── CRITICAL: Sam ONLY responds to self-chat ──────────────────
+    // All other chats are READ for intelligence but Sam NEVER replies.
+    // Sam only replies to contacts when owner explicitly says "Priya ko reply karo"
+    if (!isSelfChat) return;  // Store to inbox above, but don't process or reply
+    if (!fromMe) return;      // In self-chat, only process messages user sends
 
     let text = '';
     let messageType = 'text';

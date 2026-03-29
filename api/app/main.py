@@ -357,6 +357,22 @@ async def handle_enterprise(
     return {"status": "ok"}
 
 
+# --- Chat Intelligence ---
+
+@app.post("/messages/batch")
+async def receive_chat_batch(req: dict, db: AsyncSession = Depends(get_db)):
+    """Receives all WhatsApp chats uploaded by bridge every 15 min."""
+    from .services.chat_intelligence import store_message_batch, analyze_new_messages
+    user_id = req.get("userId", "")
+    messages = req.get("messages", [])
+    if not user_id or not messages:
+        return {"stored": 0}
+
+    await store_message_batch(db, user_id, messages)
+    insights = await analyze_new_messages(db, user_id)
+    return {"stored": len(messages), "insights": len(insights)}
+
+
 # --- Inbox Endpoints ---
 
 class InboxStoreRequest(BaseModel):

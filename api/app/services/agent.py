@@ -541,6 +541,12 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
         if price_alert:
             alerts.append(price_alert)
 
+        # Chat intelligence — urgent message insights
+        from .chat_intelligence import get_undelivered_insights
+        chat_alert = await get_undelivered_insights(db, user_id)
+        if chat_alert:
+            alerts.append(chat_alert)
+
         # Personality nudges — lunch, evening, water, motivation, festivals
         from .personality import get_proactive_nudges
         nudges = await get_proactive_nudges(db, user_id)
