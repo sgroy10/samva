@@ -1054,7 +1054,7 @@ footer {
         <div class="step">
           <div class="step-num">2</div>
           <div>
-            <div class="step-title">Sign up &amp; pay &#8377;299</div>
+            <div class="step-title">Pay &#8377;299</div>
             <div class="step-desc">Click &ldquo;Get Sam&rdquo; above. Enter your name and WhatsApp number. Pay via UPI, card, or net banking. Takes 30 seconds.</div>
           </div>
         </div>
@@ -1248,7 +1248,7 @@ footer {
       <input type="text" id="signup-name" placeholder="Ritu Patel" autocomplete="name">
       <label for="signup-phone">WhatsApp number</label>
       <input type="tel" id="signup-phone" placeholder="+91 98765 43210" autocomplete="tel">
-      <button class="modal-btn" id="signup-btn" onclick="handleSignup()">Continue — &#8377;299/month</button>
+      <button class="modal-btn" id="signup-btn" onclick="handleSignup()">Pay &#8377;299 &amp; Get Sam</button>
       <div class="error-msg" id="signup-error"></div>
     </div>
     <div id="signup-success" style="display:none;">
@@ -1399,7 +1399,7 @@ async function handleSignup() {
             errorEl.textContent = 'Payment verification failed. Please contact support.';
             errorEl.style.display = 'block';
             btn.disabled = false;
-            btn.textContent = 'Continue — \u20B9299/month';
+            btn.textContent = 'Pay \u20B9299 & Get Sam';
           }
         },
         prefill: { contact: phone, name: name },
@@ -1407,7 +1407,7 @@ async function handleSignup() {
         modal: {
           ondismiss: function() {
             btn.disabled = false;
-            btn.textContent = 'Continue — \u20B9299/month';
+            btn.textContent = 'Pay \u20B9299 & Get Sam';
           }
         }
       };
@@ -1434,7 +1434,7 @@ async function handleSignup() {
     errorEl.textContent = err.message || 'Something went wrong. Please try again.';
     errorEl.style.display = 'block';
     btn.disabled = false;
-    btn.textContent = 'Continue — \u20B9299/month';
+    btn.textContent = 'Pay \u20B9299 & Get Sam';
   }
 }
 
