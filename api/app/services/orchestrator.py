@@ -113,15 +113,43 @@ async def orchestrate(
     """
     business_type = soul.business_type or ""
 
+    # ── LAYER 0: Image Memory — Sam NEVER forgets an image ─────
+    from . import image_session
+
+    # If user sent a NEW image — store it permanently
+    if image_base64:
+        img_id = await image_session.store_image(db, user_id, image_base64, source="upload")
+        logger.info(f"[{user_id}] Image stored: session {img_id}")
+
+    # If message references an image (render, change, enhance, etc.)
+    # but NO new image was sent — load the active image from DB
+    if not image_base64 and image_session.is_image_context_message(text):
+        active = await image_session.get_active_image(db, user_id)
+        if active:
+            image_base64 = active["base64"]
+            logger.info(f"[{user_id}] Loaded active image from session (id={active['id']}, source={active['source']})")
+
     # ── LAYER 1: Prebuilt Skills (instant, no AI cost for routing) ──
     # Check keyword match against the prebuilt library
     context = await _build_context(db, user_id, image_base64)
     prebuilt_result = await prebuilt_skills.find_and_execute(text, business_type, context)
 
     if prebuilt_result:
-        # Image response — pass through to bridge for WhatsApp image send
+        # Image response — store the result as new version + send to user
         if prebuilt_result.startswith("__IMAGE__"):
-            logger.info(f"[{user_id}] Prebuilt returned image")
+            img_data = prebuilt_result.replace("__IMAGE__", "")
+            if img_data:
+                # Get parent image ID
+                active = await image_session.get_active_image(db, user_id)
+                parent_id = active.get("id") if active else None
+                # Store render/enhance result as new version
+                await image_session.store_version(
+                    db, user_id, img_data,
+                    description=text or "Generated image",
+                    source="render",
+                    parent_id=parent_id,
+                )
+                logger.info(f"[{user_id}] Render stored as new version")
             return prebuilt_result
 
         # User needs to send a photo first
@@ -186,6 +214,24 @@ async def orchestrate(
         if await email_svc.has_pending_draft(db, user_id):
             await email_svc.cancel_pending_draft(db, user_id)
             return "Draft cancel."
+
+    # ── LAYER 2.4: Image history commands ──────────────────────
+    show_original = any(w in text_lower for w in ["show original", "original dikhao", "pehle wala",
+                                                     "previous version", "go back", "first image"])
+    if show_original:
+        active = await image_session.get_active_image(db, user_id)
+        if active and active.get("parent_id"):
+            parent = await image_session.get_image_by_id(db, user_id, active["parent_id"])
+            if parent and parent.get("base64"):
+                return f"__IMAGE__{parent['base64']}"
+
+        history = await image_session.get_image_history(db, user_id)
+        if history:
+            lines = ["*Image history:*\n"]
+            for h in history:
+                lines.append(f"  {h['source']}: {h['description'] or 'no description'}")
+            return "\n".join(lines)
+        return "Koi image history nahi hai."
 
     # ── LAYER 2.5: Inbox / Chat Intelligence ────────────────────
     from . import chat_intelligence
@@ -415,9 +461,30 @@ async def _build_system_prompt(
     now = datetime.now().strftime("%d %b %Y, %I:%M %p IST")
 
     from .personality import PERSONALITY_LAYER
+    from . import image_session
+
+    # Check if user has an active image in context
+    image_context = ""
+    active_img = await image_session.get_active_image(db, user_id)
+    if active_img:
+        history = await image_session.get_image_history(db, user_id, limit=5)
+        history_text = "\n".join(f"  - {h['source']}: {h['description']}" for h in history if h.get('description'))
+        image_context = f"""
+
+IMAGE IN CONTEXT:
+You have an active image from the user (source: {active_img['source']}).
+Description: {active_img.get('description', 'User uploaded image')}
+Image history (most recent first):
+{history_text}
+
+IMPORTANT: The user may reference this image — "render it", "change the stone",
+"enhance it", "make an ad". You KNOW what image they mean. Don't ask "which image?"
+If they switch topics and come back — you still remember the image.
+Say "show me the original" or "pehle wala dikhao" to recall previous versions."""
 
     return f"""You are Sam -- a personal WhatsApp assistant for {name}.
 {PERSONALITY_LAYER}
+{image_context}
 
 ABOUT {name.upper()}:
 {soul.system_prompt or 'Still learning about this user.'}
