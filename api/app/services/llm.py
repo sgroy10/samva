@@ -88,10 +88,11 @@ async def call_gemini_json(
         return {"error": "parse_error", "raw": raw}
 
 
-async def text_to_speech(text: str, user_id: str = "") -> str:
+async def text_to_speech(text: str, user_id: str = "", voice_language: str = "auto") -> str:
     """
     Convert text to speech using OpenAI GPT Audio Mini via OpenRouter.
     Best natural voice in the industry. Multilingual. Warm and friendly.
+    voice_language: user's chosen language for voice notes.
     Returns base64-encoded audio, or empty string on failure.
     """
     if not settings.openrouter_api_key:
@@ -120,9 +121,9 @@ async def text_to_speech(text: str, user_id: str = "") -> str:
                     "messages": [
                         {
                             "role": "system",
-                            "content": "You are Sam, a warm and caring personal assistant. Read the text aloud in a friendly, natural tone. Match the language — Hindi for Hindi text, English for English. Be warm, not robotic. Like talking to a close friend."
+                            "content": f"You are Sam, a warm and caring personal assistant. Read the text aloud in a friendly, natural tone. SPEAK IN {voice_language.upper() if voice_language != 'auto' else 'the same language as the text'}. Be warm, expressive, like talking to a close friend. NOT robotic."
                         },
-                        {"role": "user", "content": f"Read this aloud naturally:\n\n{clean}"}
+                        {"role": "user", "content": f"Read this aloud in {voice_language if voice_language != 'auto' else 'the appropriate language'}:\n\n{clean}"}
                     ],
                     "modalities": ["text", "audio"],
                     "audio": {"voice": "shimmer", "format": "mp3"},

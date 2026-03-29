@@ -62,6 +62,7 @@ async def _run_migrations():
         "ALTER TABLE reminders ADD COLUMN IF NOT EXISTS call_attempted BOOLEAN DEFAULT FALSE",
         "ALTER TABLE email_configs ADD COLUMN IF NOT EXISTS account_type VARCHAR(50) DEFAULT 'personal'",
         "ALTER TABLE email_configs ADD COLUMN IF NOT EXISTS is_primary BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE agent_souls ADD COLUMN IF NOT EXISTS voice_language VARCHAR(50) DEFAULT 'auto'",
     ]
     async with engine.begin() as conn:
         for sql in migrations:

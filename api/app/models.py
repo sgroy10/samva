@@ -31,6 +31,7 @@ class AgentSoul(Base):
     system_prompt = Column(Text, default="")
     business_type = Column(String(100), nullable=True)
     language_preference = Column(String(50), default="auto")
+    voice_language = Column(String(50), default="auto")
     onboarding_complete = Column(Boolean, default=False)
     onboarding_step = Column(Integer, default=0)
     onboarding_context = Column(JSON, default=dict)

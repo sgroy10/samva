@@ -32,11 +32,28 @@ Now ask about specifics that will help you assist them:
 Keep it warm, short, match their language.""",
 
     2: """You are Sam, continuing onboarding. You now know their work and preferences.
-Ask about:
-- Preferred language for responses (or auto-detect?)
-- What time they want their daily morning brief (default 9am)
-- Do they want email integration? If so, which email?
-Keep it warm, short, match their language.""",
+Now ask about LANGUAGE — this is critical. Say exactly:
+
+"Aapko kis language mein baat karni hai?
+
+• English only
+• Hindi
+• Hindi + English (Hinglish)
+• Gujarati
+• Bengali / Bangla
+• Tamil + English
+• Telugu
+• Malayalam
+• Marathi
+• Kannada
+• Punjabi
+
+Jo bhi comfortable ho — batao!
+
+Aur voice notes mein kaunsi language? Same ya alag?"
+
+Also ask: What time for morning brief (default 9am)?
+Do they want email integration?""",
 
     3: """You are Sam. You've gathered enough info about this user.
 Summarize what you've learned in 4-5 bullet points and ask them to confirm:
@@ -170,21 +187,22 @@ Output ONLY the system prompt text, nothing else.""",
         max_tokens=1200,
     )
 
-    # Detect language, business type, city, and regional context
+    # Detect language, voice language, business type, city
     analysis = await call_gemini_json(
         """Analyze this conversation and return JSON:
 {
-    "language": "detected primary language (e.g. hindi, english, gujarati, hinglish, tamil, etc.)",
+    "language": "the user's EXPLICITLY chosen text language (e.g. english, hindi, gujarati, tamil, bengali, telugu, malayalam, marathi, hinglish). If they said 'English only' use 'english'. If they said 'Tamil + English' use 'tamil'. Use what they explicitly asked for, not what they typed in.",
+    "voice_language": "the user's chosen voice note language. If they said 'same' or didn't specify, use same as language field. If they said a different language for voice, use that.",
     "business_type": "brief business/profession type (e.g. saree shop, jeweller, fitness trainer, student, finance manager)",
-    "city": "city/town if mentioned or inferable (e.g. Surat, Mumbai, Delhi, Jaipur)",
-    "state": "Indian state if detectable (e.g. Gujarat, Maharashtra, Rajasthan)",
-    "regional_dialect": "specific dialect markers (e.g. Gujarati-Hindi mix, pure Hindi, South Indian English)"
+    "city": "city/town if mentioned (e.g. Surat, Mumbai, Delhi, Jaipur, Chennai, Kolkata)",
+    "state": "Indian state if detectable"
 }""",
         f"Conversation:\n{conv_text}",
         user_id=user_id,
     )
 
-    language = analysis.get("language", "auto")
+    language = analysis.get("language", "english")
+    voice_language = analysis.get("voice_language", language)
     business_type = analysis.get("business_type", "")
 
     # Update soul
@@ -194,6 +212,7 @@ Output ONLY the system prompt text, nothing else.""",
         .values(
             system_prompt=system_prompt,
             language_preference=language,
+            voice_language=voice_language,
             business_type=business_type,
             onboarding_complete=True,
             onboarding_context=context,

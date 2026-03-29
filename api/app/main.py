@@ -110,7 +110,10 @@ async def handle_message(req: MessageRequest, db: AsyncSession = Depends(get_db)
     if req.audioBase64 and result.get("reply") and not result["reply"].startswith("__IMAGE__"):
         try:
             from .services.llm import text_to_speech
-            audio_b64 = await text_to_speech(result["reply"], req.userId)
+            from .services.language import get_user_languages
+            langs = await get_user_languages(db, req.userId)
+            voice_lang = langs.get("voice", "english")
+            audio_b64 = await text_to_speech(result["reply"], req.userId, voice_lang)
             if audio_b64:
                 result["audio"] = {"data": audio_b64, "mimetype": "audio/mp4"}
         except Exception as e:
