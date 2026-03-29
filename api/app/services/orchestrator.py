@@ -159,15 +159,14 @@ async def orchestrate(
     cancel_words = {"nahi", "nai", "no", "cancel", "mat", "ruk"}
 
     if text_lower.strip() in confirm_words:
-        # Check pending chat reply first
-        if inbox.has_pending_reply(user_id):
-            send_data = await inbox.confirm_and_send_reply(user_id)
+        # Check pending chat reply (DB-backed, survives restarts)
+        if await inbox.has_pending_reply(db, user_id):
+            send_data = await inbox.confirm_and_send_reply(db, user_id)
             if send_data:
-                # Call bridge to send
                 import httpx as hx
                 try:
                     async with hx.AsyncClient(timeout=10.0) as client:
-                        await client.post("http://localhost:3000/send-to-chat", json={
+                        await client.post(f"{settings.bridge_url}/send-to-chat", json={
                             "userId": user_id,
                             "chatJid": send_data["chat_id"],
                             "text": send_data["text"],
@@ -176,16 +175,16 @@ async def orchestrate(
                 except Exception as e:
                     return f"Send failed: {str(e)[:50]}. Try again."
 
-        # Check pending email draft
-        if email_svc.has_pending_draft(user_id):
+        # Check pending email draft (DB-backed)
+        if await email_svc.has_pending_draft(db, user_id):
             return await email_svc.confirm_send_email(db, user_id)
 
     if text_lower.strip() in cancel_words:
-        if inbox.has_pending_reply(user_id):
-            inbox._pending_chat_replies.pop(user_id, None)
+        if await inbox.has_pending_reply(db, user_id):
+            await inbox.cancel_pending_reply(db, user_id)
             return "Reply cancel kar diya."
-        if email_svc.has_pending_draft(user_id):
-            email_svc._pending_drafts.pop(user_id, None)
+        if await email_svc.has_pending_draft(db, user_id):
+            await email_svc.cancel_pending_draft(db, user_id)
             return "Draft cancel."
 
     # ── LAYER 2.5: Inbox / Chat Intelligence ────────────────────

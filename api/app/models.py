@@ -171,6 +171,29 @@ class SessionHealth(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
+class PendingReply(Base):
+    """Draft reply waiting for owner confirmation. Survives restarts."""
+    __tablename__ = "pending_replies"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False)
+    chat_jid = Column(String(100), nullable=False)
+    chat_name = Column(String(200), nullable=True)
+    reply_text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+
+
+class PendingEmailDraft(Base):
+    """Draft email waiting for owner confirmation. Survives restarts."""
+    __tablename__ = "pending_email_drafts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False)
+    to_email = Column(String(200), nullable=True)
+    draft_text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+
+
 class ChatMessage(Base):
     """ALL WhatsApp messages — buffered every 15 min for chat intelligence."""
     __tablename__ = "chat_messages"

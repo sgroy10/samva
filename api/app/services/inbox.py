@@ -171,46 +171,61 @@ RULES:
         user_id=user_id,
     )
 
-    # Store pending reply for confirmation
+    # Store pending reply in DB for confirmation
     chat_id = thread[0].chat_id
-    await store_pending_reply(user_id, chat_id, reply, customer_name)
+    await store_pending_reply(db, user_id, chat_id, reply, customer_name)
 
     return f"*Reply to {customer_name}:*\n\n{reply}\n\n_Bhejun? (haan/nahi)_"
 
 
-# Pending chat replies — user must confirm
-_pending_chat_replies = {}  # user_id -> {chat_id, text, customer_name}
+async def store_pending_reply(db: AsyncSession, user_id: str, chat_id: str, reply_text: str, customer_name: str):
+    """Store pending reply in DB — survives restarts."""
+    from ..models import PendingReply
+    # Clear old pending for this user
+    from sqlalchemy import delete
+    await db.execute(delete(PendingReply).where(PendingReply.user_id == user_id))
+    db.add(PendingReply(
+        user_id=user_id, chat_jid=chat_id,
+        chat_name=customer_name, reply_text=reply_text,
+    ))
+    await db.commit()
 
 
-async def store_pending_reply(user_id: str, chat_id: str, reply_text: str, customer_name: str):
-    """Store a pending reply waiting for owner confirmation."""
-    _pending_chat_replies[user_id] = {
-        "chat_id": chat_id,
-        "text": reply_text,
-        "customer_name": customer_name,
-    }
-
-
-async def confirm_and_send_reply(user_id: str) -> dict:
-    """
-    Owner said "haan" — send the pending reply to the customer via bridge.
-    Returns {chat_id, text} for bridge to send, or empty if no pending.
-    """
-    pending = _pending_chat_replies.get(user_id)
+async def confirm_and_send_reply(db: AsyncSession, user_id: str) -> dict:
+    """Owner said "haan" — get pending reply from DB and return for sending."""
+    from ..models import PendingReply
+    from sqlalchemy import delete
+    result = await db.execute(
+        select(PendingReply).where(PendingReply.user_id == user_id)
+        .order_by(PendingReply.created_at.desc()).limit(1)
+    )
+    pending = result.scalar_one_or_none()
     if not pending:
         return {}
 
-    result = {
-        "chat_id": pending["chat_id"],
-        "text": pending["text"],
-        "customer_name": pending["customer_name"],
+    data = {
+        "chat_id": pending.chat_jid,
+        "text": pending.reply_text,
+        "customer_name": pending.chat_name or "",
     }
-    del _pending_chat_replies[user_id]
-    return result
+    await db.execute(delete(PendingReply).where(PendingReply.user_id == user_id))
+    await db.commit()
+    return data
 
 
-def has_pending_reply(user_id: str) -> bool:
-    return user_id in _pending_chat_replies
+async def has_pending_reply(db: AsyncSession, user_id: str) -> bool:
+    from ..models import PendingReply
+    result = await db.execute(
+        select(PendingReply).where(PendingReply.user_id == user_id).limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def cancel_pending_reply(db: AsyncSession, user_id: str):
+    from ..models import PendingReply
+    from sqlalchemy import delete
+    await db.execute(delete(PendingReply).where(PendingReply.user_id == user_id))
+    await db.commit()
 
 
 async def check_auto_reply_needed(db: AsyncSession, user_id: str) -> list:

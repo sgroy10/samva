@@ -441,10 +441,6 @@ Keep it CONCISE. WhatsApp format. The user should feel like their smart assistan
 
 # ── Ramble to Email ──────────────────────────────────────────────
 
-# Pending drafts — user must confirm before Sam sends
-_pending_drafts = {}  # user_id -> {to, subject, body, account}
-
-
 async def draft_email(db: AsyncSession, user_id: str, text: str) -> str:
     """Draft professional email from ramble in any language."""
     # Get user context
@@ -469,10 +465,16 @@ Language: {extracted.get('language', 'English')}. Include Subject: line. Sign of
         f"Write: {extracted.get('intent', text)}", user_id=user_id,
     )
 
-    _pending_drafts[user_id] = {
-        "to_email": extracted.get("to_email", ""),
-        "draft": draft,
-    }
+    # Save to DB — survives restarts
+    from ..models import PendingEmailDraft
+    from sqlalchemy import delete
+    await db.execute(delete(PendingEmailDraft).where(PendingEmailDraft.user_id == user_id))
+    db.add(PendingEmailDraft(
+        user_id=user_id,
+        to_email=extracted.get("to_email", ""),
+        draft_text=draft,
+    ))
+    await db.commit()
 
     reply = f"*Draft ready* \u2713\n\n{draft}\n\n"
     if extracted.get("to_email"):
@@ -484,11 +486,19 @@ Language: {extracted.get('language', 'English')}. Include Subject: line. Sign of
 
 async def confirm_send_email(db: AsyncSession, user_id: str) -> str:
     """Send the pending draft after owner confirms."""
-    draft_data = _pending_drafts.get(user_id)
-    if not draft_data:
+    from ..models import PendingEmailDraft
+    from sqlalchemy import delete as sql_delete
+
+    result = await db.execute(
+        select(PendingEmailDraft).where(PendingEmailDraft.user_id == user_id)
+        .order_by(PendingEmailDraft.created_at.desc()).limit(1)
+    )
+    pending = result.scalar_one_or_none()
+    if not pending:
         return "Koi pending draft nahi hai."
 
-    to_email = draft_data.get("to_email")
+    to_email = pending.to_email
+    draft = pending.draft_text
     if not to_email:
         return "Email address batao — kisko bhejni hai?"
 
@@ -505,7 +515,6 @@ async def confirm_send_email(db: AsyncSession, user_id: str) -> str:
 
     try:
         password = _decrypt(config.password_encrypted)
-        draft = draft_data["draft"]
 
         subject = "Email from Samva"
         body = draft
@@ -528,16 +537,29 @@ async def confirm_send_email(db: AsyncSession, user_id: str) -> str:
             server.login(config.email_address, password)
             server.send_message(msg)
 
-        del _pending_drafts[user_id]
+        await db.execute(sql_delete(PendingEmailDraft).where(PendingEmailDraft.user_id == user_id))
+        await db.commit()
         return f"Email sent to {to_email} \u2705"
     except Exception as e:
         logger.error(f"Email send error: {e}")
-        del _pending_drafts[user_id]
+        await db.execute(sql_delete(PendingEmailDraft).where(PendingEmailDraft.user_id == user_id))
+        await db.commit()
         return f"Send fail: {str(e)[:60]}"
 
 
-def has_pending_draft(user_id: str) -> bool:
-    return user_id in _pending_drafts
+async def has_pending_draft(db: AsyncSession, user_id: str) -> bool:
+    from ..models import PendingEmailDraft
+    result = await db.execute(
+        select(PendingEmailDraft).where(PendingEmailDraft.user_id == user_id).limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def cancel_pending_draft(db: AsyncSession, user_id: str):
+    from ..models import PendingEmailDraft
+    from sqlalchemy import delete as sql_delete
+    await db.execute(sql_delete(PendingEmailDraft).where(PendingEmailDraft.user_id == user_id))
+    await db.commit()
 
 
 # ── Morning Brief ────────────────────────────────────────────────
