@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contact — Samva</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@300;400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root { --ink: #0D0C0A; --paper: #F5F2EC; --warm: #F0EBE1; --gold: #C9A84C; --muted: #8A8070; --border: rgba(90,80,60,0.12); }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--paper); color:var(--ink); }
+nav { position:fixed; top:0; left:0; right:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:20px 48px; background:rgba(245,242,236,0.85); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+.logo { font-family:'Fraunces',serif; font-size:22px; font-weight:700; text-decoration:none; color:var(--ink); }
+.logo span { color:var(--gold); }
+.content { max-width:700px; margin:0 auto; padding:120px 24px 80px; }
+h1 { font-family:'Fraunces',serif; font-size:36px; font-weight:600; margin-bottom:32px; }
+h2 { font-family:'Fraunces',serif; font-size:22px; font-weight:600; margin:32px 0 12px; }
+p { font-size:15px; line-height:1.8; color:var(--muted); margin-bottom:16px; }
+.contact-card { border:1px solid var(--border); border-radius:16px; padding:32px; margin-top:24px; }
+.contact-item { display:flex; align-items:center; gap:12px; margin-bottom:16px; font-size:15px; }
+.contact-icon { font-size:20px; width:40px; height:40px; background:rgba(201,168,76,0.1); border-radius:10px; display:flex; align-items:center; justify-content:center; }
+footer { border-top:1px solid var(--border); padding:32px 48px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; }
+.footer-links { display:flex; gap:24px; }
+.footer-links a { font-size:13px; color:var(--muted); text-decoration:none; }
+.footer-copy { font-size:12px; color:var(--muted); }
+@media(max-width:768px) { nav { padding:16px 20px; } .content { padding:80px 20px 60px; } footer { padding:24px 20px; flex-direction:column; text-align:center; } }
+</style>
+</head>
+<body>
+<nav><a href="/" class="logo">Sam<span>va</span></a></nav>
+<div class="content">
+  <h1>Contact Us</h1>
+  <p>Have questions about Sam? Need help with your account? Want to discuss enterprise integration? We're here.</p>
+
+  <div class="contact-card">
+    <div class="contact-item"><div class="contact-icon">&#128231;</div><div><strong>Email</strong><br><a href="mailto:hello@samva.in" style="color:var(--gold);">hello@samva.in</a></div></div>
+    <div class="contact-item"><div class="contact-icon">&#128222;</div><div><strong>Phone</strong><br><a href="tel:+918928731453" style="color:var(--gold);">+91 8928731453</a></div></div>
+    <div class="contact-item"><div class="contact-icon">&#127970;</div><div><strong>Address</strong><br>Flipoye<br>A-306 Kanakia Park-1<br>Thakur Complex, Kandivali East<br>Mumbai 400101</div></div>
+  </div>
+
+  <h2>Enterprise</h2>
+  <p>Need Sam connected to your ERP, Shopify, Tally, or CRM? <a href="/#pricing" style="color:var(--gold);">Fill the enterprise form</a> on our homepage or email us directly.</p>
+
+  <h2>Support Hours</h2>
+  <p>Monday to Saturday, 10 AM — 7 PM IST. Sam works 24/7 but humans are available during business hours.</p>
+</div>
+<footer>
+  <a href="/" class="logo" style="font-size:18px;">Sam<span>va</span></a>
+  <div class="footer-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/contact">Contact</a></div>
+  <div class="footer-copy">&copy; 2026 Samva by Flipoye.</div>
+</footer>
+</body>
+</html>

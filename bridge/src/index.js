@@ -28,10 +28,12 @@ app.use(express.urlencoded({ extended: true }));
 const webDir = path.resolve(__dirname, '../../web/public');
 app.use(express.static(webDir));
 
-// Renewal deep link — serve landing page for /renew route
-app.get('/renew', (req, res) => {
-  res.sendFile(path.join(webDir, 'index.html'));
-});
+// Static pages
+app.get('/renew', (req, res) => res.sendFile(path.join(webDir, 'index.html')));
+app.get('/privacy', (req, res) => res.sendFile(path.join(webDir, 'privacy.html')));
+app.get('/terms', (req, res) => res.sendFile(path.join(webDir, 'terms.html')));
+app.get('/contact', (req, res) => res.sendFile(path.join(webDir, 'contact.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(webDir, 'admin.html')));
 
 // --- Health ---
 app.get('/health', (req, res) => {

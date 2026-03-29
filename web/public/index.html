@@ -1159,11 +1159,12 @@ footer {
 <footer>
   <div class="footer-logo">Sam<span>va</span></div>
   <div class="footer-links">
-    <a href="#">Privacy</a>
-    <a href="#">Terms</a>
-    <a href="mailto:hello@samva.in">Contact</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+    <a href="/contact">Contact</a>
   </div>
-  <div class="footer-copy">&copy; 2026 Samva. All rights reserved.</div>
+  <div class="footer-copy">&copy; 2026 Samva by Flipoye. All rights reserved.</div>
+  <a href="#" id="admin-link" style="display:none;font-size:11px;color:var(--muted);margin-top:8px;" onclick="openAdminLogin()">Admin</a>
 </footer>
 
 <!-- SIGNUP MODAL -->
@@ -1563,7 +1564,54 @@ async function handleRenewal(userId) {
     setTimeout(() => handleRenewal(renewId), 1000);
   }
 })();
+
+// Admin link visibility
+if (window.location.search.includes('admin=true')) {
+  document.getElementById('admin-link').style.display = 'inline';
+}
+
+function openAdminLogin() {
+  document.getElementById('admin-error').style.display = 'none';
+  openModal('admin-modal');
+}
+
+async function adminLogin() {
+  const email = document.getElementById('admin-email').value;
+  const password = document.getElementById('admin-password').value;
+  const errorEl = document.getElementById('admin-error');
+  try {
+    const resp = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password})
+    });
+    if (resp.ok) {
+      sessionStorage.setItem('samva_admin', '1');
+      window.location.href = '/admin';
+    } else {
+      errorEl.textContent = 'Wrong credentials';
+      errorEl.style.display = 'block';
+    }
+  } catch (err) {
+    errorEl.textContent = 'Login failed';
+    errorEl.style.display = 'block';
+  }
+}
 </script>
+
+<!-- Admin Login Modal -->
+<div class="modal-overlay" id="admin-modal">
+  <div class="modal" style="max-width:380px;">
+    <button class="modal-close" onclick="closeModal('admin-modal')">&times;</button>
+    <h2 style="font-family:'Fraunces',serif;font-size:24px;margin-bottom:20px;">Admin <span style="color:var(--gold);">Login</span></h2>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <input type="email" id="admin-email" placeholder="Email" style="padding:12px 16px;border:1px solid var(--border);border-radius:12px;font-size:15px;font-family:'DM Sans',sans-serif;outline:none;">
+      <input type="password" id="admin-password" placeholder="Password" style="padding:12px 16px;border:1px solid var(--border);border-radius:12px;font-size:15px;font-family:'DM Sans',sans-serif;outline:none;">
+      <button onclick="adminLogin()" style="padding:14px;background:var(--ink);color:var(--paper);border:none;border-radius:100px;font-size:15px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">Login</button>
+      <div id="admin-error" style="display:none;color:#E24B4A;font-size:13px;text-align:center;"></div>
+    </div>
+  </div>
+</div>
 
 <!-- Razorpay SDK (loads only if available) -->
 <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>

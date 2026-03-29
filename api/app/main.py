@@ -662,7 +662,75 @@ async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
     return {"count": len(briefs), "briefs": briefs}
 
 
-# --- Admin Endpoints ---
+# --- Admin Auth + Dashboard ---
+
+@app.post("/admin/login")
+async def admin_login(req: dict):
+    if req.get("email") == settings.admin_email and req.get("password") == settings.admin_password:
+        return {"success": True}
+    raise HTTPException(status_code=401, detail="Wrong credentials")
+
+
+@app.get("/admin")
+async def admin_page():
+    from fastapi.responses import FileResponse
+    import os
+    admin_path = os.path.join(os.path.dirname(__file__), "..", "..", "web", "public", "admin.html")
+    if not os.path.exists(admin_path):
+        admin_path = "/app/web/public/admin.html"
+    return FileResponse(admin_path)
+
+
+@app.get("/admin/dashboard")
+async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db)):
+    """Dashboard stats."""
+    from sqlalchemy import func, text as sql_text
+    from .models import Conversation
+
+    total = (await db.execute(select(func.count(User.id)))).scalar() or 0
+    active = (await db.execute(select(func.count(User.id)).where(User.status == "active"))).scalar() or 0
+
+    # Messages today
+    try:
+        msgs_today = (await db.execute(
+            select(func.count(Conversation.id)).where(sql_text("created_at >= CURRENT_DATE"))
+        )).scalar() or 0
+    except Exception:
+        msgs_today = 0
+
+    return {
+        "total_users": total,
+        "active_users": active,
+        "messages_today": msgs_today,
+        "api_cost_today": 0,
+        "api_cost_month": 0,
+    }
+
+
+@app.get("/admin/users-list")
+async def admin_users_list(request: Request, db: AsyncSession = Depends(get_db)):
+    """List all users."""
+    from .models import AgentSoul
+    result = await db.execute(select(User).order_by(User.created_at.desc()))
+    users = result.scalars().all()
+
+    user_list = []
+    for u in users:
+        soul_result = await db.execute(select(AgentSoul).where(AgentSoul.user_id == u.id))
+        soul = soul_result.scalar_one_or_none()
+        user_list.append({
+            "name": u.name or "",
+            "phone": u.phone or "",
+            "status": u.status or "",
+            "plan": u.plan or "",
+            "business_type": soul.business_type if soul else "",
+            "paid_until": u.paid_until.strftime("%d %b %Y") if u.paid_until else "",
+        })
+
+    return {"users": user_list, "count": len(user_list)}
+
+
+# --- Admin Skills Endpoints ---
 
 @app.get("/admin/skills")
 async def admin_skills(userId: str, db: AsyncSession = Depends(get_db)):

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Samva</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@300;400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root { --ink: #0D0C0A; --paper: #F5F2EC; --warm: #F0EBE1; --gold: #C9A84C; --muted: #8A8070; --border: rgba(90,80,60,0.12); }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--paper); color:var(--ink); }
+nav { position:fixed; top:0; left:0; right:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:20px 48px; background:rgba(245,242,236,0.85); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+.logo { font-family:'Fraunces',serif; font-size:22px; font-weight:700; text-decoration:none; color:var(--ink); }
+.logo span { color:var(--gold); }
+.content { max-width:1100px; margin:0 auto; padding:100px 24px 60px; }
+h1 { font-family:'Fraunces',serif; font-size:32px; font-weight:600; margin-bottom:24px; }
+h2 { font-family:'Fraunces',serif; font-size:20px; font-weight:600; margin:32px 0 16px; }
+
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:32px; }
+.stat-card { border:1px solid var(--border); border-radius:16px; padding:20px; text-align:center; }
+.stat-value { font-family:'Fraunces',serif; font-size:32px; font-weight:600; color:var(--ink); }
+.stat-label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-top:4px; }
+
+table { width:100%; border-collapse:collapse; margin-top:16px; }
+th { text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); padding:12px 16px; border-bottom:2px solid var(--border); }
+td { padding:12px 16px; border-bottom:1px solid var(--border); font-size:14px; }
+tr:hover { background:var(--warm); }
+.badge { display:inline-block; padding:2px 8px; border-radius:100px; font-size:11px; font-weight:500; }
+.badge-active { background:rgba(37,211,102,0.1); color:#1a9e50; }
+.badge-paused { background:rgba(226,75,74,0.1); color:#E24B4A; }
+.badge-onboarding { background:rgba(201,168,76,0.15); color:var(--gold); }
+.loading { text-align:center; padding:40px; color:var(--muted); }
+@media(max-width:768px) { nav { padding:16px 20px; } .content { padding:80px 16px 40px; } .stats { grid-template-columns:repeat(2,1fr); } table { font-size:12px; } th,td { padding:8px; } }
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="logo">Sam<span>va</span></a>
+  <span style="font-size:13px;color:var(--muted);">Admin Dashboard</span>
+</nav>
+<div class="content">
+  <h1>Samva Admin</h1>
+
+  <div class="stats" id="stats">
+    <div class="stat-card"><div class="stat-value" id="s-users">-</div><div class="stat-label">Total Users</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-active">-</div><div class="stat-label">Active</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-revenue">-</div><div class="stat-label">Revenue</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-messages">-</div><div class="stat-label">Messages Today</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-cost-today">-</div><div class="stat-label">API Cost Today</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-cost-month">-</div><div class="stat-label">API Cost Month</div></div>
+  </div>
+
+  <h2>Users</h2>
+  <div id="users-table" class="loading">Loading users...</div>
+
+  <h2>Custom Skills Built</h2>
+  <div id="skills-table" class="loading">Loading skills...</div>
+</div>
+
+<script>
+if (!sessionStorage.getItem('samva_admin')) {
+  window.location.href = '/?admin=true';
+}
+
+const headers = {'Content-Type':'application/json','X-Admin':'1'};
+
+async function loadDashboard() {
+  try {
+    // Stats
+    const statsResp = await fetch('/api/admin/dashboard', {headers});
+    if (!statsResp.ok) { window.location.href = '/?admin=true'; return; }
+    const stats = await statsResp.json();
+    document.getElementById('s-users').textContent = stats.total_users || 0;
+    document.getElementById('s-active').textContent = stats.active_users || 0;
+    document.getElementById('s-revenue').textContent = '\u20b9' + ((stats.active_users || 0) * 999).toLocaleString();
+    document.getElementById('s-messages').textContent = stats.messages_today || 0;
+    document.getElementById('s-cost-today').textContent = '$' + (stats.api_cost_today || 0).toFixed(2);
+    document.getElementById('s-cost-month').textContent = '$' + (stats.api_cost_month || 0).toFixed(2);
+
+    // Users
+    const usersResp = await fetch('/api/admin/users-list', {headers});
+    const users = await usersResp.json();
+    if (users.users && users.users.length > 0) {
+      let html = '<table><tr><th>Name</th><th>Phone</th><th>Status</th><th>Type</th><th>Plan</th><th>Paid Until</th></tr>';
+      for (const u of users.users) {
+        const badge = u.status === 'active' ? 'badge-active' : u.status === 'paused' ? 'badge-paused' : 'badge-onboarding';
+        const phone = u.phone ? '...' + u.phone.slice(-4) : '-';
+        html += `<tr><td>${u.name || '-'}</td><td>${phone}</td><td><span class="badge ${badge}">${u.status}</span></td><td>${u.business_type || '-'}</td><td>${u.plan || '-'}</td><td>${u.paid_until || '-'}</td></tr>`;
+      }
+      html += '</table>';
+      document.getElementById('users-table').innerHTML = html;
+    } else {
+      document.getElementById('users-table').innerHTML = '<p style="color:var(--muted)">No users yet.</p>';
+    }
+
+    // Skills
+    const skillsResp = await fetch('/api/admin/skills/all', {headers});
+    const skills = await skillsResp.json();
+    if (skills.stats && skills.stats.total_skills > 0) {
+      let html = `<p style="color:var(--muted);margin-bottom:12px;">${skills.stats.total_skills} skills, ${skills.stats.active} active, pass rate: ${skills.stats.pass_rate}</p>`;
+      html += '<table><tr><th>User</th><th>Skill</th><th>Status</th><th>API</th></tr>';
+      for (const [uid, userSkills] of Object.entries(skills.by_user || {})) {
+        for (const s of userSkills) {
+          html += `<tr><td>${uid.slice(0,8)}...</td><td>${s.skill_name}</td><td><span class="badge ${s.is_active ? 'badge-active' : 'badge-paused'}">${s.is_active ? 'active' : 'failed'}</span></td><td>${(s.api_url || '').slice(0,30)}</td></tr>`;
+        }
+      }
+      html += '</table>';
+      document.getElementById('skills-table').innerHTML = html;
+    } else {
+      document.getElementById('skills-table').innerHTML = '<p style="color:var(--muted)">No custom skills built yet.</p>';
+    }
+  } catch (err) {
+    console.error('Dashboard load error:', err);
+  }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>
