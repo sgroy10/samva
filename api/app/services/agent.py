@@ -106,7 +106,7 @@ async def process_message(
                 "reply": (
                     "Your Samva subscription has expired. Sam is paused.\n\n"
                     f"Renew at samva.in/renew?id={user_id} to continue using Sam.\n"
-                    "\u20b9999/month — all features included."
+                    "\u20b9299/month — all features included."
                 ),
                 "actions": [],
             }

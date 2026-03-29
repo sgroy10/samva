@@ -186,7 +186,7 @@ async def handle_signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
                     "https://api.razorpay.com/v1/orders",
                     auth=(settings.razorpay_key_id, settings.razorpay_key_secret),
                     json={
-                        "amount": 99900,
+                        "amount": 29900,
                         "currency": "INR",
                         "receipt": f"samva_{user_id[:8]}",
                         "notes": {"userId": user_id, "phone": req.phone},
@@ -198,7 +198,7 @@ async def handle_signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
             return {
                 "userId": user_id,
                 "orderId": order["id"],
-                "amount": 999,
+                "amount": 299,
                 "razorpayKey": settings.razorpay_key_id,
             }
         except Exception as e:
@@ -245,7 +245,7 @@ async def handle_payment_verify(
         "\u2705 *Payment received! Welcome to Samva.*\n\n"
         "Your Sam is now being set up. You'll receive a QR code "
         "to scan with WhatsApp in the next 30 seconds.\n\n"
-        f"Subscription: \u20b9999/month\n"
+        f"Subscription: \u20b9299/month\n"
         f"Valid until: {paid_until_str}\n"
         f"Receipt: {req.razorpay_payment_id}\n\n"
         "Questions? Email hello@samva.in"
@@ -283,7 +283,7 @@ async def handle_renew(req: RenewRequest, db: AsyncSession = Depends(get_db)):
                     "https://api.razorpay.com/v1/orders",
                     auth=(settings.razorpay_key_id, settings.razorpay_key_secret),
                     json={
-                        "amount": 99900,
+                        "amount": 29900,
                         "currency": "INR",
                         "receipt": f"renew_{req.userId[:8]}",
                         "notes": {"userId": req.userId, "type": "renewal"},
@@ -295,7 +295,7 @@ async def handle_renew(req: RenewRequest, db: AsyncSession = Depends(get_db)):
             return {
                 "userId": req.userId,
                 "orderId": order["id"],
-                "amount": 999,
+                "amount": 299,
                 "razorpayKey": settings.razorpay_key_id,
             }
         except Exception as e:
@@ -524,7 +524,7 @@ async def handle_check_subscriptions(db: AsyncSession = Depends(get_db)):
                 f"Your Samva subscription expired on {expired_date}. "
                 f"Sam is paused.\n\n"
                 f"Renew at samva.in/renew?id={user.id} to continue.\n"
-                f"\u20b9999/month."
+                f"\u20b9299/month."
             ),
         })
         logger.info(f"[Subscription] Paused expired user: {user.id}")
@@ -547,7 +547,7 @@ async def handle_check_subscriptions(db: AsyncSession = Depends(get_db)):
             "message": (
                 f"\u23f0 *Sam reminder* -- your subscription renews in 3 days "
                 f"on {expiry_date}.\n\n"
-                f"\u20b9999 will be charged if auto-pay is set up, "
+                f"\u20b9299 will be charged if auto-pay is set up, "
                 f"or renew manually at samva.in/renew?id={user.id}"
             ),
         })
