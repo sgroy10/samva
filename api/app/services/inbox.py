@@ -171,10 +171,11 @@ RULES:
         user_id=user_id,
     )
 
-    # Store the chat_id for sending later
+    # Store pending reply for confirmation
     chat_id = thread[0].chat_id
+    await store_pending_reply(user_id, chat_id, reply, customer_name)
 
-    return f"*Reply to {customer_name}:*\n\n{reply}\n\n_Bhejun? (haan/nahi)_\n_[chat:{chat_id}]_"
+    return f"*Reply to {customer_name}:*\n\n{reply}\n\n_Bhejun? (haan/nahi)_"
 
 
 # Pending chat replies — user must confirm
