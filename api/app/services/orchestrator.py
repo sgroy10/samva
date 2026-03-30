@@ -112,6 +112,7 @@ async def orchestrate(
     Returns the final reply string.
     """
     business_type = soul.business_type or ""
+    text_lower = (text or "").lower().strip()
 
     # ── LAYER 0: Image Memory — Sam NEVER forgets an image ─────
     from . import image_session
@@ -180,8 +181,6 @@ async def orchestrate(
     # ── LAYER 3: Image Routing (pick the right vision model) ──────
     if image_base64:
         return await _handle_image(db, user_id, user, soul, text, image_base64, business_type)
-
-    text_lower = (text or "").lower()
 
     # ── LAYER 2.3: Confirm pending reply / email send ────────
     # Auto-expire old pending records (older than 1 hour)
