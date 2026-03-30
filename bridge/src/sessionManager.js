@@ -15,7 +15,7 @@ const fs = require('fs');
 const sessionStore = require('./sessionStore');
 const coreClient = require('./coreClient');
 
-const SESSION_DIR = process.env.SESSION_DIR || path.resolve(__dirname, '../../data/sessions');
+const SESSION_DIR = process.env.SESSION_DIR || '/app/data/sessions';
 const MAX_SESSIONS = 100;
 
 const activeSessions = new Map();

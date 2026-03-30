@@ -2,7 +2,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const crypto = require('crypto');
 
-const DB_PATH = path.resolve(__dirname, '../../data/db/bridge.db');
+const DB_PATH = process.env.BRIDGE_DB || '/app/data/db/bridge.db';
 
 let db;
 
