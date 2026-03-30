@@ -47,6 +47,7 @@ async def init_db():
     os.makedirs("data/db", exist_ok=True)
     async with engine.begin() as conn:
         from . import models  # noqa
+        from .services import image_session  # noqa — registers ImageSession table
         await conn.run_sync(Base.metadata.create_all)
 
     # Run column migrations (safe to re-run — uses IF NOT EXISTS / catches errors)
