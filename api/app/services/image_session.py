@@ -160,25 +160,26 @@ async def has_active_image(db: AsyncSession, user_id: str) -> bool:
 
 # ── Image-aware message detection ────────────────────────────────
 
+# Only SPECIFIC image-editing words — NOT generic words like "gold", "price"
 IMAGE_CONTEXT_WORDS = {
-    # English
-    "render", "enhance", "catalog", "ad", "advertisement", "try on", "tryon",
-    "change", "modify", "edit", "update", "replace", "swap",
-    "stone", "metal", "gold", "silver", "platinum", "diamond", "ruby", "sapphire", "emerald",
-    "shank", "band", "prong", "setting", "engraving", "engrave",
-    "price", "bom", "bill of material", "cost",
-    "show me", "original", "previous version", "go back", "pehle wala",
-    "white gold", "rose gold", "yellow gold",
-    "360", "four angles", "all angles",
-    # Hindi
-    "dikhao", "badlo", "change karo", "render karo", "enhance karo",
-    "ad banao", "try on dikhao", "price batao", "kitna padega",
-    "pehle wala dikhao", "original dikhao",
+    "render", "render karo", "enhance", "enhance karo", "catalog shot",
+    "try on", "tryon", "try on dikhao",
+    "change the stone", "change stone", "change metal", "swap stone",
+    "add engraving", "engrave", "engraving",
+    "bom sheet", "bill of material",
+    "show original", "original dikhao", "pehle wala", "pehle wala dikhao",
+    "previous version", "go back",
+    "white gold mein", "rose gold mein", "yellow gold mein",
+    "render in", "change to",
+    "ad banao", "make ad", "instagram ad",
+    "360 view", "four angles", "all angles",
+    "badlo", "modify design",
 }
 
 
 def is_image_context_message(text: str) -> bool:
-    """Check if this message is about an image in context."""
+    """Check if this message is specifically about editing/processing an image in context.
+    Uses multi-word phrases to avoid false matches on common words."""
     if not text:
         return False
     lower = text.lower()
