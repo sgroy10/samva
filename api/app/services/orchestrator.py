@@ -152,19 +152,22 @@ async def orchestrate(
                 logger.info(f"[{user_id}] Render stored as new version")
             return prebuilt_result
 
-        # User needs to send a photo first
+        # User needs to send a photo first — BUT only if the query is actually about images
         if prebuilt_result == "__NEED_IMAGE__":
-            return "Photo bhejo — main analyze kar dungi!"
+            image_words = ["photo", "image", "picture", "scan", "enhance", "render", "ad banao", "try on"]
+            if any(w in text_lower for w in image_words):
+                return "Photo bhejo — main analyze kar dungi!"
+            # Not an image query — skip this skill, let others handle it
+            prebuilt_result = None
 
         # LLM signals — skill needs specialized LLM processing
-        if prebuilt_result.startswith("__LLM_") or prebuilt_result.startswith("__"):
+        if prebuilt_result and (prebuilt_result.startswith("__LLM_") or prebuilt_result.startswith("__")):
             reply = await _handle_llm_signal(db, user_id, user, soul, text, prebuilt_result, image_base64)
             if reply:
                 return reply
-            # Signal not handled — fall through to general chat
 
         # Direct prebuilt result — return it
-        else:
+        elif prebuilt_result:
             logger.info(f"[{user_id}] Prebuilt skill answered")
             return prebuilt_result
 
