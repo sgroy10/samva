@@ -147,6 +147,58 @@ async def process_message(
         # Fast commands — no AI cost
         lower = (text or "").strip().lower()
 
+        # Language change — user can switch anytime
+        from .language import normalize_language, LANGUAGE_NAMES
+        lang_triggers = ["change language", "language change", "switch language",
+                          "speak in", "talk in", "baat karo", "mein baat karo",
+                          "change to english", "change to hindi", "english mein",
+                          "hindi mein", "gujarati mein", "tamil mein", "telugu mein",
+                          "malayalam mein", "bengali mein", "marathi mein",
+                          "set language", "my language"]
+        if any(t in lower for t in lang_triggers):
+            # Extract the language
+            new_lang = normalize_language(text)
+            if new_lang and new_lang != "same":
+                from sqlalchemy import update as sql_update
+                await db.execute(
+                    sql_update(AgentSoul).where(AgentSoul.user_id == user_id)
+                    .values(language_preference=new_lang)
+                )
+                await db.commit()
+                lang_name = LANGUAGE_NAMES.get(new_lang, new_lang)
+                reply = f"Language changed to *{lang_name}*! \u2705\n\nFrom now on, I'll talk to you in {lang_name}."
+                # Also ask about voice language
+                reply += f"\n\nVoice notes bhi {lang_name} mein? Ya kuch aur?"
+            else:
+                from .language import get_language_question
+                reply = get_language_question()
+            db.add(Conversation(user_id=user_id, role="user", content=text))
+            db.add(Conversation(user_id=user_id, role="assistant", content=reply))
+            await db.commit()
+            return {"reply": reply, "actions": []}
+
+        # Voice language change
+        voice_triggers = ["voice language", "voice mein", "voice note language",
+                           "awaaz mein", "bolne ki language", "speak language"]
+        if any(t in lower for t in voice_triggers):
+            new_lang = normalize_language(text)
+            if new_lang and new_lang != "same":
+                from sqlalchemy import update as sql_update
+                await db.execute(
+                    sql_update(AgentSoul).where(AgentSoul.user_id == user_id)
+                    .values(voice_language=new_lang)
+                )
+                await db.commit()
+                lang_name = LANGUAGE_NAMES.get(new_lang, new_lang)
+                reply = f"Voice notes ab *{lang_name}* mein! \u2705"
+            else:
+                from .language import get_voice_language_question
+                reply = get_voice_language_question()
+            db.add(Conversation(user_id=user_id, role="user", content=text))
+            db.add(Conversation(user_id=user_id, role="assistant", content=reply))
+            await db.commit()
+            return {"reply": reply, "actions": []}
+
         # "Call me" — user wants Sam to call them immediately
         call_triggers = {"call me", "mujhe call karo", "call karo", "urgent call",
                           "phone karo", "ring me", "call kar", "mujhe phone karo"}
