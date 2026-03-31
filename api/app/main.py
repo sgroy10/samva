@@ -117,7 +117,7 @@ async def handle_message(req: MessageRequest, db: AsyncSession = Depends(get_db)
             logger.info(f"[TTS] Language: {voice_lang}, reply length: {len(result['reply'])}")
             audio_b64 = await text_to_speech(result["reply"], req.userId, voice_lang)
             if audio_b64:
-                result["audio"] = {"data": audio_b64, "mimetype": "audio/mp3"}
+                result["audio"] = {"data": audio_b64, "mimetype": "audio/mp4"}
                 logger.info(f"[TTS] Voice reply generated: {len(audio_b64)} chars")
             else:
                 logger.warning(f"[TTS] text_to_speech returned empty for {req.userId}")

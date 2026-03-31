@@ -132,7 +132,7 @@ async def _gemini_tts(clean: str, user_id: str = "", voice_language: str = "auto
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={settings.gemini_api_key}",
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key={settings.gemini_api_key}",
                 json={
                     "contents": [{"parts": [{"text": f"Read this aloud naturally and warmly, like Sam — a caring friend. Speak in {voice_language if voice_language != 'auto' else 'the same language as the text'}. Be expressive, not robotic:\n\n{clean}"}]}],
                     "generationConfig": {
