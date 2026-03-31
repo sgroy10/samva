@@ -101,3 +101,9 @@
 {"eventId":"evt_5c539a85194c","type":"context_generated","at":"2026-03-27T17:16:33.996Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
 {"eventId":"evt_4d72b939475b","type":"lock_added","at":"2026-03-27T17:16:34.278Z","files":[],"summary":"Lock added: ALL WhatsApp messages stored in inbox_messages table — Sam sees everything, not ","patchPath":""}
 {"eventId":"evt_6a02b25c60e0","type":"context_generated","at":"2026-03-27T17:16:34.310Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_0450a271d05b","type":"lock_added","at":"2026-03-31T18:33:07.850Z","files":[],"summary":"Lock added: Pattern proposals are ONE-SHOT. If user ignores, Sam NEVER asks again. No spam.","patchPath":""}
+{"eventId":"evt_e00d520e754c","type":"context_generated","at":"2026-03-31T18:33:07.967Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_4ac4883a53b3","type":"lock_added","at":"2026-03-31T18:33:08.246Z","files":[],"summary":"Lock added: Behaviors execute only after user explicitly says YES. Never auto-activate.","patchPath":""}
+{"eventId":"evt_eae59325f284","type":"context_generated","at":"2026-03-31T18:33:08.278Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+{"eventId":"evt_1093f76750bb","type":"manual_change","at":"2026-03-31T18:33:08.572Z","files":["api/app/services/pattern_watcher.py","api/app/services/agent.py","api/app/services/orchestrator.py","api/app/models.py"],"summary":"THE A-HA MOMENT: Pattern detection engine — Sam predicts what you need","patchPath":".speclock/patches/evt_1093f76750bb.patch"}
+{"eventId":"evt_ebe0b2fef5ed","type":"context_generated","at":"2026-03-31T18:33:08.604Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}

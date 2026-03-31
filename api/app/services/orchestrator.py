@@ -198,6 +198,12 @@ async def orchestrate(
     await db.commit()
     from . import inbox
     from . import email_service as email_svc
+    # Check if user is responding to a behavior proposal
+    from . import pattern_watcher
+    proposal_response = await pattern_watcher.handle_proposal_response(db, user_id, text)
+    if proposal_response:
+        return proposal_response
+
     confirm_words = {"haan", "ha", "yes", "send", "bhej", "bhejo", "ok", "theek", "sure"}
     cancel_words = {"nahi", "nai", "no", "cancel", "mat", "ruk"}
 

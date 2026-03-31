@@ -1,0 +1,189 @@
+diff --git a/.speclock/brain.json b/.speclock/brain.json
+index cf412cb..ed7e142 100644
+--- a/.speclock/brain.json
++++ b/.speclock/brain.json
+@@ -5,7 +5,7 @@
+     "name": "samva",
+     "root": "/Users/gadgetzone/samva",
+     "createdAt": "2026-03-24T01:09:48.668Z",
+-    "updatedAt": "2026-03-27T17:16:34.310Z"
++    "updatedAt": "2026-03-31T18:33:08.279Z"
+   },
+   "goal": {
+     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
+@@ -13,6 +13,22 @@
+   },
+   "specLock": {
+     "items": [
++      {
++        "id": "lock_067097c5c532",
++        "text": "Behaviors execute only after user explicitly says YES. Never auto-activate.",
++        "createdAt": "2026-03-31T18:33:08.246Z",
++        "source": "user",
++        "tags": [],
++        "active": true
++      },
++      {
++        "id": "lock_e202438a6a79",
++        "text": "Pattern proposals are ONE-SHOT. If user ignores, Sam NEVER asks again. No spam.",
++        "createdAt": "2026-03-31T18:33:07.850Z",
++        "source": "user",
++        "tags": [],
++        "active": true
++      },
+       {
+         "id": "lock_ddca8a98558b",
+         "text": "ALL WhatsApp messages stored in inbox_messages table — Sam sees everything, not just self-chat",
+@@ -456,7 +472,7 @@
+     "reverts": []
+   },
+   "events": {
+-    "lastEventId": "evt_6a02b25c60e0",
+-    "count": 103
++    "lastEventId": "evt_eae59325f284",
++    "count": 107
+   }
+ }
+\ No newline at end of file
+diff --git a/.speclock/context/latest.md b/.speclock/context/latest.md
+index cc115d4..1772e11 100644
+--- a/.speclock/context/latest.md
++++ b/.speclock/context/latest.md
+@@ -1,13 +1,15 @@
+ # SpecLock Context Pack
+-> Generated: 2026-03-27T17:16:34.310Z
++> Generated: 2026-03-31T18:33:08.278Z
+ > Project: **samva**
+-> Repo: branch `main` @ `f31ea77`
++> Repo: branch `main` @ `469c4fc`
+ 
+ ## Goal
+ Samva — multi-tenant WhatsApp personal assistant SaaS
+ 
+ ## SpecLock (Non-Negotiables)
+ > **These constraints MUST be followed. Do not violate any lock.**
++- **[LOCK]** Behaviors execute only after user explicitly says YES. Never auto-activate. _(user, 2026-03-31)_
++- **[LOCK]** Pattern proposals are ONE-SHOT. If user ignores, Sam NEVER asks again. No spam. _(user, 2026-03-31)_
+ - **[LOCK]** ALL WhatsApp messages stored in inbox_messages table — Sam sees everything, not just self-chat _(user, 2026-03-27)_
+ - **[LOCK]** Max 3 skill builds per user per day — rate limited to prevent credit exhaustion _(user, 2026-03-25)_
+ - **[LOCK]** Skill execution MUST run in isolated subprocess — never exec() in main process _(user, 2026-03-25)_
+diff --git a/.speclock/events.log b/.speclock/events.log
+index 9df1927..f4ca423 100644
+--- a/.speclock/events.log
++++ b/.speclock/events.log
+@@ -101,3 +101,7 @@
+ {"eventId":"evt_5c539a85194c","type":"context_generated","at":"2026-03-27T17:16:33.996Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+ {"eventId":"evt_4d72b939475b","type":"lock_added","at":"2026-03-27T17:16:34.278Z","files":[],"summary":"Lock added: ALL WhatsApp messages stored in inbox_messages table — Sam sees everything, not ","patchPath":""}
+ {"eventId":"evt_6a02b25c60e0","type":"context_generated","at":"2026-03-27T17:16:34.310Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
++{"eventId":"evt_0450a271d05b","type":"lock_added","at":"2026-03-31T18:33:07.850Z","files":[],"summary":"Lock added: Pattern proposals are ONE-SHOT. If user ignores, Sam NEVER asks again. No spam.","patchPath":""}
++{"eventId":"evt_e00d520e754c","type":"context_generated","at":"2026-03-31T18:33:07.967Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
++{"eventId":"evt_4ac4883a53b3","type":"lock_added","at":"2026-03-31T18:33:08.246Z","files":[],"summary":"Lock added: Behaviors execute only after user explicitly says YES. Never auto-activate.","patchPath":""}
++{"eventId":"evt_eae59325f284","type":"context_generated","at":"2026-03-31T18:33:08.278Z","files":[".speclock/context/latest.md"],"summary":"Generated context pack","patchPath":""}
+diff --git a/api/app/models.py b/api/app/models.py
+index ed491f2..7d89573 100644
+--- a/api/app/models.py
++++ b/api/app/models.py
+@@ -178,6 +178,38 @@ class SessionHealth(Base):
+     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+ 
+ 
++class DetectedPattern(Base):
++    """Patterns Sam detects from watching user behavior. Shadow tested before proposing."""
++    __tablename__ = "detected_patterns"
++
++    id = Column(Integer, primary_key=True, autoincrement=True)
++    user_id = Column(String(36), nullable=False)
++    pattern_type = Column(String(50), nullable=False)  # gold_brief, morning_inbox, contact_priority
++    pattern_data = Column(JSON, default=dict)           # trigger conditions, content spec
++    confidence = Column(Float, default=0.0)
++    detected_at = Column(DateTime, default=func.now())
++    shadow_tested = Column(Boolean, default=False)
++    shadow_success_rate = Column(Float, nullable=True)
++    status = Column(String(20), default="detected")     # detected → shadow → proposed → active → declined
++    proposed_at = Column(DateTime, nullable=True)
++    user_response = Column(String(20), nullable=True)   # accepted, declined, ignored
++
++
++class ActiveBehavior(Base):
++    """User-approved behaviors that Sam executes automatically."""
++    __tablename__ = "active_behaviors"
++
++    id = Column(Integer, primary_key=True, autoincrement=True)
++    user_id = Column(String(36), nullable=False)
++    pattern_type = Column(String(50), nullable=False)
++    trigger_spec = Column(JSON, default=dict)            # time, condition
++    content_spec = Column(JSON, default=dict)            # what to generate/send
++    created_at = Column(DateTime, default=func.now())
++    last_executed = Column(DateTime, nullable=True)
++    execution_count = Column(Integer, default=0)
++    is_active = Column(Boolean, default=True)
++
++
+ class PendingReply(Base):
+     """Draft reply waiting for owner confirmation. Survives restarts."""
+     __tablename__ = "pending_replies"
+diff --git a/api/app/services/agent.py b/api/app/services/agent.py
+index e3c7883..36b403d 100644
+--- a/api/app/services/agent.py
++++ b/api/app/services/agent.py
+@@ -155,6 +155,27 @@ async def process_message(
+         # Fast commands — no AI cost
+         lower = (text or "").strip().lower()
+ 
++        # Stop auto-behavior
++        if lower.startswith("stop ") and len(lower) > 5:
++            from .pattern_watcher import ActiveBehavior
++            stop_what = lower.replace("stop ", "").strip()
++            result = await db.execute(
++                select(ActiveBehavior).where(
++                    ActiveBehavior.user_id == user_id,
++                    ActiveBehavior.is_active == True,
++                )
++            )
++            for b in result.scalars().all():
++                label = (b.content_spec or {}).get("label", "").lower()
++                if stop_what in label or stop_what in b.pattern_type:
++                    b.is_active = False
++                    await db.commit()
++                    reply = f"Stopped auto *{label}*. You can always ask manually."
++                    db.add(Conversation(user_id=user_id, role="user", content=text))
++                    db.add(Conversation(user_id=user_id, role="assistant", content=reply))
++                    await db.commit()
++                    return {"reply": reply, "actions": []}
++
+         # Language change — user can switch anytime
+         from .language import normalize_language, LANGUAGE_NAMES
+         lang_triggers = ["change language", "language change", "switch language",
+@@ -608,6 +629,16 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
+         if chat_alert:
+             alerts.append(chat_alert)
+ 
++        # Pattern engine — detect, shadow, propose, execute
++        from .pattern_watcher import run_pattern_engine
++        pattern_result = await run_pattern_engine(db, user_id)
++        # Add proposals (one-shot, humble)
++        if pattern_result.get("proposals"):
++            alerts.extend(pattern_result["proposals"])
++        # Add auto-behavior outputs
++        if pattern_result.get("behaviors"):
++            alerts.extend(pattern_result["behaviors"])
++
+         # Personality nudges — lunch, evening, water, motivation, festivals
+         from .personality import get_proactive_nudges
+         nudges = await get_proactive_nudges(db, user_id)
+diff --git a/api/app/services/orchestrator.py b/api/app/services/orchestrator.py
+index 03ac0dd..2001a7a 100644
+--- a/api/app/services/orchestrator.py
++++ b/api/app/services/orchestrator.py
+@@ -198,6 +198,12 @@ async def orchestrate(
+     await db.commit()
+     from . import inbox
+     from . import email_service as email_svc
++    # Check if user is responding to a behavior proposal
++    from . import pattern_watcher
++    proposal_response = await pattern_watcher.handle_proposal_response(db, user_id, text)
++    if proposal_response:
++        return proposal_response
++
+     confirm_words = {"haan", "ha", "yes", "send", "bhej", "bhejo", "ok", "theek", "sure"}
+     cancel_words = {"nahi", "nai", "no", "cancel", "mat", "ruk"}

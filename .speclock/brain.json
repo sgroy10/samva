@@ -5,7 +5,7 @@
     "name": "samva",
     "root": "/Users/gadgetzone/samva",
     "createdAt": "2026-03-24T01:09:48.668Z",
-    "updatedAt": "2026-03-27T17:16:34.310Z"
+    "updatedAt": "2026-03-31T18:33:08.604Z"
   },
   "goal": {
     "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
@@ -13,6 +13,22 @@
   },
   "specLock": {
     "items": [
+      {
+        "id": "lock_067097c5c532",
+        "text": "Behaviors execute only after user explicitly says YES. Never auto-activate.",
+        "createdAt": "2026-03-31T18:33:08.246Z",
+        "source": "user",
+        "tags": [],
+        "active": true
+      },
+      {
+        "id": "lock_e202438a6a79",
+        "text": "Pattern proposals are ONE-SHOT. If user ignores, Sam NEVER asks again. No spam.",
+        "createdAt": "2026-03-31T18:33:07.850Z",
+        "source": "user",
+        "tags": [],
+        "active": true
+      },
       {
         "id": "lock_ddca8a98558b",
         "text": "ALL WhatsApp messages stored in inbox_messages table — Sam sees everything, not just self-chat",
@@ -242,6 +258,17 @@
     },
     "recentChanges": [
       {
+        "eventId": "evt_1093f76750bb",
+        "summary": "THE A-HA MOMENT: Pattern detection engine — Sam predicts what you need",
+        "files": [
+          "api/app/services/pattern_watcher.py",
+          "api/app/services/agent.py",
+          "api/app/services/orchestrator.py",
+          "api/app/models.py"
+        ],
+        "at": "2026-03-31T18:33:08.572Z"
+      },
+      {
         "eventId": "evt_3c7c9f780762",
         "summary": "CORE AGENT: inbox reading, reply drafting, auto-reply, morning inbox summary, message storage",
         "files": [
@@ -441,22 +468,12 @@
           "api/requirements.txt"
         ],
         "at": "2026-03-24T01:38:05.950Z"
-      },
-      {
-        "eventId": "evt_a72ad830a86b",
-        "summary": "Added quick guide after onboarding, help command, FAQ section on landing page",
-        "files": [
-          "api/app/services/onboarding.py",
-          "api/app/services/agent.py",
-          "web/public/index.html"
-        ],
-        "at": "2026-03-24T01:24:59.270Z"
       }
     ],
     "reverts": []
   },
   "events": {
-    "lastEventId": "evt_6a02b25c60e0",
-    "count": 103
+    "lastEventId": "evt_ebe0b2fef5ed",
+    "count": 109
   }
 }

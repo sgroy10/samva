@@ -155,6 +155,27 @@ async def process_message(
         # Fast commands — no AI cost
         lower = (text or "").strip().lower()
 
+        # Stop auto-behavior
+        if lower.startswith("stop ") and len(lower) > 5:
+            from .pattern_watcher import ActiveBehavior
+            stop_what = lower.replace("stop ", "").strip()
+            result = await db.execute(
+                select(ActiveBehavior).where(
+                    ActiveBehavior.user_id == user_id,
+                    ActiveBehavior.is_active == True,
+                )
+            )
+            for b in result.scalars().all():
+                label = (b.content_spec or {}).get("label", "").lower()
+                if stop_what in label or stop_what in b.pattern_type:
+                    b.is_active = False
+                    await db.commit()
+                    reply = f"Stopped auto *{label}*. You can always ask manually."
+                    db.add(Conversation(user_id=user_id, role="user", content=text))
+                    db.add(Conversation(user_id=user_id, role="assistant", content=reply))
+                    await db.commit()
+                    return {"reply": reply, "actions": []}
+
         # Language change — user can switch anytime
         from .language import normalize_language, LANGUAGE_NAMES
         lang_triggers = ["change language", "language change", "switch language",
@@ -607,6 +628,16 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
         chat_alert = await get_undelivered_insights(db, user_id)
         if chat_alert:
             alerts.append(chat_alert)
+
+        # Pattern engine — detect, shadow, propose, execute
+        from .pattern_watcher import run_pattern_engine
+        pattern_result = await run_pattern_engine(db, user_id)
+        # Add proposals (one-shot, humble)
+        if pattern_result.get("proposals"):
+            alerts.extend(pattern_result["proposals"])
+        # Add auto-behavior outputs
+        if pattern_result.get("behaviors"):
+            alerts.extend(pattern_result["behaviors"])
 
         # Personality nudges — lunch, evening, water, motivation, festivals
         from .personality import get_proactive_nudges

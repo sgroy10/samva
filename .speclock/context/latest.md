@@ -1,13 +1,15 @@
 # SpecLock Context Pack
-> Generated: 2026-03-27T17:16:34.310Z
+> Generated: 2026-03-31T18:33:08.604Z
 > Project: **samva**
-> Repo: branch `main` @ `f31ea77`
+> Repo: branch `main` @ `469c4fc`
 
 ## Goal
 Samva — multi-tenant WhatsApp personal assistant SaaS
 
 ## SpecLock (Non-Negotiables)
 > **These constraints MUST be followed. Do not violate any lock.**
+- **[LOCK]** Behaviors execute only after user explicitly says YES. Never auto-activate. _(user, 2026-03-31)_
+- **[LOCK]** Pattern proposals are ONE-SHOT. If user ignores, Sam NEVER asks again. No spam. _(user, 2026-03-31)_
 - **[LOCK]** ALL WhatsApp messages stored in inbox_messages table — Sam sees everything, not just self-chat _(user, 2026-03-27)_
 - **[LOCK]** Max 3 skill builds per user per day — rate limited to prevent credit exhaustion _(user, 2026-03-25)_
 - **[LOCK]** Skill execution MUST run in isolated subprocess — never exec() in main process _(user, 2026-03-25)_
@@ -38,6 +40,7 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - Auto-deploy: No
 
 ## Recent Changes
+- [2026-03-31T18:33:08] THE A-HA MOMENT: Pattern detection engine — Sam predicts what you need (api/app/services/pattern_watcher.py, api/app/services/agent.py, api/app/services/orchestrator.py, api/app/models.py)
 - [2026-03-27T17:16:33] CORE AGENT: inbox reading, reply drafting, auto-reply, morning inbox summary, message storage (api/app/services/inbox.py, api/app/services/orchestrator.py, api/app/main.py, api/app/models.py, bridge/src/sessionManager.js, bridge/src/coreClient.js, bridge/src/index.js)
 - [2026-03-27T15:59:54] Emergency calls + voice morning brief + call me intent + urgent reminders (api/app/services/reminders.py, api/app/services/agent.py, api/app/main.py, api/app/models.py, bridge/src/index.js, bridge/src/sessionManager.js, .env.example)
 - [2026-03-27T15:39:57] WhatsApp voice conversations: user speaks → Sam speaks back as voice note (api/app/services/llm.py, api/app/main.py, bridge/src/sessionManager.js)
@@ -57,7 +60,6 @@ Samva — multi-tenant WhatsApp personal assistant SaaS
 - [2026-03-24T15:26:52] Three inventions: Soul Evolution, Confidence Transparency, Network Intelligence (api/app/services/soul_evolution.py, api/app/services/confidence.py, api/app/services/network.py, api/app/services/agent.py, api/app/services/onboarding.py, api/app/models.py, api/app/main.py, bridge/src/index.js, bridge/src/coreClient.js, bridge/src/sessionManager.js)
 - [2026-03-24T01:50:12] Complete gold brief rewrite: gold_rate intent, 9am timing with dedup, price alerts >150/gm, JewelClaw-exact format with 14K+platinum+expert view (api/app/services/gold.py, api/app/services/agent.py, api/app/models.py)
 - [2026-03-24T01:38:05] Wired IMAP email reading, Playwright web search, email connect command (api/app/services/email_draft.py, api/app/services/web_search.py, api/app/services/agent.py, Dockerfile, api/requirements.txt)
-- [2026-03-24T01:24:59] Added quick guide after onboarding, help command, FAQ section on landing page (api/app/services/onboarding.py, api/app/services/agent.py, web/public/index.html)
 
 ## Pinned Notes
 - **[NOTE]** Railway env vars: OPENROUTER_API_KEY, GEMINI_API_KEY, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, DATABASE_URL, SAMVA_MODE=true

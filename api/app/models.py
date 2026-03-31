@@ -178,6 +178,38 @@ class SessionHealth(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
+class DetectedPattern(Base):
+    """Patterns Sam detects from watching user behavior. Shadow tested before proposing."""
+    __tablename__ = "detected_patterns"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False)
+    pattern_type = Column(String(50), nullable=False)  # gold_brief, morning_inbox, contact_priority
+    pattern_data = Column(JSON, default=dict)           # trigger conditions, content spec
+    confidence = Column(Float, default=0.0)
+    detected_at = Column(DateTime, default=func.now())
+    shadow_tested = Column(Boolean, default=False)
+    shadow_success_rate = Column(Float, nullable=True)
+    status = Column(String(20), default="detected")     # detected → shadow → proposed → active → declined
+    proposed_at = Column(DateTime, nullable=True)
+    user_response = Column(String(20), nullable=True)   # accepted, declined, ignored
+
+
+class ActiveBehavior(Base):
+    """User-approved behaviors that Sam executes automatically."""
+    __tablename__ = "active_behaviors"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False)
+    pattern_type = Column(String(50), nullable=False)
+    trigger_spec = Column(JSON, default=dict)            # time, condition
+    content_spec = Column(JSON, default=dict)            # what to generate/send
+    created_at = Column(DateTime, default=func.now())
+    last_executed = Column(DateTime, nullable=True)
+    execution_count = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+
+
 class PendingReply(Base):
     """Draft reply waiting for owner confirmation. Survives restarts."""
     __tablename__ = "pending_replies"
