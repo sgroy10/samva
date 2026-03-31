@@ -108,16 +108,21 @@ async def handle_message(req: MessageRequest, db: AsyncSession = Depends(get_db)
 
     # If user sent a voice note, Sam replies with a voice note too
     if req.audioBase64 and result.get("reply") and not result["reply"].startswith("__IMAGE__"):
+        logger.info(f"[TTS] Voice note detected from {req.userId}, generating voice reply...")
         try:
             from .services.llm import text_to_speech
             from .services.language import get_user_languages
             langs = await get_user_languages(db, req.userId)
             voice_lang = langs.get("voice", "english")
+            logger.info(f"[TTS] Language: {voice_lang}, reply length: {len(result['reply'])}")
             audio_b64 = await text_to_speech(result["reply"], req.userId, voice_lang)
             if audio_b64:
-                result["audio"] = {"data": audio_b64, "mimetype": "audio/mp4"}
+                result["audio"] = {"data": audio_b64, "mimetype": "audio/mp3"}
+                logger.info(f"[TTS] Voice reply generated: {len(audio_b64)} chars")
+            else:
+                logger.warning(f"[TTS] text_to_speech returned empty for {req.userId}")
         except Exception as e:
-            logger.error(f"TTS for voice reply failed: {e}")
+            logger.error(f"[TTS] Voice reply failed: {e}", exc_info=True)
 
     return result
 

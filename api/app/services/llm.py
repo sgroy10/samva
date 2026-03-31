@@ -107,70 +107,34 @@ async def text_to_speech(text: str, user_id: str = "", voice_language: str = "au
     if len(clean) > 500:
         clean = clean[:500] + "... baaki details text mein bhej rahi hoon."
 
-    try:
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            resp = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.openrouter_api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://samva.in",
-                },
-                json={
-                    "model": "openai/gpt-audio-mini",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": f"You are Sam, a warm and caring personal assistant. Read the text aloud in a friendly, natural tone. SPEAK IN {voice_language.upper() if voice_language != 'auto' else 'the same language as the text'}. Be warm, expressive, like talking to a close friend. NOT robotic."
-                        },
-                        {"role": "user", "content": f"Read this aloud in {voice_language if voice_language != 'auto' else 'the appropriate language'}:\n\n{clean}"}
-                    ],
-                    "modalities": ["text", "audio"],
-                    "audio": {"voice": "shimmer", "format": "mp3"},
-                    "max_tokens": 1000,
-                },
-            )
-
-            if resp.status_code != 200:
-                logger.error(f"TTS OpenAI error {resp.status_code}: {resp.text[:200]}")
-                # Fallback to Gemini TTS
-                return await _gemini_tts(clean, user_id)
-
-            data = resp.json()
-
-            # Extract audio from OpenAI response
-            choice = data.get("choices", [{}])[0]
-            message = choice.get("message", {})
-            audio = message.get("audio", {})
-            audio_data = audio.get("data", "")
-
-            if audio_data:
-                logger.info(f"TTS (OpenAI) for {user_id}: {len(audio_data)} chars")
-                return audio_data
-
-            logger.warning(f"TTS: no audio in OpenAI response for {user_id}")
-            return await _gemini_tts(clean, user_id)
-
-    except Exception as e:
-        logger.error(f"TTS OpenAI error for {user_id}: {e}")
-        return await _gemini_tts(clean, user_id)
+    # Use Gemini TTS directly — OpenAI via OpenRouter requires streaming which we don't support
+    return await _gemini_tts(clean, user_id, voice_language)
 
 
-async def _gemini_tts(clean: str, user_id: str = "") -> str:
-    """Fallback TTS using Gemini. Used when OpenAI fails."""
+async def _gemini_tts(clean: str, user_id: str = "", voice_language: str = "auto") -> str:
+    """TTS using Gemini. Natural voice, multilingual."""
     if not settings.gemini_api_key:
         return ""
 
-    has_hindi = any(ord(c) > 0x0900 and ord(c) < 0x097F for c in clean)
-    has_hindi_words = any(w in clean.lower() for w in ["hai", "hoon", "karo", "hain", "nahi", "aaj"])
-    voice = "Kore" if (has_hindi or has_hindi_words) else "Aoede"
+    # Pick voice based on language
+    if voice_language in ("hindi", "hinglish", "gujarati", "marathi", "punjabi"):
+        voice = "Kore"  # Indian male — warm, works for Hindi/Gujarati
+    elif voice_language in ("tamil", "telugu", "malayalam", "kannada", "bengali"):
+        voice = "Kore"  # Kore handles South Indian languages too
+    elif voice_language == "english":
+        voice = "Aoede"  # Natural English female
+    else:
+        # Auto-detect
+        has_hindi = any(ord(c) > 0x0900 and ord(c) < 0x097F for c in clean)
+        has_hindi_words = any(w in clean.lower() for w in ["hai", "hoon", "karo", "hain", "nahi", "aaj"])
+        voice = "Kore" if (has_hindi or has_hindi_words) else "Aoede"
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={settings.gemini_api_key}",
                 json={
-                    "contents": [{"parts": [{"text": f"Read naturally like a warm friend:\n\n{clean}"}]}],
+                    "contents": [{"parts": [{"text": f"Read this aloud naturally and warmly, like Sam — a caring friend. Speak in {voice_language if voice_language != 'auto' else 'the same language as the text'}. Be expressive, not robotic:\n\n{clean}"}]}],
                     "generationConfig": {
                         "response_modalities": ["AUDIO"],
                         "speech_config": {"voice_config": {"prebuilt_voice_config": {"voice_name": voice}}}
@@ -212,7 +176,7 @@ async def transcribe_audio(audio_base64: str, user_id: str = "") -> str:
                                 {
                                     "inline_data": {
                                         "mime_type": "audio/ogg",
-                                        "data": audio_base64,
+                                        "data": audio_base64.split(",")[-1] if "," in audio_base64 else audio_base64,
                                     }
                                 },
                             ]

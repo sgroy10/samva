@@ -285,20 +285,15 @@ async def orchestrate(
     if any(kw in text_lower for kw in intent_keywords):
         return ""  # Let agent.py handle via intent detection
 
-    # ── LAYER 4: General Chat (with confidence tagging) ──────────
+    # ── LAYER 4: General Chat ────────────────────────────────────
     system = await _build_system_prompt(db, user_id, user, soul)
     reply = await call_gemini(system, text, user_id=user_id)
-    tagged = await tag_confidence(
-        reply, soul.system_prompt[:300], user_id,
-        language=soul.language_preference or "auto",
-    )
 
     # ── LAYER 5: Background Skill Builder ────────────────────────
-    # Non-blocking: detect if Sam should build something new
     soul_prompt = soul.system_prompt or ""
     asyncio.create_task(_maybe_build_bg(user_id, text, reply, soul_prompt))
 
-    return tagged
+    return reply
 
 
 # ── LLM Signal Handler ───────────────────────────────────────────

@@ -172,11 +172,10 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
 
     const fromMe = msg.key.fromMe === true;
 
-    // LID-aware self-chat detection — checks BOTH formats
+    // LID-aware self-chat detection — ONLY match THIS user's JID/LID, not any @lid
     const isSelfChat = fromMe && (
         remoteJid === sessionData.ownJid ||
-        (sessionData.ownLid && remoteJid === sessionData.ownLid) ||
-        remoteJid.endsWith('@lid')
+        (sessionData.ownLid && remoteJid === sessionData.ownLid)
     );
 
     // ── STORE ALL MESSAGES TO INBOX (like JewelClaw's chat intelligence) ──
