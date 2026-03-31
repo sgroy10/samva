@@ -50,6 +50,12 @@ class Conversation(Base):
     user_id = Column(String(36), nullable=False)
     role = Column(String(20), nullable=False)  # user, assistant
     content = Column(Text, nullable=False)
+
+    def __init__(self, **kwargs):
+        # Sanitize content to remove surrogate characters that PostgreSQL rejects
+        if 'content' in kwargs and kwargs['content']:
+            kwargs['content'] = kwargs['content'].encode('utf-8', errors='replace').decode('utf-8', errors='replace')
+        super().__init__(**kwargs)
     created_at = Column(DateTime, default=func.now())
 
 

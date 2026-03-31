@@ -13,6 +13,14 @@ from . import skill_builder
 logger = logging.getLogger("samva.agent")
 
 
+def _sanitize_for_db(text: str) -> str:
+    """Remove surrogate characters that PostgreSQL/asyncpg rejects."""
+    if not text:
+        return ""
+    # Encode to utf-8, replacing surrogates, then decode back
+    return text.encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+
+
 HELP_TEXT = """👋 *I'm Sam — here's everything I can do:*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
