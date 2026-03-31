@@ -287,8 +287,9 @@ async def orchestrate(
         "meeting", "note", "meeting note", "just had a meeting", "met with",
         "contact", "number", "ka number", "phone number",
         "business card", "scanned a card",
-        "teach me", "learn ", "word of the day", "practice ",
-        "teach me a", "teach me one", "teach me basic",
+        "teach me", "learn a", "learn to", "word of the day", "practice ",
+        "teach me a", "teach me one", "teach me basic", "teach me how",
+        "sikhao", "seekho", "padhao",
     ]
     if any(kw in text_lower for kw in intent_keywords):
         return ""  # Let agent.py handle via intent detection

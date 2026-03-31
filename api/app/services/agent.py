@@ -323,11 +323,12 @@ async def process_message(
             await db.commit()
             return {"reply": reply, "actions": []}
 
-        # Gold rate fast-path — no AI cost for common rate queries
+        # Gold rate fast-path — ONLY exact matches, not partial word matches
         gold_triggers = {"gold", "gold rate", "gold rates", "gold price", "rates", "rate",
                          "sona", "sona ka bhav", "bhav", "aaj ka rate", "current gold",
-                         "rates dikhao", "silver", "silver rate", "silver price", "gold brief"}
-        if lower in gold_triggers or (lower.startswith("gold") and len(lower) < 20):
+                         "rates dikhao", "silver rate", "silver price", "gold brief",
+                         "gold today", "how much is gold"}
+        if lower in gold_triggers:
             reply = await gold.get_gold_brief(db, user_id)
             if reply:
                 db.add(Conversation(user_id=user_id, role="user", content=text))
