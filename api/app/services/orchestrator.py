@@ -136,6 +136,11 @@ async def orchestrate(
     prebuilt_result = await prebuilt_skills.find_and_execute(text, business_type, context)
 
     if prebuilt_result:
+        # PDF response — send as document
+        if prebuilt_result.startswith("__PDF__"):
+            logger.info(f"[{user_id}] Prebuilt returned PDF")
+            return prebuilt_result
+
         # Image response — store the result as new version + send to user
         if prebuilt_result.startswith("__IMAGE__"):
             img_data = prebuilt_result.replace("__IMAGE__", "")
@@ -275,12 +280,14 @@ async def orchestrate(
         return await email_service.handle_email_command(db, user_id, text)
 
     # ── LAYER 3.5: Let intent-based skills through ───────────────
+    # These MUST go to agent.py's intent detection, not prebuilt
     intent_keywords = [
         "remind", "yaad", "reminder", "set reminder",
         "email", "mail", "bhejo", "send email",
-        "meeting", "note", "meeting note",
+        "meeting", "note", "meeting note", "just had a meeting", "met with",
         "contact", "number", "ka number", "phone number",
-        "business card",
+        "business card", "scanned a card",
+        "teach me", "learn", "word of the day", "practice",
     ]
     if any(kw in text_lower for kw in intent_keywords):
         return ""  # Let agent.py handle via intent detection

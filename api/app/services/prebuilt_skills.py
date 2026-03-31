@@ -353,6 +353,87 @@ async def gemlens_analyze(query: str, context: dict = None) -> str:
         return ""
 
 
+async def gemlens_bom_pdf(query: str, context: dict = None) -> str:
+    """Generate BOM PDF from jewelry image via GemLens + live gold pricing."""
+    from ..config import settings
+    if not settings.gemlens_api_key:
+        return ""
+
+    image_b64 = context.get("image_base64") if context else None
+    if not image_b64:
+        return "__NEED_IMAGE__"
+
+    if not image_b64.startswith("data:"):
+        image_b64 = f"data:image/jpeg;base64,{image_b64}"
+
+    try:
+        # Step 1: Get BOM from GemLens
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                "https://uwmtnghafmckvavmwbfk.supabase.co/functions/v1/api-analyze",
+                json={"image": image_b64, "include_bom": True},
+                headers={
+                    "Content-Type": "application/json",
+                    "x-api-key": settings.gemlens_api_key,
+                },
+            )
+            result = resp.json()
+
+        if not result.get("success"):
+            return ""
+
+        bom = result.get("bom", {})
+        item_name = bom.get("item_name", "Jewelry Item")
+        metal_info = bom.get("metal_info", {})
+        stones = bom.get("stone_inventory", [])
+
+        # Step 2: Get live gold rate
+        gold_rate = 0
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                gold_resp = await client.get("https://api.gold-api.com/price/XAU")
+                usd_resp = await client.get("https://open.er-api.com/v6/latest/USD")
+                if gold_resp.status_code == 200 and usd_resp.status_code == 200:
+                    gold_usd = gold_resp.json().get("price", 0)
+                    usd_inr = usd_resp.json().get("rates", {}).get("INR", 83.5)
+                    gold_24k = (gold_usd * usd_inr * 1.069) / 31.1035
+                    karat = metal_info.get("karat", "22K")
+                    purity = {"24K": 1.0, "22K": 0.916, "18K": 0.75, "14K": 0.585}
+                    gold_rate = gold_24k * purity.get(karat, 0.916)
+        except Exception:
+            pass
+
+        # Step 3: Get making charge from user memory
+        making_pct = 12
+        if context and context.get("user_memory"):
+            import re
+            for mem in context["user_memory"]:
+                if "making" in mem.get("key", "").lower():
+                    try:
+                        making_pct = float(re.search(r"[\d.]+", mem["value"]).group())
+                    except Exception:
+                        pass
+
+        # Step 4: Generate PDF
+        from .bom_pdf import generate_bom_pdf
+        pdf_b64 = generate_bom_pdf(
+            item_name=item_name,
+            metal_info=metal_info,
+            stones=stones,
+            gold_rate_per_gram=gold_rate,
+            making_charge_pct=making_pct,
+            weight_grams=float(metal_info.get("estimated_weight_gm", 0) or 0),
+        )
+
+        if pdf_b64:
+            return f"__PDF__{pdf_b64}__FILENAME__BOM-{item_name.replace(' ', '-')[:20]}.pdf"
+
+        return ""
+    except Exception as e:
+        logger.error(f"BOM PDF error: {e}")
+        return ""
+
+
 async def jewelcraft_analyze(query: str, context: dict = None) -> str:
     """Analyze jewelry image with JewelCraft — identify metals, stones, settings, era."""
     from ..config import settings
@@ -1128,6 +1209,14 @@ SKILL_REGISTRY = [
                       "describe", "batao ye kya hai"],
         "vertical": "jewelry",
         "execute": jewelcraft_analyze,
+    },
+    {
+        "name": "bom_pdf",
+        "description": "Generate BOM PDF with pricing from jewelry image",
+        "keywords": ["bom pdf", "bom sheet", "bill of material pdf", "pdf banao",
+                      "bom report", "generate bom"],
+        "vertical": "jewelry",
+        "execute": gemlens_bom_pdf,
     },
     {
         "name": "gemlens_analyze",

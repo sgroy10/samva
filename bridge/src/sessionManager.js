@@ -262,6 +262,24 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
                 // Fallback to text
                 await rateLimitedSend(socket, replyJid, result.reply);
             }
+        } else if (result.reply.includes('__PDF__')) {
+            // PDF document
+            try {
+                const pdfMatch = result.reply.match(/__PDF__(.+?)__FILENAME__(.+?)$/);
+                if (pdfMatch) {
+                    const pdfBuffer = Buffer.from(pdfMatch[1], 'base64');
+                    const filename = pdfMatch[2];
+                    await socket.sendMessage(replyJid, {
+                        document: pdfBuffer,
+                        mimetype: 'application/pdf',
+                        fileName: filename,
+                    });
+                    console.log(`[session] Sent PDF: ${filename} (${(pdfBuffer.length / 1024).toFixed(0)}KB)`);
+                }
+            } catch (pdfErr) {
+                console.error(`[session] PDF send failed:`, pdfErr.message);
+                await rateLimitedSend(socket, replyJid, 'PDF generate ho gayi but send nahi ho paayi.');
+            }
         } else if (result.reply.includes('__IMAGE__')) {
             const parts = result.reply.split('__IMAGE__');
             const textPart = parts[0].trim();
