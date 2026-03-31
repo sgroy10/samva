@@ -106,6 +106,10 @@ async def handle_message(req: MessageRequest, db: AsyncSession = Depends(get_db)
         sender_jid=req.senderJid,
     )
 
+    # Sanitize reply — remove surrogate characters that crash HTTP response
+    if result.get("reply"):
+        result["reply"] = result["reply"].encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+
     # If user sent a voice note, Sam replies with a voice note too
     if req.audioBase64 and result.get("reply") and not result["reply"].startswith("__IMAGE__"):
         logger.info(f"[TTS] Voice note detected from {req.userId}, generating voice reply...")
