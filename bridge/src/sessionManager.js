@@ -12,6 +12,7 @@ const pino = require('pino');
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
+const { execSync } = require('child_process');
 const sessionStore = require('./sessionStore');
 const coreClient = require('./coreClient');
 
@@ -263,10 +264,24 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
         // Send voice note reply if API returned audio (user sent voice → Sam speaks back)
         if (result.audio && result.audio.data) {
             try {
-                const audioBuf = Buffer.from(result.audio.data, 'base64');
+                let audioBuf = Buffer.from(result.audio.data, 'base64');
+                let audioMime = result.audio.mimetype || 'audio/ogg; codecs=opus';
+
+                // Convert raw PCM to OGG Opus if needed
+                if (audioMime.includes('L16')) {
+                    const tmpIn = `/tmp/reply_${Date.now()}.pcm`;
+                    const tmpOut = `/tmp/reply_${Date.now()}.ogg`;
+                    fs.writeFileSync(tmpIn, audioBuf);
+                    execSync(`ffmpeg -y -f s16le -ar 24000 -ac 1 -i ${tmpIn} -c:a libopus -b:a 48k -application voip ${tmpOut}`, { timeout: 10000 });
+                    audioBuf = fs.readFileSync(tmpOut);
+                    audioMime = 'audio/ogg; codecs=opus';
+                    try { fs.unlinkSync(tmpIn); } catch(_) {}
+                    try { fs.unlinkSync(tmpOut); } catch(_) {}
+                }
+
                 await socket.sendMessage(replyJid, {
                     audio: audioBuf,
-                    mimetype: result.audio.mimetype || 'audio/mp4',
+                    mimetype: audioMime,
                     ptt: true,  // This makes it a WhatsApp voice note (blue play button)
                 });
                 console.log(`[session] Sent voice reply (${(audioBuf.length / 1024).toFixed(0)}KB)`);
@@ -411,8 +426,34 @@ async function sendVoiceToUser(userId, audioBase64, mimetype) {
     if (!sd || !sd.ownJid) return false;
     try {
         const jid = getReplyJid(sd);
-        const buf = Buffer.from(audioBase64, 'base64');
-        await sd.socket.sendMessage(jid, { audio: buf, mimetype: mimetype || 'audio/mp4', ptt: true });
+        let buf = Buffer.from(audioBase64, 'base64');
+        let finalMime = mimetype || 'audio/ogg; codecs=opus';
+
+        // Gemini TTS returns raw PCM (audio/L16). WhatsApp needs OGG Opus.
+        // Convert via ffmpeg if it's raw PCM.
+        if (mimetype && mimetype.includes('L16')) {
+            try {
+                const tmpIn = `/tmp/voice_${Date.now()}.pcm`;
+                const tmpOut = `/tmp/voice_${Date.now()}.ogg`;
+                fs.writeFileSync(tmpIn, buf);
+
+                // PCM L16 = signed 16-bit little-endian, mono, 24kHz
+                execSync(`ffmpeg -y -f s16le -ar 24000 -ac 1 -i ${tmpIn} -c:a libopus -b:a 48k -application voip ${tmpOut}`, { timeout: 10000 });
+
+                buf = fs.readFileSync(tmpOut);
+                finalMime = 'audio/ogg; codecs=opus';
+
+                // Cleanup
+                try { fs.unlinkSync(tmpIn); } catch(_) {}
+                try { fs.unlinkSync(tmpOut); } catch(_) {}
+                console.log(`[session] Converted PCM→OGG Opus (${(buf.length / 1024).toFixed(0)}KB)`);
+            } catch (convErr) {
+                console.error(`[session] FFmpeg conversion failed:`, convErr.message);
+                return false;
+            }
+        }
+
+        await sd.socket.sendMessage(jid, { audio: buf, mimetype: finalMime, ptt: true });
         console.log(`[session] Sent voice note to ${userId} (${(buf.length / 1024).toFixed(0)}KB)`);
         return true;
     } catch (err) {

@@ -4,7 +4,7 @@ FROM node:22-slim
 # Install Python 3 + pip + build tools for native modules (better-sqlite3)
 RUN apt-get update && apt-get install -y \
     python3 python3-pip python3-venv curl git \
-    build-essential python3-dev \
+    build-essential python3-dev ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3 /usr/bin/python
 

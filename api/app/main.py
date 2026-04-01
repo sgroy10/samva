@@ -121,7 +121,7 @@ async def handle_message(req: MessageRequest, db: AsyncSession = Depends(get_db)
             logger.info(f"[TTS] Language: {voice_lang}, reply length: {len(result['reply'])}")
             audio_b64 = await text_to_speech(result["reply"], req.userId, voice_lang)
             if audio_b64:
-                result["audio"] = {"data": audio_b64, "mimetype": "audio/mp4"}
+                result["audio"] = {"data": audio_b64, "mimetype": "audio/L16;codec=pcm;rate=24000"}
                 logger.info(f"[TTS] Voice reply generated: {len(audio_b64)} chars")
             else:
                 logger.warning(f"[TTS] text_to_speech returned empty for {req.userId}")
@@ -628,12 +628,16 @@ async def handle_urgent_escalations(db: AsyncSession = Depends(get_db)):
 @app.post("/cron/morning-brief-voice")
 async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
     """
-    Morning brief as voice note — send gold brief as audio to jeweller users.
-    Called by bridge cron at user's chosen brief time.
-    Returns list of {user_id, text, audio_base64} for bridge to send as voice notes.
+    Morning brief as voice note. Called every minute by bridge cron.
+    Only sends if: within user's brief time window AND not sent today.
     """
     from .services.gold import should_get_gold_brief, get_gold_brief, mark_brief_sent
     from .services.llm import text_to_speech
+    from datetime import time as dt_time, timedelta
+    import pytz
+
+    IST = pytz.timezone("Asia/Kolkata")
+    now_ist = datetime.now(IST)
 
     result_list = await db.execute(select(User).where(User.status == "active"))
     users = result_list.scalars().all()
@@ -641,12 +645,33 @@ async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
     briefs = []
     for user in users:
         try:
-            # Gold brief for jewellers
+            # Check if it's this user's brief time and not already sent today
+            soul_result = await db.execute(
+                select(AgentSoul).where(AgentSoul.user_id == user.id)
+            )
+            soul = soul_result.scalar_one_or_none()
+            if not soul or not soul.onboarding_complete or not soul.daily_brief_enabled:
+                continue
+
+            # Time window check: within 2 minutes of brief time (cron runs every minute)
+            brief_time = soul.daily_brief_time or dt_time(9, 0)
+            brief_start = datetime.combine(now_ist.date(), brief_time)
+            brief_end = brief_start + timedelta(minutes=2)
+            current = datetime.combine(now_ist.date(), now_ist.time().replace(tzinfo=None))
+            if not (brief_start <= current <= brief_end):
+                continue
+
+            # Already sent today? Use last_gold_brief_date as general brief tracker
+            today = now_ist.date()
+            if soul.last_gold_brief_date and soul.last_gold_brief_date >= today:
+                continue
+
+            # Build the brief
             brief_text = ""
+
+            # Gold brief for jewellers
             if await should_get_gold_brief(db, user.id):
-                brief_text = await get_gold_brief(db, user.id)
-                if brief_text:
-                    await mark_brief_sent(db, user.id)
+                brief_text = await get_gold_brief(db, user.id) or ""
 
             # Inbox summary for ALL users
             from .services.inbox import get_morning_inbox_summary
@@ -659,12 +684,16 @@ async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
             # Combine
             full_brief = (brief_text or "") + (inbox_summary or "") + (email_summary or "")
             if full_brief.strip():
-                audio_b64 = await text_to_speech(full_brief, user.id)
+                # Get user's voice language for TTS
+                voice_lang = soul.voice_language or "auto"
+                audio_b64 = await text_to_speech(full_brief, user.id, voice_lang)
                 briefs.append({
                     "user_id": user.id,
                     "text": full_brief,
-                    "audio": {"data": audio_b64, "mimetype": "audio/mp4"} if audio_b64 else None,
+                    "audio": {"data": audio_b64, "mimetype": "audio/L16;codec=pcm;rate=24000"} if audio_b64 else None,
                 })
+                # Mark as sent today
+                await mark_brief_sent(db, user.id)
         except Exception as e:
             logger.error(f"Morning brief voice error for {user.id}: {e}")
 
@@ -689,7 +718,7 @@ async def test_voice(req: dict):
         resp = await client.post(f"{settings.bridge_url}/send-voice", json={
             "userId": user_id,
             "audioBase64": audio_b64,
-            "mimetype": "audio/L16;rate=24000",
+            "mimetype": "audio/L16;codec=pcm;rate=24000",
         })
         return {"sent": resp.json().get("sent", False), "audio_length": len(audio_b64)}
 
