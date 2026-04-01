@@ -314,6 +314,12 @@ async def send_first_message(
         select(AgentSoul).where(AgentSoul.user_id == user_id)
     )
     soul = result.scalar_one_or_none()
+
+    # If already onboarded — don't send first message again (happens on every deploy/reconnect)
+    if soul and soul.onboarding_complete:
+        logger.info(f"[{user_id}] Already onboarded, skipping first message")
+        return []
+
     if not soul:
         soul = AgentSoul(user_id=user_id, onboarding_context={})
         db.add(soul)

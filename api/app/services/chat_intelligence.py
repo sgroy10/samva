@@ -1,7 +1,7 @@
 """
-Chat Intelligence — JewelClaw's Jack, but for Sam.
+Chat Intelligence — Sam's inbox brain.
 
-Reads ALL WhatsApp messages (stored by bridge every 15 min).
+Reads ALL WhatsApp messages (stored by bridge in real-time to InboxMessage).
 Analyzes for urgency. Generates insights. Flags what needs attention.
 Sam NEVER auto-replies — only shows owner what's important.
 """
@@ -10,16 +10,16 @@ import logging
 from collections import defaultdict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from ..models import ChatMessage, ChatInsight
+from ..models import InboxMessage, ChatInsight
 from .llm import call_gemini_json
 
 logger = logging.getLogger("samva.chat_intel")
 
 
 async def store_message_batch(db: AsyncSession, user_id: str, messages: list):
-    """Store a batch of WhatsApp messages from bridge."""
+    """Store a batch of WhatsApp messages from bridge (legacy endpoint)."""
     for msg in messages:
-        db.add(ChatMessage(
+        db.add(InboxMessage(
             user_id=user_id,
             chat_id=msg.get("chatId", ""),
             chat_name=msg.get("chatName", ""),
@@ -34,15 +34,17 @@ async def store_message_batch(db: AsyncSession, user_id: str, messages: list):
 
 async def analyze_new_messages(db: AsyncSession, user_id: str) -> list:
     """
-    Analyze unanalyzed messages. Group by chat, classify urgency.
+    Analyze unanalyzed inbox messages. Group by chat, classify urgency.
     Returns list of insights for urgent/important messages.
+    Uses InboxMessage table (where bridge stores ALL messages in real-time).
     """
+    from sqlalchemy import text as sql_text
     result = await db.execute(
-        select(ChatMessage).where(
-            ChatMessage.user_id == user_id,
-            ChatMessage.analyzed == False,
-            ChatMessage.from_me == False,
-        ).order_by(ChatMessage.msg_timestamp.desc()).limit(100)
+        select(InboxMessage).where(
+            InboxMessage.user_id == user_id,
+            InboxMessage.from_me == False,
+        ).where(sql_text("created_at >= NOW() - INTERVAL '1 hour'"))
+        .order_by(InboxMessage.msg_timestamp.desc()).limit(100)
     )
     messages = result.scalars().all()
 
@@ -54,8 +56,20 @@ async def analyze_new_messages(db: AsyncSession, user_id: str) -> list:
     for msg in messages:
         by_chat[msg.chat_id].append(msg)
 
+    # Check which chats already have recent insights (dedup — don't re-analyze same hour)
+    from sqlalchemy import text as sql_text2
+    existing_result = await db.execute(
+        select(ChatInsight.chat_id).where(
+            ChatInsight.user_id == user_id,
+        ).where(sql_text2("created_at >= NOW() - INTERVAL '1 hour'"))
+    )
+    recently_analyzed = {r[0] for r in existing_result.all()}
+
     insights = []
     for chat_id, msgs in by_chat.items():
+        if chat_id in recently_analyzed:
+            continue  # Already analyzed this chat recently
+
         # Get last 5 messages from this chat for context
         combined = "\n".join(
             f"{m.sender_name or 'Unknown'}: {m.content}" for m in msgs[-5:]
@@ -91,15 +105,13 @@ Mark urgent ONLY if: payment pending, complaint, time-sensitive order, angry cus
                 )
                 db.add(insight)
                 insights.append(insight)
+                logger.info(f"[{user_id}] Insight: {chat_name} — {analysis.get('priority')} — {analysis.get('summary','')[:60]}")
 
         except Exception as e:
             logger.error(f"Chat analysis error for {chat_id}: {e}")
 
-    # Mark all as analyzed
-    for msg in messages:
-        msg.analyzed = True
-
-    await db.commit()
+    if insights:
+        await db.commit()
     return insights
 
 
@@ -139,11 +151,11 @@ async def get_chat_summary(db: AsyncSession, user_id: str, hours: int = 24) -> s
     from sqlalchemy import text as sql_text, func
 
     result = await db.execute(
-        select(ChatMessage).where(
-            ChatMessage.user_id == user_id,
-            ChatMessage.from_me == False,
+        select(InboxMessage).where(
+            InboxMessage.user_id == user_id,
+            InboxMessage.from_me == False,
         ).where(sql_text(f"created_at >= NOW() - INTERVAL '{hours} hours'"))
-        .order_by(ChatMessage.msg_timestamp.desc())
+        .order_by(InboxMessage.msg_timestamp.desc())
     )
     messages = result.scalars().all()
 

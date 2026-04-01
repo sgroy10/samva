@@ -623,8 +623,9 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
         if price_alert:
             alerts.append(price_alert)
 
-        # Chat intelligence — urgent message insights
-        from .chat_intelligence import get_undelivered_insights
+        # Chat intelligence — analyze new messages THEN get insights
+        from .chat_intelligence import analyze_new_messages, get_undelivered_insights
+        await analyze_new_messages(db, user_id)
         chat_alert = await get_undelivered_insights(db, user_id)
         if chat_alert:
             alerts.append(chat_alert)
