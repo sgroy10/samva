@@ -167,7 +167,7 @@ async def transcribe_audio(audio_base64: str, user_id: str = "") -> str:
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={settings.gemini_api_key}",
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={settings.gemini_api_key}",
                 json={
                     "contents": [
                         {
