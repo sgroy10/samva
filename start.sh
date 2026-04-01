@@ -6,6 +6,10 @@ echo "========================================="
 
 mkdir -p data/db data/sessions
 
+# Tell Python API where the bridge will be (Railway sets PORT dynamically)
+export BRIDGE_URL="http://localhost:${PORT:-3000}"
+echo "[Start] Bridge URL: $BRIDGE_URL"
+
 # Start Python API in background
 echo "[Start] Launching Core API on port 8000..."
 cd /app/api
