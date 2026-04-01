@@ -112,29 +112,47 @@ async def text_to_speech(text: str, user_id: str = "", voice_language: str = "au
 
 
 async def _gemini_tts(clean: str, user_id: str = "", voice_language: str = "auto") -> str:
-    """TTS using Gemini. Natural voice, multilingual."""
+    """TTS using Gemini. Natural voice, multilingual. Indian accent for Indian users."""
     if not settings.gemini_api_key:
         return ""
 
     # Pick voice based on language
+    # Kore = warm, handles Hindi/Indian languages naturally
+    # Puck = expressive, good for Hinglish/casual Indian English
     if voice_language in ("hindi", "hinglish", "gujarati", "marathi", "punjabi"):
-        voice = "Kore"  # Indian male — warm, works for Hindi/Gujarati
+        voice = "Kore"
     elif voice_language in ("tamil", "telugu", "malayalam", "kannada", "bengali"):
-        voice = "Kore"  # Kore handles South Indian languages too
+        voice = "Kore"
     elif voice_language == "english":
-        voice = "Aoede"  # Natural English female
+        voice = "Puck"  # More expressive for English
     else:
-        # Auto-detect
+        # Auto-detect from content
         has_hindi = any(ord(c) > 0x0900 and ord(c) < 0x097F for c in clean)
-        has_hindi_words = any(w in clean.lower() for w in ["hai", "hoon", "karo", "hain", "nahi", "aaj"])
-        voice = "Kore" if (has_hindi or has_hindi_words) else "Aoede"
+        has_hindi_words = any(w in clean.lower() for w in ["hai", "hoon", "karo", "hain", "nahi", "aaj", "bhai", "yaar", "ji"])
+        voice = "Kore" if (has_hindi or has_hindi_words) else "Puck"
+
+    # Language-aware prompt for natural Indian delivery
+    if voice_language in ("hindi", "hinglish", "auto") or voice == "Kore":
+        speak_instruction = (
+            "You are Sam, a warm Indian personal assistant. "
+            "Speak naturally in Hinglish (Hindi-English mix) like a friendly colleague in Mumbai or Delhi would. "
+            "Pronounce Indian names correctly — Sandeep, Rahul, Priya, Amit etc. with proper Hindi pronunciation. "
+            "Say rupees as 'rupaye', use natural Hindi intonation. Be warm and caring, not robotic."
+        )
+    else:
+        speak_instruction = (
+            "You are Sam, a warm Indian personal assistant. "
+            "Speak in clear Indian English — the kind spoken by educated Indians in Mumbai or Bangalore. "
+            "Pronounce Indian names correctly with Hindi/local pronunciation. "
+            "Be warm, friendly, conversational — not formal or robotic."
+        )
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key={settings.gemini_api_key}",
                 json={
-                    "contents": [{"parts": [{"text": f"Read this aloud naturally and warmly, like Sam — a caring friend. Speak in {voice_language if voice_language != 'auto' else 'the same language as the text'}. Be expressive, not robotic:\n\n{clean}"}]}],
+                    "contents": [{"parts": [{"text": f"{speak_instruction}\n\nNow read this aloud:\n\n{clean}"}]}],
                     "generationConfig": {
                         "response_modalities": ["AUDIO"],
                         "speech_config": {"voice_config": {"prebuilt_voice_config": {"voice_name": voice}}}
@@ -146,11 +164,11 @@ async def _gemini_tts(clean: str, user_id: str = "", voice_language: str = "auto
             for part in parts:
                 inline = part.get("inlineData", {})
                 if inline.get("mimeType", "").startswith("audio/"):
-                    logger.info(f"TTS (Gemini fallback) for {user_id}")
+                    logger.info(f"TTS ({voice}/{voice_language}) for {user_id}")
                     return inline.get("data", "")
         return ""
     except Exception as e:
-        logger.error(f"Gemini TTS fallback error: {e}")
+        logger.error(f"Gemini TTS error: {e}")
         return ""
 
 

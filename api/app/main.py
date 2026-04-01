@@ -671,6 +671,29 @@ async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
     return {"count": len(briefs), "briefs": briefs}
 
 
+@app.post("/test-voice")
+async def test_voice(req: dict):
+    """Send a test voice note to a user. Admin only."""
+    from .services.llm import text_to_speech
+    user_id = req.get("user_id")
+    text = req.get("text", "Good morning Sandeep bhai! Main Sam hoon, aapka personal assistant. Aaj se main aapke saath hoon — gold rates, reminders, emails, sab sambhal lungi. Bas mujhse baat karo!")
+    voice_lang = req.get("voice_language", "hinglish")
+
+    audio_b64 = await text_to_speech(text, user_id, voice_lang)
+    if not audio_b64:
+        return {"error": "TTS failed"}
+
+    # Send via bridge
+    import httpx
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.post(f"{settings.bridge_url}/send-voice", json={
+            "userId": user_id,
+            "audioBase64": audio_b64,
+            "mimetype": "audio/L16;rate=24000",
+        })
+        return {"sent": resp.json().get("sent", False), "audio_length": len(audio_b64)}
+
+
 # --- Admin Auth + Dashboard ---
 
 @app.post("/admin/login")

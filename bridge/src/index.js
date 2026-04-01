@@ -124,6 +124,18 @@ app.post('/send-to-chat', async (req, res) => {
   }
 });
 
+// --- Send voice note to user (for testing + proactive voice) ---
+app.post('/send-voice', async (req, res) => {
+  const { userId, audioBase64, mimetype } = req.body;
+  if (!userId || !audioBase64) return res.status(400).json({ error: 'Missing userId or audioBase64' });
+  try {
+    const sent = await sessionManager.sendVoiceToUser(userId, audioBase64, mimetype || 'audio/L16;rate=24000');
+    res.json({ sent });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- QR Code Page ---
 app.get('/pair/:token', (req, res) => {
   const session = sessionStore.getSessionByToken(req.params.token);
