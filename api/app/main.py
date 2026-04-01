@@ -767,7 +767,8 @@ async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db)):
         cost_today = daily_costs["total_cost_inr"]
         cost_month = monthly_costs["total_cost_inr"]
         calls_today = daily_costs["total_calls"]
-    except Exception:
+    except Exception as cost_err:
+        logger.error(f"Cost dashboard error: {cost_err}", exc_info=True)
         cost_today = 0
         cost_month = 0
         calls_today = 0
