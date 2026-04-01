@@ -192,7 +192,7 @@ async def get_monthly_costs(db: AsyncSession, year: int = None, month: int = Non
         .order_by(sql_text("DATE(created_at)"))
     )
     daily_data = [
-        {"date": str(r.day), "cost_inr": round(r.cost_inr or 0, 2), "calls": r.calls}
+        {"date": str(r[0]), "cost_inr": round(r[1] or 0, 2), "calls": r[2]}
         for r in daily.all()
     ]
 
