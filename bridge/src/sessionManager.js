@@ -24,6 +24,9 @@ let waVersion = null;
 const sendTimestamps = new Map();
 const SEND_INTERVAL_MS = 2000;
 
+// Track reconnect attempts for exponential backoff
+const reconnectAttempts = new Map();
+
 function normalizeJid(jid) {
     if (!jid) return '';
     return jid.replace(/:(\d+)@/, '@');
@@ -99,6 +102,9 @@ async function startSession(userId) {
             sessionData.ownLid = normalizeJid(sock.user?.lid || '');
             sessionData.qrDataUrl = null;
 
+            // Reset reconnect counter on successful connection
+            reconnectAttempts.delete(userId);
+
             const phone = sessionData.ownJid.split('@')[0].split(':')[0] || '';
             console.log(`[session] CONNECTED ${userId} | JID: ${sessionData.ownJid} | LID: ${sessionData.ownLid}`);
 
@@ -137,10 +143,17 @@ async function startSession(userId) {
             activeSessions.delete(userId);
 
             if (shouldReconnect) {
+                // Exponential backoff: 5s → 15s → 30s → 60s → 120s (max)
+                const attempts = reconnectAttempts.get(userId) || 0;
+                reconnectAttempts.set(userId, attempts + 1);
+                const delays = [5000, 15000, 30000, 60000, 120000];
+                const delay = delays[Math.min(attempts, delays.length - 1)];
+                console.log(`[session] Reconnecting ${userId} in ${delay/1000}s (attempt ${attempts + 1})`);
                 sessionStore.updateSession(userId, { status: 'reconnecting' });
-                setTimeout(() => startSession(userId), 3000);
+                setTimeout(() => startSession(userId), delay);
             } else {
                 sessionStore.updateSession(userId, { status: 'disconnected' });
+                reconnectAttempts.delete(userId);
                 const authDir = path.join(SESSION_DIR, userId);
                 try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (_) {}
             }
@@ -421,4 +434,24 @@ async function sendMessageToChat(userId, chatJid, text) {
     }
 }
 
-module.exports = { startSession, getSessionStatus, getActiveCount, reconnectAll, checkAllAlerts, sendAlertToUser, sendVoiceToUser, sendMessageToChat, deleteSession };
+// Watchdog: check every 5 min if sessions dropped and need reconnection
+async function watchdogCheck() {
+    const stored = sessionStore.getAllSessions();
+    for (const s of stored) {
+        if (['logged_out', 'deleted', 'disconnected'].includes(s.status)) continue;
+        if (activeSessions.has(s.userId)) continue; // Already active
+
+        // Session should be active but isn't — reconnect
+        const credsPath = path.join(SESSION_DIR, s.userId, 'creds.json');
+        if (fs.existsSync(credsPath)) {
+            console.log(`[watchdog] Session ${s.userId} dropped (status: ${s.status}) — reconnecting`);
+            try {
+                await startSession(s.userId);
+            } catch (err) {
+                console.error(`[watchdog] Reconnect failed ${s.userId}:`, err.message);
+            }
+        }
+    }
+}
+
+module.exports = { startSession, getSessionStatus, getActiveCount, reconnectAll, checkAllAlerts, sendAlertToUser, sendVoiceToUser, sendMessageToChat, deleteSession, watchdogCheck };

@@ -15,6 +15,7 @@ const path = require('path');
 const cron = require('node-cron');
 const sessionManager = require('./sessionManager');
 const sessionStore = require('./sessionStore');
+const coreClient = require('./coreClient');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -374,4 +375,13 @@ app.listen(PORT, async () => {
       // Silent — runs every minute
     }
   }, { timezone: 'Asia/Kolkata' });
+
+  // Session watchdog: every 5 minutes, check for dropped sessions
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      await sessionManager.watchdogCheck();
+    } catch (err) {
+      console.error('[Watchdog] Error:', err.message);
+    }
+  });
 });
