@@ -50,6 +50,9 @@ tr:hover { background:var(--warm); }
     <div class="stat-card"><div class="stat-value" id="s-cost-month">-</div><div class="stat-label">API Cost Month</div></div>
   </div>
 
+  <h2>API Costs — Today</h2>
+  <div id="cost-breakdown" class="loading">Loading costs...</div>
+
   <h2>Users</h2>
   <div id="users-table" class="loading">Loading users...</div>
 
@@ -72,10 +75,51 @@ async function loadDashboard() {
     const stats = await statsResp.json();
     document.getElementById('s-users').textContent = stats.total_users || 0;
     document.getElementById('s-active').textContent = stats.active_users || 0;
-    document.getElementById('s-revenue').textContent = '\u20b9' + ((stats.active_users || 0) * 999).toLocaleString();
+    document.getElementById('s-revenue').textContent = '\u20b9' + ((stats.active_users || 0) * 299).toLocaleString();
     document.getElementById('s-messages').textContent = stats.messages_today || 0;
-    document.getElementById('s-cost-today').textContent = '$' + (stats.api_cost_today || 0).toFixed(2);
-    document.getElementById('s-cost-month').textContent = '$' + (stats.api_cost_month || 0).toFixed(2);
+    document.getElementById('s-cost-today').textContent = '\u20b9' + (stats.api_cost_today_inr || 0).toFixed(2);
+    document.getElementById('s-cost-month').textContent = '\u20b9' + (stats.api_cost_month_inr || 0).toFixed(2);
+
+    // Cost breakdown
+    try {
+      const costResp = await fetch('/api/admin/costs/today', {headers});
+      const costs = await costResp.json();
+      let costHtml = '';
+      if (costs.total_calls > 0) {
+        costHtml += `<p style="color:var(--muted);margin-bottom:12px;"><strong>\u20b9${costs.total_cost_inr}</strong> ($${costs.total_cost_usd}) from <strong>${costs.total_calls}</strong> API calls | ${(costs.total_tokens_in||0).toLocaleString()} tokens in, ${(costs.total_tokens_out||0).toLocaleString()} tokens out</p>`;
+        // By API type
+        if (costs.by_api_type && costs.by_api_type.length > 0) {
+          costHtml += '<table><tr><th>API</th><th>Calls</th><th>Tokens In</th><th>Tokens Out</th><th>Cost (\u20b9)</th></tr>';
+          for (const t of costs.by_api_type) {
+            costHtml += `<tr><td>${t.api_type}</td><td>${t.calls}</td><td>${(t.tokens_in||0).toLocaleString()}</td><td>${(t.tokens_out||0).toLocaleString()}</td><td>\u20b9${t.cost_inr}</td></tr>`;
+          }
+          costHtml += '</table>';
+        }
+        // By endpoint
+        if (costs.by_endpoint && costs.by_endpoint.length > 0) {
+          costHtml += '<h3 style="margin-top:16px;font-size:14px;color:var(--muted);">By Feature</h3>';
+          costHtml += '<table><tr><th>Feature</th><th>Calls</th><th>Cost (\u20b9)</th></tr>';
+          for (const e of costs.by_endpoint) {
+            costHtml += `<tr><td>${e.endpoint}</td><td>${e.calls}</td><td>\u20b9${e.cost_inr}</td></tr>`;
+          }
+          costHtml += '</table>';
+        }
+        // By user
+        if (costs.by_user && costs.by_user.length > 0) {
+          costHtml += '<h3 style="margin-top:16px;font-size:14px;color:var(--muted);">By User</h3>';
+          costHtml += '<table><tr><th>User</th><th>Calls</th><th>Cost (\u20b9)</th></tr>';
+          for (const u of costs.by_user) {
+            costHtml += `<tr><td>${u.user_id === 'system' ? 'System' : u.user_id.slice(0,8)+'...'}</td><td>${u.calls}</td><td>\u20b9${u.cost_inr}</td></tr>`;
+          }
+          costHtml += '</table>';
+        }
+      } else {
+        costHtml = '<p style="color:var(--muted)">No API calls logged today yet. Costs will appear as Sam handles messages.</p>';
+      }
+      document.getElementById('cost-breakdown').innerHTML = costHtml;
+    } catch (e) {
+      document.getElementById('cost-breakdown').innerHTML = '<p style="color:var(--muted)">Cost tracking starting...</p>';
+    }
 
     // Users
     const usersResp = await fetch('/api/admin/users-list', {headers});

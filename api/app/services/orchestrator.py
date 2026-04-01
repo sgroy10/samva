@@ -83,7 +83,19 @@ async def call_llm(
             resp.raise_for_status()
             data = resp.json()
             reply = data["choices"][0]["message"]["content"]
-            logger.info(f"[{model_key}] Reply for {user_id}: {reply[:80]}...")
+            # Log cost
+            usage = data.get("usage", {})
+            tokens_in = usage.get("prompt_tokens", 0)
+            tokens_out = usage.get("completion_tokens", 0)
+            if tokens_in or tokens_out:
+                try:
+                    from ..database import async_session
+                    from .cost_tracker import log_cost
+                    async with async_session() as cost_db:
+                        await log_cost(cost_db, "openrouter", model, tokens_in, tokens_out, f"orchestrator_{model_key}", user_id)
+                except Exception:
+                    pass
+            logger.info(f"[{model_key}] Reply for {user_id} ({tokens_in}+{tokens_out} tok): {reply[:80]}...")
             return reply.strip()
     except Exception as e:
         logger.error(f"[{model_key}] LLM error for {user_id}: {e}")

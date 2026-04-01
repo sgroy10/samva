@@ -759,13 +759,50 @@ async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     except Exception:
         msgs_today = 0
 
+    # API costs
+    from .services.cost_tracker import get_daily_costs, get_monthly_costs
+    try:
+        daily_costs = await get_daily_costs(db)
+        monthly_costs = await get_monthly_costs(db)
+        cost_today = daily_costs["total_cost_inr"]
+        cost_month = monthly_costs["total_cost_inr"]
+        calls_today = daily_costs["total_calls"]
+    except Exception:
+        cost_today = 0
+        cost_month = 0
+        calls_today = 0
+
     return {
         "total_users": total,
         "active_users": active,
         "messages_today": msgs_today,
-        "api_cost_today": 0,
-        "api_cost_month": 0,
+        "api_cost_today_inr": cost_today,
+        "api_cost_month_inr": cost_month,
+        "api_calls_today": calls_today,
     }
+
+
+@app.get("/admin/costs/today")
+async def admin_costs_today(db: AsyncSession = Depends(get_db)):
+    """Detailed cost breakdown for today."""
+    from .services.cost_tracker import get_daily_costs
+    return await get_daily_costs(db)
+
+
+@app.get("/admin/costs/daily")
+async def admin_costs_daily(date: str = None, db: AsyncSession = Depends(get_db)):
+    """Cost breakdown for a specific date. Format: YYYY-MM-DD"""
+    from .services.cost_tracker import get_daily_costs
+    from datetime import date as dt_date
+    target = dt_date.fromisoformat(date) if date else None
+    return await get_daily_costs(db, target)
+
+
+@app.get("/admin/costs/monthly")
+async def admin_costs_monthly(year: int = None, month: int = None, db: AsyncSession = Depends(get_db)):
+    """Monthly cost summary with daily breakdown."""
+    from .services.cost_tracker import get_monthly_costs
+    return await get_monthly_costs(db, year, month)
 
 
 @app.get("/admin/users-list")

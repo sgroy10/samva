@@ -344,3 +344,19 @@ class NetworkMatch(Base):
     user_b_confirmed = Column(Boolean, default=False)
     introduced = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
+
+
+class ApiCostLog(Base):
+    """Every API call logged with cost. Powers the admin cost dashboard."""
+    __tablename__ = "api_cost_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=True)
+    api_type = Column(String(30), nullable=False)    # openrouter, gemini_tts, gemini_transcribe, perplexity, gemlens, jewelcraft
+    model = Column(String(100), nullable=True)       # google/gemini-2.5-flash, anthropic/claude-sonnet-4, etc.
+    tokens_in = Column(Integer, default=0)
+    tokens_out = Column(Integer, default=0)
+    cost_usd = Column(Float, default=0.0)            # calculated cost in USD
+    cost_inr = Column(Float, default=0.0)            # calculated cost in INR (USD * 84)
+    endpoint = Column(String(100), nullable=True)    # what triggered this: chat, tts, transcribe, skill_build, etc.
+    created_at = Column(DateTime, default=func.now())

@@ -51,7 +51,19 @@ async def call_gemini(
             resp.raise_for_status()
             data = resp.json()
             reply = data["choices"][0]["message"]["content"]
-            logger.info(f"LLM reply for {user_id}: {reply[:100]}...")
+            # Log cost from usage data
+            usage = data.get("usage", {})
+            tokens_in = usage.get("prompt_tokens", 0)
+            tokens_out = usage.get("completion_tokens", 0)
+            if tokens_in or tokens_out:
+                try:
+                    from ..database import async_session
+                    from .cost_tracker import log_cost
+                    async with async_session() as cost_db:
+                        await log_cost(cost_db, "openrouter", settings.samva_model, tokens_in, tokens_out, "chat", user_id)
+                except Exception:
+                    pass  # Never block on cost logging
+            logger.info(f"LLM reply for {user_id} ({tokens_in}+{tokens_out} tok): {reply[:100]}...")
             return reply.strip()
     except Exception as e:
         logger.error(f"LLM error for {user_id}: {e}")
@@ -164,6 +176,15 @@ async def _gemini_tts(clean: str, user_id: str = "", voice_language: str = "auto
             for part in parts:
                 inline = part.get("inlineData", {})
                 if inline.get("mimeType", "").startswith("audio/"):
+                    # Log TTS cost (estimate ~200 tokens input for prompt + text)
+                    try:
+                        from ..database import async_session
+                        from .cost_tracker import log_cost
+                        est_tokens = len(clean.split()) * 2 + 100  # rough estimate
+                        async with async_session() as cost_db:
+                            await log_cost(cost_db, "gemini_tts", "gemini-tts", est_tokens, 0, "tts", user_id)
+                    except Exception:
+                        pass
                     logger.info(f"TTS ({voice}/{voice_language}) for {user_id}")
                     return inline.get("data", "")
         return ""
@@ -205,6 +226,16 @@ async def transcribe_audio(audio_base64: str, user_id: str = "") -> str:
             resp.raise_for_status()
             data = resp.json()
             text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            # Log transcription cost
+            try:
+                from ..database import async_session
+                from .cost_tracker import log_cost
+                est_tokens_in = 500  # audio ~500 tokens equivalent
+                est_tokens_out = len(text.split()) * 2
+                async with async_session() as cost_db:
+                    await log_cost(cost_db, "gemini_transcribe", "gemini-transcribe", est_tokens_in, est_tokens_out, "transcribe", user_id)
+            except Exception:
+                pass
             logger.info(f"Transcription for {user_id}: {text[:100]}...")
 
             # Validate — reject garbled or too-short transcriptions
