@@ -387,21 +387,45 @@ async def get_new_message_alert(db: AsyncSession, user_id: str) -> str:
     total = len(messages)
     senders = len(by_sender)
 
+    # Detect urgency keywords in messages
+    urgent_words = {"urgent", "asap", "jaldi", "turant", "emergency", "payment",
+                    "pending", "deadline", "coming", "aa raha", "aa rahi", "waiting"}
+
+    def _is_urgent_msg(content):
+        lower = (content or "").lower()
+        return any(w in lower for w in urgent_words)
+
+    def _waiting_time(msg):
+        """How long this person has been waiting."""
+        if not msg.msg_timestamp:
+            return ""
+        now_ts = int(datetime.utcnow().timestamp())
+        diff = now_ts - msg.msg_timestamp
+        if diff < 3600:
+            return f"{diff // 60}m"
+        return f"{diff // 3600}h"
+
     # Build concise notification
     if total == 1:
         msg = messages[0]
         name = msg.chat_name or msg.sender_name or msg.chat_id.split("@")[0]
-        preview = (msg.content or "")[:80]
+        preview = (msg.content or "")[:100]
         first_name = name.split()[0] if name else "them"
-        return f"\U0001f4f1 *{name}* ne message bheja:\n_{preview}_\n\nReply karna hai? Bolo 'reply to {first_name}'"
+        wait = _waiting_time(msg)
+        urgent_tag = "\U0001f534 " if _is_urgent_msg(msg.content) else ""
+        wait_tag = f" (waiting {wait})" if wait else ""
+        return f"\U0001f4f1 {urgent_tag}*{name}*{wait_tag} ne message bheja:\n_{preview}_\n\nReply karna hai? Bolo 'reply to {first_name}'"
 
     # Multiple messages
     lines = [f"\U0001f4f1 *{total} new messages* from {senders} {'person' if senders == 1 else 'people'}:\n"]
     for name, msgs in list(by_sender.items())[:5]:  # Max 5 senders
         count = len(msgs)
-        preview = (msgs[0].content or "")[:60]
+        preview = (msgs[0].content or "")[:80]
         count_tag = f" ({count})" if count > 1 else ""
-        lines.append(f"\u2022 *{name}*{count_tag} \u2014 _{preview}_")
+        wait = _waiting_time(msgs[0])
+        urgent_tag = "\U0001f534 " if any(_is_urgent_msg(m.content) for m in msgs) else ""
+        wait_tag = f" \u2014 {wait}" if wait else ""
+        lines.append(f"\u2022 {urgent_tag}*{name}*{count_tag}{wait_tag} \u2014 _{preview}_")
 
     lines.append("\nReply karna hai? Naam batao.")
     return "\n".join(lines)

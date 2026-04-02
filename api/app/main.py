@@ -653,12 +653,16 @@ async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
             if not soul or not soul.onboarding_complete or not soul.daily_brief_enabled:
                 continue
 
-            # Time window check: within 10 minutes of brief time
+            # Time window check: within 10 minutes of brief time (ALL naive, no tz)
             brief_time = soul.daily_brief_time or dt_time(9, 0)
-            brief_start = datetime.combine(now_ist.date(), brief_time)
-            brief_end = brief_start + timedelta(minutes=10)
-            current = datetime.combine(now_ist.date(), now_ist.time().replace(tzinfo=None))
-            if not (brief_start <= current <= brief_end):
+            brief_hour = brief_time.hour
+            brief_minute = brief_time.minute
+            current_hour = now_ist.hour
+            current_minute = now_ist.minute
+            # Convert both to minutes-since-midnight for simple comparison
+            brief_mins = brief_hour * 60 + brief_minute
+            current_mins = current_hour * 60 + current_minute
+            if not (0 <= current_mins - brief_mins <= 10):
                 continue
 
             # Already sent today? Use last_gold_brief_date as general brief tracker
@@ -675,27 +679,41 @@ async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
 
             # Inbox summary for ALL users
             from .services.inbox import get_morning_inbox_summary
-            inbox_summary = await get_morning_inbox_summary(db, user.id)
+            try:
+                inbox_summary = await get_morning_inbox_summary(db, user.id)
+            except Exception:
+                inbox_summary = ""
 
             # Email summary
-            from .services.email_service import get_morning_email_summary
-            email_summary = await get_morning_email_summary(db, user.id)
+            try:
+                from .services.email_service import get_morning_email_summary
+                email_summary = await get_morning_email_summary(db, user.id)
+            except Exception:
+                email_summary = ""
 
             # Combine
             full_brief = (brief_text or "") + (inbox_summary or "") + (email_summary or "")
-            if full_brief.strip():
-                # Get user's voice language for TTS
-                voice_lang = soul.voice_language or "auto"
+            if not full_brief.strip():
+                # Even with no data, send a greeting
+                full_brief = "Good morning! I'm here whenever you need me today."
+
+            # Get user's voice language for TTS
+            voice_lang = soul.voice_language or "auto"
+            try:
                 audio_b64 = await text_to_speech(full_brief, user.id, voice_lang)
-                briefs.append({
-                    "user_id": user.id,
-                    "text": full_brief,
-                    "audio": {"data": audio_b64, "mimetype": "audio/L16;codec=pcm;rate=24000"} if audio_b64 else None,
-                })
-                # Mark as sent today
-                await mark_brief_sent(db, user.id)
+            except Exception:
+                audio_b64 = ""
+
+            briefs.append({
+                "user_id": user.id,
+                "text": full_brief,
+                "audio": {"data": audio_b64, "mimetype": "audio/L16;codec=pcm;rate=24000"} if audio_b64 else None,
+            })
+            # Mark as sent today
+            await mark_brief_sent(db, user.id)
+            logger.info(f"Morning brief prepared for {user.id} (audio: {'yes' if audio_b64 else 'text only'})")
         except Exception as e:
-            logger.error(f"Morning brief voice error for {user.id}: {e}")
+            logger.error(f"Morning brief voice error for {user.id}: {e}", exc_info=True)
 
     return {"count": len(briefs), "briefs": briefs}
 
