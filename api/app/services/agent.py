@@ -653,6 +653,26 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
         nudges = await get_proactive_nudges(db, user_id)
         alerts.extend(nudges)
 
+        # Relationship decay alerts
+        from .relationship_tracker import check_relationship_decay
+        decay_alerts = await check_relationship_decay(db, user_id)
+        alerts.extend(decay_alerts)
+
+        # Predictive behavior
+        from .predictive import check_predictions
+        predictions = await check_predictions(db, user_id)
+        alerts.extend(predictions)
+
+        # Mood check (evening only, 7-9 PM)
+        import pytz
+        _ist = pytz.timezone("Asia/Kolkata")
+        _now_ist = datetime.now(_ist)
+        if 19 <= _now_ist.hour <= 21:
+            from .mood_detector import check_mood
+            mood_msg = await check_mood(db, user_id)
+            if mood_msg:
+                alerts.append(mood_msg)
+
     except Exception as e:
         logger.error(f"Alert check error for {user_id}: {e}", exc_info=True)
 

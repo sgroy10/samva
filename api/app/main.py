@@ -718,6 +718,52 @@ async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
     return {"count": len(briefs), "briefs": briefs}
 
 
+@app.post("/cron/nightly-diary")
+async def handle_nightly_diary(db: AsyncSession = Depends(get_db)):
+    """10 PM IST — Sam's nightly voice diary for each user."""
+    from .services.daily_diary import generate_nightly_diary
+    result_list = await db.execute(select(User).where(User.status == "active"))
+    users = result_list.scalars().all()
+    diaries = []
+    for user in users:
+        try:
+            diary = await generate_nightly_diary(db, user.id)
+            if diary:
+                diaries.append(diary)
+        except Exception as e:
+            logger.error(f"Nightly diary error for {user.id}: {e}")
+    return {"count": len(diaries), "diaries": diaries}
+
+
+@app.post("/cron/weekly-report")
+async def handle_weekly_report(db: AsyncSession = Depends(get_db)):
+    """Sunday 9 AM — weekly report card."""
+    from .services.relationship_tracker import get_weekly_report
+    from .services.llm import text_to_speech
+    result_list = await db.execute(select(User).where(User.status == "active"))
+    users = result_list.scalars().all()
+    reports = []
+    for user in users:
+        try:
+            report = await get_weekly_report(db, user.id)
+            if report and report.get("text"):
+                # TTS the report
+                from sqlalchemy import select as sa_select
+                from .models import AgentSoul
+                soul_r = await db.execute(sa_select(AgentSoul).where(AgentSoul.user_id == user.id))
+                soul = soul_r.scalar_one_or_none()
+                voice_lang = soul.voice_language if soul else "auto"
+                audio = await text_to_speech(report["text"], user.id, voice_lang)
+                reports.append({
+                    "user_id": user.id,
+                    "text": report["text"],
+                    "audio": {"data": audio, "mimetype": "audio/L16;codec=pcm;rate=24000"} if audio else None,
+                })
+        except Exception as e:
+            logger.error(f"Weekly report error for {user.id}: {e}")
+    return {"count": len(reports), "reports": reports}
+
+
 @app.post("/test-voice")
 async def test_voice(req: dict):
     """Send a test voice note to a user. Admin only."""

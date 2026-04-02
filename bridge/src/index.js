@@ -388,6 +388,56 @@ app.listen(PORT, async () => {
     }
   }, { timezone: 'Asia/Kolkata' });
 
+  // Nightly voice diary: 10 PM IST
+  cron.schedule('0 22 * * *', async () => {
+    console.log('[Cron] Running nightly diary...');
+    try {
+      const resp = await coreClient.callCron('/cron/nightly-diary');
+      if (resp.diaries && resp.diaries.length > 0) {
+        for (const diary of resp.diaries) {
+          if (diary.audio && diary.audio.data) {
+            const sent = await sessionManager.sendVoiceToUser(
+              diary.user_id, diary.audio.data, diary.audio.mimetype
+            );
+            if (!sent) {
+              await sessionManager.sendAlertToUser(diary.user_id, diary.text);
+            }
+          } else {
+            await sessionManager.sendAlertToUser(diary.user_id, diary.text);
+          }
+        }
+        console.log(`[Cron] Nightly diaries: ${resp.diaries.length} sent`);
+      }
+    } catch (err) {
+      console.error('[Cron] Nightly diary error:', err.message);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+
+  // Weekly report: Sunday 9 AM IST
+  cron.schedule('0 9 * * 0', async () => {
+    console.log('[Cron] Running weekly reports...');
+    try {
+      const resp = await coreClient.callCron('/cron/weekly-report');
+      if (resp.reports && resp.reports.length > 0) {
+        for (const report of resp.reports) {
+          if (report.audio && report.audio.data) {
+            const sent = await sessionManager.sendVoiceToUser(
+              report.user_id, report.audio.data, report.audio.mimetype
+            );
+            if (!sent) {
+              await sessionManager.sendAlertToUser(report.user_id, report.text);
+            }
+          } else {
+            await sessionManager.sendAlertToUser(report.user_id, report.text);
+          }
+        }
+        console.log(`[Cron] Weekly reports: ${resp.reports.length} sent`);
+      }
+    } catch (err) {
+      console.error('[Cron] Weekly report error:', err.message);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+
   // Session watchdog: every 5 minutes, check for dropped sessions
   cron.schedule('*/5 * * * *', async () => {
     try {
