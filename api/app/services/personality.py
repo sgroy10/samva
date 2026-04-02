@@ -59,64 +59,77 @@ async def get_proactive_nudges(db: AsyncSession, user_id: str) -> list[str]:
 
     nudges = []
 
-    # ── Lunch Check (12:30-1:30 PM) ─────────────────────────
-    if 12 <= hour <= 13 and 30 <= minute <= 59 and not _already_sent(user_id, "lunch"):
-        if random.random() < 0.7:  # 70% chance — not every single day
+    # ── Good Morning (8:00-9:00 AM) — ALWAYS, once per day ──
+    if 8 <= hour <= 9 and not _already_sent(user_id, "good_morning"):
+        # Get unreplied count for context
+        from .inbox import _count_unreplied
+        unreplied = await _count_unreplied(db, user_id)
+        if is_hindi:
+            msgs = [
+                "Good morning! \u2600\ufe0f Aaj ka din shandar hone wala hai.",
+                "Suprabhat! \U0001f31e Aaj kya plan hai?",
+                "Good morning boss! \u2615 Main ready hoon — batao kya karna hai aaj.",
+            ]
+        else:
+            msgs = [
+                "Good morning! \u2600\ufe0f Ready to make today count?",
+                "Morning! \u2615 I'm here whenever you need me.",
+                "Rise and shine! \U0001f31f What's on the agenda today?",
+            ]
+        greeting = random.choice(msgs)
+        if unreplied > 0:
+            greeting += f"\n\n\u26a0\ufe0f {unreplied} unreplied messages from yesterday. Bolo 'messages dikhao' for details."
+        nudges.append(greeting)
+
+    # ── Lunch Check (12:30-1:30 PM) — ALWAYS ────────────────
+    if (hour == 12 and minute >= 30) or (hour == 13 and minute <= 30):
+        if not _already_sent(user_id, "lunch"):
             if is_hindi:
                 msgs = [
                     "Lunch time! \U0001f37d Kya kha rahe ho? Photo bhejo — main calories gin doongi!",
-                    "Boss, lunch kar liya? Photo bhejo meal ki — main track kar rahi hoon \U0001f4aa",
-                    "Dopahar ho gayi! Kuch khaya? Healthy kha rahe ho na? \U0001f60a",
-                    "Lunch break! \U0001f37d Aaj kya hai menu? Photo bhejo!",
+                    "Boss, lunch kar liya? Healthy kha rahe ho na? \U0001f60a",
+                    "Dopahar ho gayi! Kuch khaya? Photo bhejo meal ki \U0001f4aa",
                 ]
             else:
                 msgs = [
                     "Lunch time! \U0001f37d What are you having? Send a photo — I'll count calories!",
-                    "Time for a break! What's for lunch? \U0001f60a",
-                    "Don't skip lunch! Send me a photo of what you're eating \U0001f4aa",
+                    "Time for a break! Don't skip lunch \U0001f60a",
                 ]
             nudges.append(random.choice(msgs))
 
-    # ── Evening Wrap-up (6:00-7:00 PM) ──────────────────────
-    if 18 <= hour <= 19 and not _already_sent(user_id, "evening"):
-        if random.random() < 0.5:
+    # ── Afternoon Reminder (3:00-3:30 PM) — unreplied messages ─
+    if hour == 15 and minute <= 30 and not _already_sent(user_id, "afternoon"):
+        from .inbox import _count_unreplied
+        unreplied = await _count_unreplied(db, user_id)
+        if unreplied > 0:
             if is_hindi:
-                msgs = [
-                    "Shaam ho gayi! \U0001f307 Aaj ka din kaisa raha? Koi update dena hai mujhe?",
-                    "Day wrap-up time! \U0001f4cb Aaj kya kya hua? Main note kar leti hoon.",
-                    "Good evening! \u2615 Relax karo — agar koi pending kaam hai toh batao, main remind kar dungi.",
-                ]
+                nudges.append(f"\u26a0\ufe0f Abhi bhi {unreplied} messages ka reply pending hai. Bolo 'messages dikhao' ya kisi ka naam batao.")
             else:
-                msgs = [
-                    "Evening wrap-up! \U0001f307 How was your day? Anything I should note down?",
-                    "Day's ending — any pending tasks? I'll set reminders for tomorrow.",
-                ]
-            nudges.append(random.choice(msgs))
+                nudges.append(f"\u26a0\ufe0f You still have {unreplied} unreplied messages. Say 'check messages' to review.")
+        else:
+            nudges.append("Paani piya? \U0001f4a7 Stay hydrated!")
 
-    # ── Morning Motivation (8:00-8:30 AM, not on brief days) ─
-    if 8 <= hour <= 8 and minute <= 30 and not _already_sent(user_id, "morning_vibe"):
-        if random.random() < 0.4:
-            quotes = [
-                "New day, new opportunities! Aaj kya plan hai? \U0001f680",
-                "Subah ka waqt sabse productive hota hai — let's make today count! \U0001f4aa",
-                "Good morning! Remember — small steps daily beat big leaps monthly \U0001f31f",
-                "Aaj ka goal kya hai? Batao — main track karungi!",
-                "Rise and shine! Market mein kya naya hai aaj? \U0001f4c8",
+    # ── Evening Wrap-up (6:00-7:00 PM) — ALWAYS ─────────────
+    if 18 <= hour <= 19 and not _already_sent(user_id, "evening"):
+        if is_hindi:
+            msgs = [
+                "Shaam ho gayi! \U0001f307 Aaj ka din kaisa raha? Koi pending kaam hai toh batao.",
+                "Day wrap-up! \U0001f4cb Koi reminder set karna hai kal ke liye?",
+                "Good evening! \u2615 Agar koi meeting notes save karne hain toh voice note bhejo.",
             ]
-            nudges.append(random.choice(quotes))
-
-    # ── Water Reminder (3:00-3:30 PM) ────────────────────────
-    if 15 <= hour <= 15 and minute <= 30 and not _already_sent(user_id, "water"):
-        if random.random() < 0.3:
-            nudges.append("Paani piya? \U0001f4a7 Stay hydrated — 8 glasses a day!")
+        else:
+            msgs = [
+                "Evening wrap-up! \U0001f307 How was your day? Any tasks for tomorrow?",
+                "Day's ending — need me to set any reminders for tomorrow?",
+            ]
+        nudges.append(random.choice(msgs))
 
     # ── Weekend Check-in (Saturday 10 AM) ────────────────────
     if weekday == 5 and 10 <= hour <= 11 and not _already_sent(user_id, "weekend"):
-        if random.random() < 0.5:
-            if is_hindi:
-                nudges.append("Weekend hai! \U0001f389 Aaj kya plan hai? Relax karo ya kuch naya seekhna hai?")
-            else:
-                nudges.append("Happy weekend! \U0001f389 Any plans? Take it easy today!")
+        if is_hindi:
+            nudges.append("Weekend hai! \U0001f389 Aaj kya plan hai? Relax karo ya kuch naya seekhna hai?")
+        else:
+            nudges.append("Happy weekend! \U0001f389 Any plans? Take it easy today!")
 
     # ── Festival Awareness ───────────────────────────────────
     month_day = now.strftime("%m-%d")

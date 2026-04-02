@@ -653,10 +653,10 @@ async def handle_morning_brief_voice(db: AsyncSession = Depends(get_db)):
             if not soul or not soul.onboarding_complete or not soul.daily_brief_enabled:
                 continue
 
-            # Time window check: within 2 minutes of brief time (cron runs every minute)
+            # Time window check: within 10 minutes of brief time
             brief_time = soul.daily_brief_time or dt_time(9, 0)
             brief_start = datetime.combine(now_ist.date(), brief_time)
-            brief_end = brief_start + timedelta(minutes=2)
+            brief_end = brief_start + timedelta(minutes=10)
             current = datetime.combine(now_ist.date(), now_ist.time().replace(tzinfo=None))
             if not (brief_start <= current <= brief_end):
                 continue

@@ -324,24 +324,59 @@ async def get_morning_inbox_summary(db: AsyncSession, user_id: str) -> str:
     return summary
 
 
+async def _count_unreplied(db: AsyncSession, user_id: str) -> int:
+    """Count unreplied messages from last 24 hours."""
+    result = await db.execute(
+        select(func.count(InboxMessage.id)).where(
+            InboxMessage.user_id == user_id,
+            InboxMessage.from_me == False,
+            InboxMessage.replied == False,
+        ).where(sql_text("created_at >= NOW() - INTERVAL '24 hours'"))
+    )
+    return result.scalar() or 0
+
+
 async def get_new_message_alert(db: AsyncSession, user_id: str) -> str:
     """
     Proactive inbox alert — runs every 15 min.
-    Tells user about NEW messages since last alert (last 20 min window).
-    This is what makes Sam feel alive — she watches the inbox and speaks up.
+    Tells user about NEW messages since the last time we alerted them.
+    Uses UserMemory to track last alert timestamp — no duplicates, no missed messages.
     """
-    # Get messages from last 20 min (slightly wider than 15-min cron to catch all)
+    from ..models import UserMemory
+
+    # Get last alert time from memory
+    mem_result = await db.execute(
+        select(UserMemory).where(
+            UserMemory.user_id == user_id,
+            UserMemory.key == "_last_inbox_alert",
+        )
+    )
+    mem = mem_result.scalar_one_or_none()
+    if mem:
+        since_clause = f"created_at > '{mem.value}'"
+    else:
+        # First time — look back 1 hour
+        since_clause = "created_at >= NOW() - INTERVAL '1 hour'"
+
     result = await db.execute(
         select(InboxMessage).where(
             InboxMessage.user_id == user_id,
             InboxMessage.from_me == False,
-        ).where(sql_text("created_at >= NOW() - INTERVAL '20 minutes'"))
+        ).where(sql_text(since_clause))
         .order_by(InboxMessage.msg_timestamp.desc())
     )
     messages = result.scalars().all()
 
     if not messages:
         return ""
+
+    # Update last alert time BEFORE building message (so next run skips these)
+    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    if mem:
+        mem.value = now_str
+    else:
+        db.add(UserMemory(user_id=user_id, key="_last_inbox_alert", value=now_str))
+    await db.commit()
 
     # Group by sender
     by_sender = defaultdict(list)
@@ -357,7 +392,8 @@ async def get_new_message_alert(db: AsyncSession, user_id: str) -> str:
         msg = messages[0]
         name = msg.chat_name or msg.sender_name or msg.chat_id.split("@")[0]
         preview = (msg.content or "")[:80]
-        return f"\U0001f4f1 *{name}* ne message bheja:\n_{preview}_\n\nReply karna hai? Bolo 'reply to {name.split()[0]}'"
+        first_name = name.split()[0] if name else "them"
+        return f"\U0001f4f1 *{name}* ne message bheja:\n_{preview}_\n\nReply karna hai? Bolo 'reply to {first_name}'"
 
     # Multiple messages
     lines = [f"\U0001f4f1 *{total} new messages* from {senders} {'person' if senders == 1 else 'people'}:\n"]
@@ -365,7 +401,7 @@ async def get_new_message_alert(db: AsyncSession, user_id: str) -> str:
         count = len(msgs)
         preview = (msgs[0].content or "")[:60]
         count_tag = f" ({count})" if count > 1 else ""
-        lines.append(f"\u2022 *{name}*{count_tag} — _{preview}_")
+        lines.append(f"\u2022 *{name}*{count_tag} \u2014 _{preview}_")
 
     lines.append("\nReply karna hai? Naam batao.")
     return "\n".join(lines)
