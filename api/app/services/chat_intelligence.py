@@ -78,16 +78,19 @@ async def analyze_new_messages(db: AsyncSession, user_id: str) -> list:
 
         try:
             analysis = await call_gemini_json(
-                """Analyze these WhatsApp messages and classify urgency.
+                """Analyze these WhatsApp messages and classify.
 Return JSON:
 {
     "is_urgent": true/false,
-    "category": "customer_inquiry/price_request/complaint/order/follow_up/general",
-    "summary": "one line what this person wants",
+    "category": "customer_inquiry/price_request/complaint/order/follow_up/personal/general",
+    "summary": "one line what this person wants or said",
     "suggested_reply": "brief reply the owner could send",
     "priority": "high/medium/low"
 }
-Mark urgent ONLY if: payment pending, complaint, time-sensitive order, angry customer, deadline mentioned.""",
+Priority guide:
+- HIGH: payment pending, complaint, angry, deadline, someone arriving/coming, emergency
+- MEDIUM: question waiting for answer, price inquiry, order discussion, follow-up, anything that needs a response
+- LOW: greetings only, forwards, status updates that don't need reply""",
                 combined,
                 user_id=user_id,
                 max_tokens=150,

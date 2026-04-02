@@ -322,3 +322,50 @@ async def get_morning_inbox_summary(db: AsyncSession, user_id: str) -> str:
     summary += "\nBolo 'messages dikhao' for details."
 
     return summary
+
+
+async def get_new_message_alert(db: AsyncSession, user_id: str) -> str:
+    """
+    Proactive inbox alert — runs every 15 min.
+    Tells user about NEW messages since last alert (last 20 min window).
+    This is what makes Sam feel alive — she watches the inbox and speaks up.
+    """
+    # Get messages from last 20 min (slightly wider than 15-min cron to catch all)
+    result = await db.execute(
+        select(InboxMessage).where(
+            InboxMessage.user_id == user_id,
+            InboxMessage.from_me == False,
+        ).where(sql_text("created_at >= NOW() - INTERVAL '20 minutes'"))
+        .order_by(InboxMessage.msg_timestamp.desc())
+    )
+    messages = result.scalars().all()
+
+    if not messages:
+        return ""
+
+    # Group by sender
+    by_sender = defaultdict(list)
+    for msg in messages:
+        name = msg.chat_name or msg.sender_name or msg.chat_id.split("@")[0]
+        by_sender[name].append(msg)
+
+    total = len(messages)
+    senders = len(by_sender)
+
+    # Build concise notification
+    if total == 1:
+        msg = messages[0]
+        name = msg.chat_name or msg.sender_name or msg.chat_id.split("@")[0]
+        preview = (msg.content or "")[:80]
+        return f"\U0001f4f1 *{name}* ne message bheja:\n_{preview}_\n\nReply karna hai? Bolo 'reply to {name.split()[0]}'"
+
+    # Multiple messages
+    lines = [f"\U0001f4f1 *{total} new messages* from {senders} {'person' if senders == 1 else 'people'}:\n"]
+    for name, msgs in list(by_sender.items())[:5]:  # Max 5 senders
+        count = len(msgs)
+        preview = (msgs[0].content or "")[:60]
+        count_tag = f" ({count})" if count > 1 else ""
+        lines.append(f"\u2022 *{name}*{count_tag} — _{preview}_")
+
+    lines.append("\nReply karna hai? Naam batao.")
+    return "\n".join(lines)

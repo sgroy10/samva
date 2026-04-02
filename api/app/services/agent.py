@@ -623,12 +623,20 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
         if price_alert:
             alerts.append(price_alert)
 
-        # Chat intelligence — analyze new messages THEN get insights
+        # Chat intelligence — proactive inbox notifications
         from .chat_intelligence import analyze_new_messages, get_undelivered_insights
+        from .inbox import get_new_message_alert
         await analyze_new_messages(db, user_id)
+
+        # Urgent insights (high/medium priority from analysis)
         chat_alert = await get_undelivered_insights(db, user_id)
         if chat_alert:
             alerts.append(chat_alert)
+
+        # Proactive inbox digest — tell user about ALL new messages (not just urgent)
+        inbox_alert = await get_new_message_alert(db, user_id)
+        if inbox_alert:
+            alerts.append(inbox_alert)
 
         # Pattern engine — detect, shadow, propose, execute
         from .pattern_watcher import run_pattern_engine
