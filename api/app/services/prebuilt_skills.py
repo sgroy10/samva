@@ -1415,8 +1415,15 @@ async def find_and_execute(query: str, business_type: str, context: dict = None)
     Find the best matching prebuilt skill for this query and execute it.
     Returns the skill's response, or empty string if no match.
     """
+    # Action requests should go to orchestrator's smart Layer 4, not prebuilt skills
+    action_prefixes = ["find ", "book ", "search ", "track ", "order ", "call ",
+                       "nearest ", "closest ", "where ", "how to reach ", "directions ",
+                       "dhundh", "khoj ", "manga ", "get me "]
+    query_lower = query.lower().strip()
+    if any(query_lower.startswith(p) for p in action_prefixes):
+        return None
+
     available = get_skills_for_user(business_type)
-    query_lower = query.lower()
 
     for skill in available:
         if any(kw in query_lower for kw in skill["keywords"]):

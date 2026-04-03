@@ -136,6 +136,21 @@ async def process_message(
             else:
                 return {"reply": "I couldn't understand that voice note. Could you try again or type it out?", "actions": []}
 
+        # ══ SOS CHECK — before ANYTHING else ══════════════════════
+        # Safety is priority #1. Even before onboarding, subscription, or commands.
+        from .safety import is_sos, handle_sos
+        if text and is_sos(text):
+            try:
+                sos_reply = await handle_sos(db, user_id, text)
+                db.add(Conversation(user_id=user_id, role="user", content=text))
+                db.add(Conversation(user_id=user_id, role="assistant", content=sos_reply))
+                await db.commit()
+                return {"reply": sos_reply, "actions": ["sos_triggered"]}
+            except Exception as e:
+                logger.error(f"SOS handling error for {user_id}: {e}", exc_info=True)
+                # Even if DB fails, return emergency numbers
+                return {"reply": "🚨 Police: 100/112 | Women Helpline: 1091/181 | Ambulance: 102/108", "actions": ["sos_triggered"]}
+
         # Check if still onboarding
         if not soul or not soul.onboarding_complete:
             if not text:
