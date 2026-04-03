@@ -784,6 +784,13 @@ async def execute_user_skill(db: AsyncSession, user_id: str, query: str) -> str:
 
     query_lower = query.lower()
 
+    # Action requests should go to orchestrator, not custom skills
+    action_prefixes = ["find ", "book ", "search ", "track ", "order ", "call ",
+                       "nearest ", "closest ", "where ", "how to reach ", "directions ",
+                       "dhundh", "khoj ", "manga ", "get me "]
+    if any(query_lower.startswith(p) for p in action_prefixes):
+        return ""
+
     # Pass 1: keyword match (fast, no AI cost)
     for skill in skills:
         keywords = skill.trigger_keywords or []

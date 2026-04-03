@@ -806,6 +806,24 @@ async def test_voice(req: dict):
         return {"sent": resp.json().get("sent", False), "audio_length": len(audio_b64)}
 
 
+@app.post("/admin/deactivate-skills")
+async def deactivate_skills(req: dict, db: AsyncSession = Depends(get_db)):
+    """Deactivate broken custom skills by name list."""
+    from .models import UserSkill
+    from sqlalchemy import update as sql_update
+    names = req.get("names", [])
+    if not names:
+        # Deactivate ALL custom skills
+        await db.execute(sql_update(UserSkill).values(is_active=False))
+    else:
+        for name in names:
+            await db.execute(
+                sql_update(UserSkill).where(UserSkill.skill_name == name).values(is_active=False)
+            )
+    await db.commit()
+    return {"deactivated": names or "all"}
+
+
 # --- Admin Auth + Dashboard ---
 
 @app.post("/admin/login")
