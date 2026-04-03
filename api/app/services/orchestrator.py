@@ -266,6 +266,21 @@ async def orchestrate(
             return "\n".join(lines)
         return "Koi image history nahi hai."
 
+    # ── LAYER 2.6: FutureEcho — on-demand ──────────────────────
+    future_triggers = ["future me", "future self", "talk to future", "2030", "2035", "2036", "2040",
+                       "future echo", "future version", "bhavishya", "10 saal baad", "5 saal baad",
+                       "aane wala kal", "future mein"]
+    if any(kw in text_lower for kw in future_triggers):
+        from . import future_echo
+        # Extract topic and time horizon
+        topic = text  # Let the LLM figure out the topic from context
+        horizon = "10 years"
+        if "5 saal" in text_lower or "5 year" in text_lower: horizon = "5 years"
+        elif "20 saal" in text_lower or "20 year" in text_lower: horizon = "20 years"
+        echo_text = await future_echo.on_demand_echo(db, user_id, topic, horizon)
+        if echo_text:
+            return f"\U0001f52e *Echo from your future self*\n\n{echo_text}"
+
     # ── LAYER 2.5: Inbox / Chat Intelligence ────────────────────
     from . import chat_intelligence
     inbox_triggers = ["check messages", "messages dikhao", "inbox", "unread",
@@ -312,9 +327,50 @@ async def orchestrate(
     if any(kw in text_lower for kw in intent_keywords):
         return ""  # Let agent.py handle via intent detection
 
-    # ── LAYER 4: General Chat ────────────────────────────────────
-    system = await _build_system_prompt(db, user_id, user, soul)
-    reply = await call_gemini(system, text, user_id=user_id)
+    # ── LAYER 4: Smart General Chat — Sam NEVER says "I can't" ───
+    # Check if user is asking Sam to DO something (not just chat)
+    action_words = ["book", "find", "search", "track", "call", "order", "buy",
+                    "nearest", "closest", "show me", "get me", "where is",
+                    "how to reach", "directions", "price of", "compare",
+                    "flight", "hotel", "uber", "ola", "cab", "taxi",
+                    "restaurant", "shop", "store", "hospital", "doctor",
+                    "gift", "flower", "cake", "deliver",
+                    "translate", "convert", "calculate",
+                    "dhundh", "khoj", "bata", "dikha", "manga", "bhej",
+                    "kahan", "kitna", "booking", "ticket"]
+    is_action = any(w in text_lower for w in action_words)
+
+    if is_action:
+        # Sam tries to help via web search first, then skill builder
+        system = await _build_system_prompt(db, user_id, user, soul)
+        system += """
+
+IMPORTANT: The user is asking you to DO something or FIND something.
+You MUST try to help. NEVER say "I can't do that" or "I don't have access to that."
+Instead:
+- If you know the answer, give it directly
+- If you need current data, say you'll look it up
+- If it's a booking/ordering task, provide the steps, links, or offer to set a reminder
+- If you truly cannot do it, suggest the CLOSEST alternative you CAN do
+- Always be proactive: "Main abhi check karti hoon..." or "Let me find that for you..."
+You are a CAPABLE assistant who figures things out, not a chatbot that makes excuses."""
+
+        # Try web search for current/location info
+        from . import web_search
+        try:
+            search_results = await web_search.search(text, user_id)
+            if search_results:
+                reply = await call_gemini(
+                    system + f"\n\nWeb search results (use these to answer):\n{search_results[:3000]}",
+                    text, user_id=user_id, max_tokens=1000,
+                )
+            else:
+                reply = await call_gemini(system, text, user_id=user_id, max_tokens=800)
+        except Exception:
+            reply = await call_gemini(system, text, user_id=user_id, max_tokens=800)
+    else:
+        system = await _build_system_prompt(db, user_id, user, soul)
+        reply = await call_gemini(system, text, user_id=user_id)
 
     # ── LAYER 5: Background Skill Builder ────────────────────────
     soul_prompt = soul.system_prompt or ""

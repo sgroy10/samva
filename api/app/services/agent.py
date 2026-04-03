@@ -687,6 +687,15 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
             if mood_msg:
                 alerts.append(mood_msg)
 
+        # FutureEcho — every 3-5 days, send a voice note from future self
+        from .future_echo import generate_future_echo
+        echo = await generate_future_echo(db, user_id)
+        if echo:
+            # Don't add to alerts — it needs to be sent as voice note
+            # Store for bridge to pick up
+            if echo.get("text"):
+                alerts.append(echo["text"])
+
     except Exception as e:
         logger.error(f"Alert check error for {user_id}: {e}", exc_info=True)
 

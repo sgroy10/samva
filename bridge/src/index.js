@@ -413,6 +413,31 @@ app.listen(PORT, async () => {
     }
   }, { timezone: 'Asia/Kolkata' });
 
+  // FutureEcho: check daily at 8 PM IST (sends every 3 days per user)
+  cron.schedule('0 20 * * *', async () => {
+    console.log('[Cron] Checking FutureEcho...');
+    try {
+      const resp = await coreClient.callCron('/cron/future-echo');
+      if (resp.echoes && resp.echoes.length > 0) {
+        for (const echo of resp.echoes) {
+          if (echo.audio && echo.audio.data) {
+            const sent = await sessionManager.sendVoiceToUser(
+              echo.user_id, echo.audio.data, echo.audio.mimetype
+            );
+            if (!sent) {
+              await sessionManager.sendAlertToUser(echo.user_id, echo.text);
+            }
+          } else {
+            await sessionManager.sendAlertToUser(echo.user_id, echo.text);
+          }
+        }
+        console.log(`[Cron] FutureEcho: ${resp.echoes.length} sent`);
+      }
+    } catch (err) {
+      console.error('[Cron] FutureEcho error:', err.message);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+
   // Weekly report: Sunday 9 AM IST
   cron.schedule('0 9 * * 0', async () => {
     console.log('[Cron] Running weekly reports...');

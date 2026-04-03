@@ -737,6 +737,23 @@ async def handle_nightly_diary(db: AsyncSession = Depends(get_db)):
     return {"count": len(diaries), "diaries": diaries}
 
 
+@app.post("/cron/future-echo")
+async def handle_future_echo(db: AsyncSession = Depends(get_db)):
+    """Every 3 days — FutureEcho voice note from user's future self."""
+    from .services.future_echo import generate_future_echo
+    result_list = await db.execute(select(User).where(User.status == "active"))
+    users = result_list.scalars().all()
+    echoes = []
+    for user in users:
+        try:
+            echo = await generate_future_echo(db, user.id)
+            if echo:
+                echoes.append(echo)
+        except Exception as e:
+            logger.error(f"FutureEcho cron error for {user.id}: {e}")
+    return {"count": len(echoes), "echoes": echoes}
+
+
 @app.post("/cron/weekly-report")
 async def handle_weekly_report(db: AsyncSession = Depends(get_db)):
     """Sunday 9 AM — weekly report card."""
