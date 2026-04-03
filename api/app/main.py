@@ -55,6 +55,7 @@ class MessageRequest(BaseModel):
     imageBase64: Optional[str] = None
     audioBase64: Optional[str] = None
     senderJid: Optional[str] = None
+    documentBase64: Optional[str] = None
 
 
 class OnboardRequest(BaseModel):
@@ -104,6 +105,7 @@ async def handle_message(req: MessageRequest, db: AsyncSession = Depends(get_db)
         image_base64=req.imageBase64,
         audio_base64=req.audioBase64,
         sender_jid=req.senderJid,
+        document_base64=req.documentBase64,
     )
 
     # Sanitize reply — remove surrogate characters that crash HTTP response

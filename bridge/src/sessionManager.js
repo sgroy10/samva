@@ -222,6 +222,7 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
     let messageType = 'text';
     let imageBase64 = null;
     let audioBase64 = null;
+    let documentBase64 = null;
 
     const mc = msg.message;
     if (mc.conversation) {
@@ -246,17 +247,25 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
             console.error(`[session] Audio download error:`, err.message);
         }
     } else if (mc.documentMessage) {
-        text = '[Document received]';
+        messageType = 'document';
+        text = mc.documentMessage.caption || mc.documentMessage.fileName || '[Document]';
+        try {
+            const buf = await downloadMediaMessage(msg, 'buffer', {});
+            documentBase64 = buf.toString('base64');
+            console.log(`[session] Document downloaded: ${mc.documentMessage.fileName || 'unknown'} (${(buf.length / 1024).toFixed(0)}KB, mime: ${mc.documentMessage.mimetype})`);
+        } catch (err) {
+            console.error(`[session] Document download error:`, err.message);
+        }
     } else {
         return;
     }
 
-    if (!text && !imageBase64 && !audioBase64) return;
+    if (!text && !imageBase64 && !audioBase64 && !documentBase64) return;
 
     console.log(`[session] ${userId} (${isSelfChat ? 'self' : remoteJid.split('@')[0]}): ${text?.substring(0, 50) || `[${messageType}]`}`);
 
     const senderJid = isSelfChat ? null : remoteJid;
-    const result = await coreClient.sendToApi(text, userId, messageType, imageBase64, audioBase64, senderJid);
+    const result = await coreClient.sendToApi(text, userId, messageType, imageBase64, audioBase64, senderJid, documentBase64);
 
     if (result.reply) {
         const replyJid = isSelfChat ? getReplyJid(sessionData) : remoteJid;

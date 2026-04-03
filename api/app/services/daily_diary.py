@@ -188,6 +188,24 @@ Now give the nightly diary. Start with a warm greeting like "Good night boss!" o
     if not diary_text or diary_text.startswith("Sorry"):
         return None
 
+    # Save diary summary for next-day follow-up
+    try:
+        mem_result = await db.execute(
+            select(UserMemory).where(
+                UserMemory.user_id == user_id,
+                UserMemory.key == "_last_diary_text",
+            )
+        )
+        mem = mem_result.scalar_one_or_none()
+        diary_summary = diary_text[:800]  # First 800 chars
+        if mem:
+            mem.value = diary_summary
+        else:
+            db.add(UserMemory(user_id=user_id, key="_last_diary_text", value=diary_summary))
+        await db.commit()
+    except Exception as e:
+        logger.error(f"Failed to save diary summary for {user_id}: {e}")
+
     # Generate TTS
     voice_lang = soul.voice_language or "auto"
     try:

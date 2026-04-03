@@ -99,6 +99,7 @@ async def process_message(
     image_base64: str = None,
     audio_base64: str = None,
     sender_jid: str = None,
+    document_base64: str = None,
 ) -> dict:
     """Main message handler. Routes to appropriate skill."""
     try:
@@ -151,6 +152,19 @@ async def process_message(
             await db.commit()
 
             return {"reply": reply, "actions": []}
+
+        # Handle document (PDF, etc.) — extract and analyze via Gemini
+        if document_base64:
+            try:
+                from .document_analyzer import analyze_document
+                doc_result = await analyze_document(db, user_id, soul, text, document_base64)
+                if doc_result:
+                    db.add(Conversation(user_id=user_id, role="user", content=text or "[Document uploaded]"))
+                    db.add(Conversation(user_id=user_id, role="assistant", content=doc_result))
+                    await db.commit()
+                    return {"reply": doc_result, "actions": []}
+            except Exception as e:
+                logger.error(f"Document handling error for {user_id}: {e}", exc_info=True)
 
         # Fast commands — no AI cost
         lower = (text or "").strip().lower()

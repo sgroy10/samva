@@ -8,7 +8,7 @@ const client = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-async function sendToApi(text, userId, messageType = 'text', imageBase64 = null, audioBase64 = null, senderJid = null) {
+async function sendToApi(text, userId, messageType = 'text', imageBase64 = null, audioBase64 = null, senderJid = null, documentBase64 = null) {
   try {
     const resp = await client.post('/message', {
       text,
@@ -17,6 +17,7 @@ async function sendToApi(text, userId, messageType = 'text', imageBase64 = null,
       imageBase64,
       audioBase64,
       senderJid,
+      documentBase64,
     });
     return resp.data;
   } catch (err) {

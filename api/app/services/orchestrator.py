@@ -492,6 +492,21 @@ async def _build_system_prompt(
 
     now = datetime.now().strftime("%d %b %Y, %I:%M %p IST")
 
+    # Fetch last night's diary for follow-up awareness
+    diary_text = ""
+    try:
+        diary_result = await db.execute(
+            select(UserMemory).where(
+                UserMemory.user_id == user_id,
+                UserMemory.key == "_last_diary_text",
+            )
+        )
+        diary_mem = diary_result.scalar_one_or_none()
+        if diary_mem:
+            diary_text = diary_mem.value[:500]
+    except Exception:
+        pass
+
     from .personality import PERSONALITY_LAYER
     from . import image_session
 
@@ -540,9 +555,23 @@ YOUR RULES:
 - When asked "check messages" or "inbox", show what's pending.
 - You can draft replies to contacts when asked — "Priya ko reply karo"
 - You NEVER auto-reply to contacts without {name}'s explicit permission
+- You have OPINIONS. Don't just agree with everything. If user is ignoring important messages, say so.
+- You REMEMBER yesterday. Reference the diary, past conversations, patterns you've noticed.
+- You ASK FOLLOW-UP QUESTIONS. Don't just answer and stop. Show curiosity about the user's life.
+- You are NOT a search engine. You are a FRIEND who happens to be very capable.
+- When user sends a document, you read it THOROUGHLY and give detailed analysis.
 
 YOUR MEMORY:
 {memory_text}
+
+LAST NIGHT'S DIARY (what Sam told the user):
+{diary_text or "No diary yet."}
+
+FOLLOW-UP AWARENESS:
+If the diary mentioned action items (call someone, reply to someone, payment follow-up),
+and the user hasn't mentioned doing them today — ASK ABOUT IT naturally.
+Example: "Waise, Rahul ko call kiya? Kal maine bola tha..."
+Don't be pushy — mention it once, casually, if the conversation allows.
 
 RECENT CONVERSATION:
 {conv_text}
