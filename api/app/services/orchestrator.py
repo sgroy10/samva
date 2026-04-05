@@ -466,44 +466,77 @@ async def _handle_image(
     db: AsyncSession, user_id: str, user: User, soul: AgentSoul,
     text: str, image_base64: str, business_type: str,
 ) -> str:
-    """Route image to the right handler based on vertical and content."""
-
-    # Jewelry vertical: try GemLens first for jewelry photos
-    if prebuilt_skills.get_user_vertical(business_type) == "jewelry":
-        context = {"image_base64": image_base64}
-        gemlens_result = await prebuilt_skills.gemlens_analyze("", context)
-        if gemlens_result and not gemlens_result.startswith("__"):
-            return gemlens_result
-
-    # Health vertical: medical images get Pro Vision
-    if prebuilt_skills.get_user_vertical(business_type) == "health":
-        q = (text or "").lower()
-        if any(w in q for w in ["xray", "x-ray", "scan", "mri", "ct", "report", "medical"]):
-            return await call_llm(
-                "pro",
-                "You are a medical image analysis assistant. Analyze this image thoroughly. Describe findings clearly. Add disclaimer: 'This is AI analysis — consult your doctor.'",
-                text or "Analyze this medical image.",
-                image_base64=image_base64, user_id=user_id, max_tokens=600,
-            )
-
-    # Food photo detection — calorie counting
-    q = (text or "").lower()
-    food_words = ["food", "lunch", "dinner", "breakfast", "khana", "meal", "kha",
-                   "calorie", "calories", "nutrition", "snack", "nashta"]
-    if any(w in q for w in food_words) or not text:
-        # Try food analysis first — if no text caption, could be food
-        from .personality import analyze_food_photo
-        food_result = await analyze_food_photo(image_base64, user_id)
-        if food_result and "calorie" in food_result.lower():
-            return food_result
-
-    # General image analysis — use Flash with Soul + personality context
+    """
+    UNIVERSAL image handler — Sam analyzes ANY image intelligently.
+    Blood reports, prescriptions, math problems, business cards, food,
+    jewelry, screenshots, memes, documents — ANYTHING.
+    Sam NEVER says "sorry I can't analyze this."
+    """
     system = await _build_system_prompt(db, user_id, user, soul)
+    q = (text or "").lower()
+
+    # If user gave specific instructions, honor them
+    if text and len(text) > 5:
+        # User said what they want — just do it
+        return await call_gemini(
+            system + """
+
+The user sent an image with instructions. Follow their instructions EXACTLY.
+Analyze the image thoroughly based on what they asked.
+If it's a medical report — read EVERY value, flag abnormal ones with ⚠️, explain in simple language.
+If it's a document — extract ALL text and key information.
+If it's a math problem — solve it step by step.
+If it's food — estimate calories.
+If it's a screenshot — read and respond to the content.
+You NEVER say "sorry I can't analyze this." You ALWAYS try your best.
+Add appropriate disclaimers only for medical/legal content.""",
+            text,
+            image_base64=image_base64,
+            user_id=user_id,
+            max_tokens=1200,
+        )
+
+    # No caption — Sam must figure out what the image is and analyze it
     return await call_gemini(
-        system + "\n\nThe user sent an image. Analyze it helpfully. If it looks like food, estimate calories. If it's a product, describe it. Be warm and conversational.",
-        text or "What do you see?",
+        system + """
+
+The user sent an image WITHOUT any caption. You must:
+1. FIRST — identify what this image is (medical report, food, document, photo, screenshot, etc.)
+2. THEN — analyze it thoroughly based on what it is:
+
+   - MEDICAL REPORT (blood test, prescription, X-ray, scan):
+     Read EVERY value. Flag abnormal values with ⚠️.
+     Explain what each abnormal value means in simple language.
+     Suggest next steps. Add disclaimer: "Yeh AI analysis hai — doctor se zaroor consult karo."
+
+   - DOCUMENT (invoice, bill, receipt, letter, form):
+     Extract ALL key information: amounts, dates, names, terms.
+     Summarize what this document is about.
+
+   - FOOD:
+     Identify the dish. Estimate calories, protein, carbs, fat.
+
+   - MATH/HOMEWORK:
+     Solve it step by step. Show working.
+
+   - SCREENSHOT:
+     Read the content and respond contextually.
+
+   - BUSINESS CARD:
+     Extract name, phone, email, company, designation.
+
+   - JEWELRY/PRODUCT:
+     Describe it, estimate value if possible.
+
+   - ANYTHING ELSE:
+     Describe what you see and ask how you can help.
+
+You NEVER say "I cannot analyze this" or "sorry." You ALWAYS analyze what you see.
+Keep it WhatsApp-friendly. Be thorough but concise.""",
+        "Analyze this image thoroughly — identify what it is and give detailed analysis.",
         image_base64=image_base64,
         user_id=user_id,
+        max_tokens=1200,
     )
 
 
