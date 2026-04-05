@@ -340,9 +340,15 @@ async def orchestrate(
                     "kahan", "kitna", "booking", "ticket"]
     is_action = any(w in text_lower for w in action_words)
 
+    # Memory Beast — search past conversations for relevant context
+    from .memory_beast import build_memory_context
+    memory_context = await build_memory_context(db, user_id, text)
+
     if is_action:
         # Sam tries to help via web search first, then skill builder
         system = await _build_system_prompt(db, user_id, user, soul)
+        if memory_context:
+            system += "\n" + memory_context
         system += """
 
 IMPORTANT: The user is asking you to DO something or FIND something.
@@ -370,6 +376,8 @@ You are a CAPABLE assistant who figures things out, not a chatbot that makes exc
             reply = await call_gemini(system, text, user_id=user_id, max_tokens=800)
     else:
         system = await _build_system_prompt(db, user_id, user, soul)
+        if memory_context:
+            system += "\n" + memory_context
         reply = await call_gemini(system, text, user_id=user_id)
 
     # ── LAYER 5: Background Skill Builder ────────────────────────

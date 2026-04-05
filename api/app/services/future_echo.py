@@ -78,6 +78,11 @@ async def generate_future_echo(db: AsyncSession, user_id: str, time_horizon: str
     recent_msgs = [c.content for c in conv_result.scalars().all()]
     recent_themes = "\n".join(f"- {m[:80]}" for m in recent_msgs[:10]) if recent_msgs else "Not much conversation yet."
 
+    # Memory Beast — search for memorable moments
+    from .memory_beast import search_conversations
+    memorable = await search_conversations(db, user_id, "memorable important decision trip travel family celebration achievement problem solved", limit=5)
+    memorable_text = "\n".join(f"- [{m['date']}] {m['role']}: {m['content']}" for m in memorable) if memorable else "No specific memorable moments found yet."
+
     # Get inbox stats
     inbox_count = await db.execute(
         select(func.count(InboxMessage.id)).where(
@@ -128,6 +133,7 @@ THEIR RECENT LIFE DATA (real, use this):
 Recent diary: {diary_text or 'No diary entries yet.'}
 Things they remember: {memory_text}
 Recent topics: {recent_themes}
+Memorable moments from their past: {memorable_text}
 This week: {total_msgs_week} messages from contacts, {unreplied_count} unreplied.
 Business type: {soul.business_type or 'unknown'}
 

@@ -112,6 +112,11 @@ async def handle_message(req: MessageRequest, db: AsyncSession = Depends(get_db)
     if result.get("reply"):
         result["reply"] = result["reply"].encode("utf-8", errors="replace").decode("utf-8", errors="replace")
 
+    # Format Sam's message for beautiful WhatsApp display
+    if result.get("reply"):
+        from .services.message_formatter import format_sam_message
+        result["reply"] = format_sam_message(result["reply"])
+
     # If user sent a voice note, Sam replies with a voice note too
     if req.audioBase64 and result.get("reply") and not result["reply"].startswith("__IMAGE__"):
         logger.info(f"[TTS] Voice note detected from {req.userId}, generating voice reply...")
