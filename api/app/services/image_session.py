@@ -166,14 +166,16 @@ IMAGE_CONTEXT_WORDS = {
     "try on", "tryon", "try on dikhao",
     "change the stone", "change stone", "change metal", "swap stone",
     "add engraving", "engrave", "engraving",
-    "bom sheet", "bill of material",
+    "bom", "bom sheet", "bom pdf", "bill of material", "generate bom",
     "show original", "original dikhao", "pehle wala", "pehle wala dikhao",
     "previous version", "go back",
     "white gold mein", "rose gold mein", "yellow gold mein",
     "render in", "change to",
-    "ad banao", "make ad", "instagram ad",
+    "ad banao", "make ad", "instagram ad", "promote",
     "360 view", "four angles", "all angles",
-    "badlo", "modify design",
+    "badlo", "modify design", "analyze", "identify",
+    "product photo", "studio shot", "clean photo",
+    "design banao", "dikhao", "pehen ke dikhao",
 }
 
 
