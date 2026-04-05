@@ -264,14 +264,16 @@ async def jewelry_pricing(query: str, context: dict = None) -> str:
     if karat_match:
         karat = f"{karat_match.group(1)}K"
 
-    # Extract jewelry type
+    # Extract jewelry type — check longer words FIRST to avoid "ring" matching inside "earring"
     jewelry_type = "ring"  # default
-    TYPE_MAP = {
-        "ring": "ring", "pendant": "pendant", "earring": "earring",
-        "bangle": "bangle", "bracelet": "bracelet", "chain": "pendant",
-        "necklace": "pendant", "mangalsutra": "pendant",
-    }
-    for kw, jtype in TYPE_MAP.items():
+    TYPE_MAP = [
+        ("mangalsutra", "pendant"), ("earring", "earring"), ("necklace", "pendant"),
+        ("bracelet", "bracelet"), ("pendant", "pendant"), ("bangle", "bangle"),
+        ("chain", "pendant"), ("ring", "ring"), ("tops", "earring"),
+        ("jhumka", "earring"), ("jhumki", "earring"), ("kangan", "bangle"),
+        ("haar", "pendant"), ("anguthi", "ring"),
+    ]
+    for kw, jtype in TYPE_MAP:
         if kw in q:
             jewelry_type = jtype
             break
