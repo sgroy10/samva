@@ -246,62 +246,75 @@ async def gemstone_info(query: str, context: dict = None) -> str:
 
 
 async def jewelry_pricing(query: str, context: dict = None) -> str:
-    """Calculate jewelry price from weight + making charges using live gold + user memory."""
+    """Calculate full jewelry price using the pricing engine — live gold, labor, GST, loss."""
     import re
+    from .jewelry_pricing_engine import calculate_full_jewelry_cost
     q = query.lower()
 
     # Extract weight in grams
     weight_match = re.search(r"([\d.]+)\s*(?:gram|gm|g\b)", q)
     weight = float(weight_match.group(1)) if weight_match else None
 
-    # Extract karat
-    karat = 22  # default
-    if "24k" in q or "24 karat" in q:
-        karat = 24
-    elif "18k" in q or "18 karat" in q:
-        karat = 18
-    elif "14k" in q or "14 karat" in q:
-        karat = 14
-
     if not weight:
         return ""
 
-    # Get live gold price
+    # Extract karat
+    karat = "22K"  # default
+    karat_match = re.search(r"(\d{1,2})\s*[kK]", q)
+    if karat_match:
+        karat = f"{karat_match.group(1)}K"
+
+    # Extract jewelry type
+    jewelry_type = "ring"  # default
+    TYPE_MAP = {
+        "ring": "ring", "pendant": "pendant", "earring": "earring",
+        "bangle": "bangle", "bracelet": "bracelet", "chain": "pendant",
+        "necklace": "pendant", "mangalsutra": "pendant",
+    }
+    for kw, jtype in TYPE_MAP.items():
+        if kw in q:
+            jewelry_type = jtype
+            break
+
+    # Extract metal
+    metal = "gold"
+    if "silver" in q or "chandi" in q:
+        metal = "silver"
+
+    # Extract finishing hints
+    finishing = {
+        "rhodium": "rhodium" in q,
+        "two_tone": "two tone" in q or "two-tone" in q,
+        "special_finish": "special finish" in q or "matte" in q or "sandblast" in q,
+        "stamping": True,
+        "solder": True,
+    }
+
+    # Get stone_grid from image context if available
+    stone_grid = None
+    if context and context.get("gemlens_bom"):
+        stone_grid = context["gemlens_bom"].get("stone_grid", [])
+
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get("https://api.gold-api.com/price/XAU")
-            gold_usd = resp.json().get("price", 0) if resp.status_code == 200 else 0
-            resp2 = await client.get("https://open.er-api.com/v6/latest/USD")
-            usd_inr = resp2.json().get("rates", {}).get("INR", 83.5) if resp2.status_code == 200 else 83.5
+        # Use db and user_id from context if available, else pass None
+        db = context.get("db") if context else None
+        user_id = context.get("user_id") if context else None
 
-        gold_24k = (gold_usd * usd_inr * 1.069) / 31.1035
-        purity = {24: 1.0, 22: 0.916, 18: 0.75, 14: 0.585}
-        gold_rate = gold_24k * purity.get(karat, 0.916)
-        metal_cost = weight * gold_rate
-
-        # Making charges — default 12% if not in user memory
-        making_pct = 12
-        if context and context.get("user_memory"):
-            for mem in context["user_memory"]:
-                if "making" in mem.get("key", "").lower():
-                    try:
-                        making_pct = float(re.search(r"[\d.]+", mem["value"]).group())
-                    except Exception:
-                        pass
-
-        making = metal_cost * (making_pct / 100)
-        total = metal_cost + making
-
-        return (
-            f"*Jewelry Price Estimate*\n"
-            f"Weight: {weight}g | {karat}K gold\n"
-            f"Gold rate: \u20b9{gold_rate:,.0f}/gm ({karat}K)\n"
-            f"Metal cost: \u20b9{metal_cost:,.0f}\n"
-            f"Making ({making_pct}%): \u20b9{making:,.0f}\n"
-            f"*Total: \u20b9{total:,.0f}*\n\n"
-            f"_Stone charges extra. Live gold rate used._"
+        result = await calculate_full_jewelry_cost(
+            db=db,
+            user_id=user_id,
+            weight_grams=weight,
+            karat=karat,
+            jewelry_type=jewelry_type,
+            metal=metal,
+            stone_grid=stone_grid,
+            model="setting_charges",
+            finishing=finishing,
         )
-    except Exception:
+
+        return result.get("formatted", "")
+    except Exception as e:
+        logger.error(f"jewelry_pricing error: {e}", exc_info=True)
         return ""
 
 
@@ -425,27 +438,49 @@ async def gemlens_bom_pdf(query: str, context: dict = None) -> str:
         except Exception:
             pass
 
-        # Step 3: Get making charge from user memory
-        making_pct = 12
-        if context and context.get("user_memory"):
-            import re
-            for mem in context["user_memory"]:
-                if "making" in mem.get("key", "").lower():
-                    try:
-                        making_pct = float(re.search(r"[\d.]+", mem["value"]).group())
-                    except Exception:
-                        pass
+        # Step 3: Full pricing via pricing engine
+        from .jewelry_pricing_engine import calculate_full_jewelry_cost
 
-        # Step 4: Generate PDF using full GemLens data
+        # Detect jewelry type from item name
+        jtype = "ring"
+        item_lower = item_name.lower()
+        for kw, jt in [("pendant", "pendant"), ("earring", "earring"), ("bangle", "bangle"),
+                        ("bracelet", "bracelet"), ("chain", "pendant"), ("necklace", "pendant"),
+                        ("ring", "ring")]:
+            if kw in item_lower:
+                jtype = jt
+                break
+
+        metal_key = "gold" if "gold" in metal_type.lower() or "gold" in karat.lower() else "silver"
+
+        # Use db and user_id from context for user memory lookup
+        db = context.get("db") if context else None
+        user_id = context.get("user_id") if context else None
+
+        pricing = await calculate_full_jewelry_cost(
+            db=db,
+            user_id=user_id,
+            weight_grams=weight_grams,
+            karat=karat,
+            jewelry_type=jtype,
+            metal=metal_key,
+            stone_grid=stone_grid,
+            model="setting_charges",
+        )
+
+        making_pct = pricing.get("making_pct", 12)
+
+        # Step 4: Generate PDF using full GemLens data + pricing breakdown
         from .bom_pdf import generate_bom_pdf
         pdf_b64 = generate_bom_pdf(
             item_name=item_name,
             metal_info={"type": metal_type, "karat": karat, "color": metal_color},
             stones=stone_grid,
-            gold_rate_per_gram=gold_rate,
+            gold_rate_per_gram=pricing.get("gold_rate_per_gram", gold_rate),
             making_charge_pct=making_pct,
             weight_grams=weight_grams,
             totals=totals,
+            pricing=pricing,
         )
 
         if pdf_b64:
