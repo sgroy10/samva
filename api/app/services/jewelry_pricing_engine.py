@@ -536,13 +536,17 @@ def get_extras_cost(jewelry_type: str, metal: str = "gold",
 # ══════════════════════════════════════════════════════════════════
 
 async def _fetch_gold_and_forex() -> dict:
-    """Fetch live gold USD/oz and USD/INR forex rate."""
-    result = {"gold_usd_oz": 0, "usd_inr": DEFAULT_USD_INR}
+    """Fetch live gold USD/oz, silver USD/oz, and USD/INR forex rate."""
+    result = {"gold_usd_oz": 0, "silver_usd_oz": 0, "usd_inr": DEFAULT_USD_INR}
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             gold_resp = await client.get("https://api.gold-api.com/price/XAU")
             if gold_resp.status_code == 200:
                 result["gold_usd_oz"] = gold_resp.json().get("price", 0)
+
+            silver_resp = await client.get("https://api.gold-api.com/price/XAG")
+            if silver_resp.status_code == 200:
+                result["silver_usd_oz"] = silver_resp.json().get("price", 0)
 
             forex_resp = await client.get("https://open.er-api.com/v6/latest/USD")
             if forex_resp.status_code == 200:
@@ -560,6 +564,14 @@ def _gold_rate_per_gram(gold_usd_oz: float, usd_inr: float, karat: str = "22K") 
     gold_24k_inr_gm = (gold_usd_oz * usd_inr * 1.069) / TROY_OZ_TO_GRAM
     purity = PURITY_MULTIPLIERS.get(karat.upper(), 0.916)
     return gold_24k_inr_gm * purity
+
+
+def _silver_rate_per_gram(silver_usd_oz: float, usd_inr: float) -> float:
+    """Convert silver USD/oz to INR/gram. Silver is always 999 purity in India."""
+    if not silver_usd_oz:
+        return 0
+    # India retail premium for silver ~ 5%
+    return (silver_usd_oz * usd_inr * 1.05) / TROY_OZ_TO_GRAM
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -678,8 +690,14 @@ async def calculate_full_jewelry_cost(
     # ── Fetch live rates ──────────────────────────────────────────
     rates = await _fetch_gold_and_forex()
     gold_usd_oz = rates["gold_usd_oz"]
+    silver_usd_oz = rates["silver_usd_oz"]
     usd_inr = rates["usd_inr"]
-    gold_rate = _gold_rate_per_gram(gold_usd_oz, usd_inr, karat)
+
+    if metal.lower() == "silver":
+        metal_rate = _silver_rate_per_gram(silver_usd_oz, usd_inr)
+        karat = "999"  # Silver is always 999 purity
+    else:
+        metal_rate = _gold_rate_per_gram(gold_usd_oz, usd_inr, karat)
 
     # ── Get user's custom making% and stone rates from UserMemory ──
     making_pct = 12.0  # default
@@ -711,7 +729,7 @@ async def calculate_full_jewelry_cost(
             logger.warning(f"UserMemory read error: {e}")
 
     # ── Metal cost ────────────────────────────────────────────────
-    metal_cost = weight_grams * gold_rate if weight_grams and gold_rate else 0
+    metal_cost = weight_grams * metal_rate if weight_grams and metal_rate else 0
 
     # ── Metal loss ────────────────────────────────────────────────
     loss_pct = GOLD_LOSS_PCT if metal.lower() == "gold" else SILVER_LOSS_PCT
@@ -804,7 +822,7 @@ async def calculate_full_jewelry_cost(
         "model": model,
 
         # Rates
-        "gold_rate_per_gram": round(gold_rate, 0),
+        "gold_rate_per_gram": round(metal_rate, 0),
         "gold_usd_oz": gold_usd_oz,
         "usd_inr": usd_inr,
 
@@ -864,7 +882,8 @@ def _format_whatsapp_summary(r: dict) -> str:
     # Metal section
     lines.append("\U0001f4b0 *Metal*")
     if r["gold_rate_per_gram"]:
-        lines.append(f"Rate: \u20b9{r['gold_rate_per_gram']:,.0f}/gm ({karat} live)")
+        rate_label = "Silver" if metal.lower() == "silver" else karat
+        lines.append(f"Rate: \u20b9{r['gold_rate_per_gram']:,.0f}/gm ({rate_label} live)")
     lines.append(f"Metal: \u20b9{r['metal_cost']:,.0f}")
     if r["metal_loss"]:
         lines.append(f"Loss ({r['metal_loss_pct']:.0f}%): \u20b9{r['metal_loss']:,.0f}")
