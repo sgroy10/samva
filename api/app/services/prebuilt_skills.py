@@ -334,19 +334,30 @@ async def gemlens_analyze(query: str, context: dict = None) -> str:
             return ""
 
         bom = result.get("bom", {})
-        item = bom.get("item_name", "Jewelry piece")
-        metal = bom.get("metal_info", {})
-        stones = bom.get("stone_inventory", [])
+        metal_analysis = result.get("metal_analysis", {})
+        item = bom.get("item_description") or bom.get("item_name", "Jewelry piece")
+        bom_metal = bom.get("metal", {}) or bom.get("metal_info", {})
+        stone_grid = bom.get("stone_grid", []) or bom.get("stone_inventory", [])
+        totals = bom.get("totals", {})
+
+        karat = bom_metal.get("karat") or metal_analysis.get("karat", "")
+        metal_type = bom_metal.get("type") or metal_analysis.get("metal_type", "")
+        weight = bom_metal.get("weight_grams") or metal_analysis.get("estimated_weight_grams", "")
 
         lines = [f"*{item}*\n"]
-        if metal:
-            lines.append(f"Metal: {metal.get('type', '?')} {metal.get('karat', '?')}")
-        for s in stones[:5]:
+        if metal_type or karat:
+            lines.append(f"Metal: {metal_type} {karat}")
+        if weight:
+            lines.append(f"Weight: ~{weight}g")
+        if totals:
+            lines.append(f"Stones: {totals.get('total_stone_count', len(stone_grid))} pcs, {totals.get('total_carat_weight', '')} ct")
+        for s in stone_grid[:5]:
             lines.append(
-                f"Stone: {s.get('stone_type', '?')} {s.get('shape', '')} "
-                f"{s.get('estimated_carat', '')} {s.get('color_grade', '')} {s.get('clarity_grade', '')}"
+                f"\u25b8 {s.get('stone_type', '?')} {s.get('shape', '')} "
+                f"{s.get('weight_per_piece', s.get('estimated_carat', ''))} ct "
+                f"x{s.get('quantity', 1)}"
             )
-        lines.append("\nPrice chahiye? BOM PDF? Ad banana hai? Bolo!")
+        lines.append("\n*BOM PDF chahiye?* Bolo 'bom pdf'\n*Enhance?* Bolo 'enhance'\n*Ad?* Bolo 'make ad'")
         return "\n".join(lines)
     except Exception as e:
         logger.error(f"GemLens error: {e}")
@@ -380,12 +391,24 @@ async def gemlens_bom_pdf(query: str, context: dict = None) -> str:
             result = resp.json()
 
         if not result.get("success"):
+            logger.warning(f"GemLens BOM failed: {result}")
             return ""
 
         bom = result.get("bom", {})
-        item_name = bom.get("item_name", "Jewelry Item")
-        metal_info = bom.get("metal_info", {})
-        stones = bom.get("stone_inventory", [])
+        # GemLens field names (match JewelClaw): item_description, metal, stone_grid
+        item_name = bom.get("item_description") or bom.get("item_name", "Jewelry Item")
+        bom_metal = bom.get("metal", {}) or bom.get("metal_info", {})
+        stone_grid = bom.get("stone_grid", []) or bom.get("stone_inventory", [])
+        metal_analysis = result.get("metal_analysis", {})
+        totals = bom.get("totals", {})
+
+        # Merge metal data from BOM and metal_analysis
+        karat = bom_metal.get("karat") or metal_analysis.get("karat", "22K")
+        metal_type = bom_metal.get("type") or metal_analysis.get("metal_type", "Gold")
+        metal_color = bom_metal.get("color") or metal_analysis.get("color", "Yellow")
+        weight_grams = float(bom_metal.get("weight_grams") or metal_analysis.get("estimated_weight_grams", 0) or 0)
+
+        logger.info(f"GemLens BOM: {item_name}, metal={metal_type} {karat}, weight={weight_grams}g, stones={len(stone_grid)}")
 
         # Step 2: Get live gold rate
         gold_rate = 0
@@ -397,7 +420,6 @@ async def gemlens_bom_pdf(query: str, context: dict = None) -> str:
                     gold_usd = gold_resp.json().get("price", 0)
                     usd_inr = usd_resp.json().get("rates", {}).get("INR", 83.5)
                     gold_24k = (gold_usd * usd_inr * 1.069) / 31.1035
-                    karat = metal_info.get("karat", "22K")
                     purity = {"24K": 1.0, "22K": 0.916, "18K": 0.75, "14K": 0.585}
                     gold_rate = gold_24k * purity.get(karat, 0.916)
         except Exception:
@@ -414,23 +436,27 @@ async def gemlens_bom_pdf(query: str, context: dict = None) -> str:
                     except Exception:
                         pass
 
-        # Step 4: Generate PDF
+        # Step 4: Generate PDF using full GemLens data
         from .bom_pdf import generate_bom_pdf
         pdf_b64 = generate_bom_pdf(
             item_name=item_name,
-            metal_info=metal_info,
-            stones=stones,
+            metal_info={"type": metal_type, "karat": karat, "color": metal_color},
+            stones=stone_grid,
             gold_rate_per_gram=gold_rate,
             making_charge_pct=making_pct,
-            weight_grams=float(metal_info.get("estimated_weight_gm", 0) or 0),
+            weight_grams=weight_grams,
+            totals=totals,
         )
 
         if pdf_b64:
-            return f"__PDF__{pdf_b64}__FILENAME__BOM-{item_name.replace(' ', '-')[:20]}.pdf"
+            clean_name = item_name.replace(' ', '-')[:20]
+            # Sam acknowledges what she's doing
+            logger.info(f"BOM PDF ready: {item_name}, {karat}, {weight_grams}g, rate={gold_rate:.0f}/gm")
+            return f"__PDF__{pdf_b64}__FILENAME__BOM-{clean_name}.pdf"
 
         return ""
     except Exception as e:
-        logger.error(f"BOM PDF error: {e}")
+        logger.error(f"BOM PDF error: {e}", exc_info=True)
         return ""
 
 
