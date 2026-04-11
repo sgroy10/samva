@@ -50,6 +50,9 @@ async def call_gemini(
             )
             resp.raise_for_status()
             data = resp.json()
+            if "choices" not in data:
+                logger.error(f"OpenRouter response missing 'choices' for {user_id}: {str(data)[:500]}")
+                return "Sorry, I'm having a brief moment. Try again?"
             reply = data["choices"][0]["message"]["content"]
             # Log cost from usage data
             usage = data.get("usage", {})
