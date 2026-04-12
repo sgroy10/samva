@@ -62,7 +62,7 @@ async def learn_from_interactions(db: AsyncSession, user_id: str) -> list:
     Returns list of learned behaviors.
     """
     learned = []
-    cutoff = datetime.now(IST) - timedelta(days=14)
+    cutoff = datetime.utcnow() - timedelta(days=14)  # Use naive UTC to match DB
 
     # Get user conversations
     result = await db.execute(

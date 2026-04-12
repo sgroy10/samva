@@ -63,12 +63,12 @@ async def build_core_memory(db: AsyncSession, user_id: str) -> str:
     ) if recent else "First conversation."
 
     # Active reminders
-    now = datetime.now(IST)
+    now_utc = datetime.utcnow()
     rem_result = await db.execute(
         select(Reminder).where(
             Reminder.user_id == user_id,
             Reminder.sent == False,
-            Reminder.remind_at >= now - timedelta(hours=24),
+            Reminder.remind_at >= now_utc - timedelta(hours=24),
         ).order_by(Reminder.remind_at).limit(5)
     )
     reminders = rem_result.scalars().all()
@@ -95,7 +95,7 @@ Pending reminders:
 async def build_working_memory(db: AsyncSession, user_id: str) -> str:
     """Tier 2: Compressed summary of last 48 hours."""
 
-    cutoff = datetime.now(IST) - timedelta(hours=48)
+    cutoff = datetime.utcnow() - timedelta(hours=48)  # Use naive UTC to match DB
 
     # Get conversations from last 48h
     conv_result = await db.execute(

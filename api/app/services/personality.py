@@ -206,7 +206,7 @@ async def _generate_smart_suggestion(db: AsyncSession, user_id: str, soul, is_hi
                     return f"Hey, I noted last night — '{diary.value[:80]}...' Any update? 🤔"
 
     # 2. Check for unreplied important messages (>24h)
-    cutoff_24h = now - timedelta(hours=24)
+    cutoff_24h = datetime.utcnow() - timedelta(hours=24)  # Naive UTC to match DB
     unreplied_result = await db.execute(
         select(InboxMessage)
         .where(
