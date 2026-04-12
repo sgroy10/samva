@@ -1343,6 +1343,13 @@ async def ifsc_lookup(query: str, context: dict = None) -> str:
     import httpx as hx
     import re
 
+    # Only match if "ifsc" or "branch" mentioned, OR pattern is clearly IFSC
+    if not any(w in query.lower() for w in ["ifsc", "branch code", "bank branch"]):
+        # If no keyword, only match if the IFSC pattern is very clear
+        ifsc_strict = re.search(r'\b([A-Z]{4}0[A-Z0-9]{6})\b', query.upper())
+        if not ifsc_strict or len(query.split()) > 5:
+            return ""  # Don't match random text
+
     ifsc_match = re.search(r'\b([A-Z]{4}0[A-Z0-9]{6})\b', query.upper())
     if not ifsc_match:
         return ""
@@ -1616,6 +1623,23 @@ async def panchang_info(query: str, context: dict = None) -> str:
 # ══════════════════════════════════════════════════════════════════
 
 SKILL_REGISTRY = [
+    # ── IFSC Lookup (BEFORE stocks so IFSC codes don't match as stock names)
+    {
+        "name": "ifsc",
+        "description": "Bank branch details from IFSC code",
+        "keywords": ["ifsc", "bank branch", "branch code"],
+        "vertical": "universal",
+        "execute": ifsc_lookup,
+    },
+    # ── Pincode (expanded keywords) ──────────────────────────
+    {
+        "name": "pincode",
+        "description": "Area details from Indian pincode",
+        "keywords": ["pincode", "pin code", "postal code", "area code",
+                      "400001", "110001", "560001", "ka area", "ka pincode"],
+        "vertical": "universal",
+        "execute": pincode_lookup,
+    },
     # ── Flights ──────────────────────────────────────────────
     {
         "name": "flights",
@@ -1646,22 +1670,6 @@ SKILL_REGISTRY = [
                       "bajaj", "hcl", "titan", "kotak", "axis bank"],
         "vertical": "universal",
         "execute": indian_stocks,
-    },
-    # ── IFSC Lookup ──────────────────────────────────────────
-    {
-        "name": "ifsc",
-        "description": "Bank branch details from IFSC code",
-        "keywords": ["ifsc", "bank branch", "branch code"],
-        "vertical": "universal",
-        "execute": ifsc_lookup,
-    },
-    # ── Pincode ──────────────────────────────────────────────
-    {
-        "name": "pincode",
-        "description": "Area details from Indian pincode",
-        "keywords": ["pincode", "pin code", "postal code", "area code"],
-        "vertical": "universal",
-        "execute": pincode_lookup,
     },
     # ── EMI Calculator ───────────────────────────────────────
     {
