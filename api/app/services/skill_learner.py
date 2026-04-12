@@ -161,20 +161,22 @@ async def learn_from_interactions(db: AsyncSession, user_id: str) -> list:
 
 
 async def _save_learning(db: AsyncSession, user_id: str, key: str, value: str):
-    """Save a learned behavior as internal memory (prefixed with _learned_)."""
-    from sqlalchemy import delete as sa_delete
+    """Save a learned behavior as internal memory (prefixed with _learned_). Uses upsert."""
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
 
     mem_key = f"_learned_{key}"
     try:
-        await db.execute(
-            sa_delete(UserMemory).where(
-                UserMemory.user_id == user_id,
-                UserMemory.key == mem_key,
-            )
+        # Use PostgreSQL upsert to avoid unique constraint race conditions
+        stmt = pg_insert(UserMemory).values(
+            user_id=user_id, key=mem_key, value=value
+        ).on_conflict_do_update(
+            constraint="uq_user_memory_user_key",
+            set_={"value": value}
         )
-        db.add(UserMemory(user_id=user_id, key=mem_key, value=value))
+        await db.execute(stmt)
         await db.commit()
     except Exception as e:
+        await db.rollback()
         logger.error(f"Save learning error: {e}")
 
 

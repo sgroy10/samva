@@ -668,50 +668,71 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
             alerts.append(inbox_alert)
 
         # Pattern engine — detect, shadow, propose, execute
-        from .pattern_watcher import run_pattern_engine
-        pattern_result = await run_pattern_engine(db, user_id)
-        # Add proposals (one-shot, humble)
-        if pattern_result.get("proposals"):
-            alerts.extend(pattern_result["proposals"])
-        # Add auto-behavior outputs
-        if pattern_result.get("behaviors"):
-            alerts.extend(pattern_result["behaviors"])
+        try:
+            from .pattern_watcher import run_pattern_engine
+            pattern_result = await run_pattern_engine(db, user_id)
+            if pattern_result.get("proposals"):
+                alerts.extend(pattern_result["proposals"])
+            if pattern_result.get("behaviors"):
+                alerts.extend(pattern_result["behaviors"])
+        except Exception as e:
+            logger.error(f"Pattern engine error: {e}")
+            try:
+                await db.rollback()
+            except Exception:
+                pass
 
         # Personality nudges — lunch, evening, water, motivation, festivals
-        from .personality import get_proactive_nudges
-        nudges = await get_proactive_nudges(db, user_id)
-        if nudges:
-            logger.info(f"[{user_id}] Personality nudges: {len(nudges)} — {[n[:50] for n in nudges]}")
-        alerts.extend(nudges)
+        try:
+            from .personality import get_proactive_nudges
+            nudges = await get_proactive_nudges(db, user_id)
+            if nudges:
+                logger.info(f"[{user_id}] Personality nudges: {len(nudges)} — {[n[:50] for n in nudges]}")
+            alerts.extend(nudges)
+        except Exception as e:
+            logger.error(f"Personality nudge error: {e}")
+            try:
+                await db.rollback()
+            except Exception:
+                pass
 
         # Relationship decay alerts
-        from .relationship_tracker import check_relationship_decay
-        decay_alerts = await check_relationship_decay(db, user_id)
-        alerts.extend(decay_alerts)
+        try:
+            from .relationship_tracker import check_relationship_decay
+            decay_alerts = await check_relationship_decay(db, user_id)
+            alerts.extend(decay_alerts)
+        except Exception as e:
+            logger.error(f"Relationship decay error: {e}")
 
         # Predictive behavior
-        from .predictive import check_predictions
-        predictions = await check_predictions(db, user_id)
-        alerts.extend(predictions)
+        try:
+            from .predictive import check_predictions
+            predictions = await check_predictions(db, user_id)
+            alerts.extend(predictions)
+        except Exception as e:
+            logger.error(f"Predictive error: {e}")
 
         # Mood check (evening only, 7-9 PM)
         import pytz
         _ist = pytz.timezone("Asia/Kolkata")
         _now_ist = datetime.now(_ist)
         if 19 <= _now_ist.hour <= 21:
-            from .mood_detector import check_mood
-            mood_msg = await check_mood(db, user_id)
-            if mood_msg:
-                alerts.append(mood_msg)
+            try:
+                from .mood_detector import check_mood
+                mood_msg = await check_mood(db, user_id)
+                if mood_msg:
+                    alerts.append(mood_msg)
+            except Exception as e:
+                logger.error(f"Mood check error: {e}")
 
         # FutureEcho — every 3-5 days, send a voice note from future self
-        from .future_echo import generate_future_echo
-        echo = await generate_future_echo(db, user_id)
-        if echo:
-            # Don't add to alerts — it needs to be sent as voice note
-            # Store for bridge to pick up
-            if echo.get("text"):
+        try:
+            from .future_echo import generate_future_echo
+            echo = await generate_future_echo(db, user_id)
+            if echo and echo.get("text"):
                 alerts.append(echo["text"])
+        except Exception as e:
+            logger.error(f"FutureEcho error: {e}")
 
     except Exception as e:
         logger.error(f"Alert check error for {user_id}: {e}", exc_info=True)
