@@ -51,8 +51,30 @@ async def call_gemini(
             resp.raise_for_status()
             data = resp.json()
             if "choices" not in data:
-                logger.error(f"OpenRouter response missing 'choices' for {user_id}: {str(data)[:500]}")
-                return "Sorry, I'm having a brief moment. Try again?"
+                logger.warning(f"Primary model failed for {user_id}: {str(data)[:300]}. Trying fallback...")
+                # Fallback to Llama 70B (text-only but reliable)
+                fallback_resp = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://samva.in",
+                        "X-Title": "Samva",
+                    },
+                    json={
+                        "model": "meta-llama/llama-3.3-70b-instruct",
+                        "messages": [m for m in messages if not any(
+                            isinstance(m.get("content"), list) for _ in [1]
+                        )],  # Strip image content for text-only model
+                        "max_tokens": max_tokens,
+                        "temperature": 0.7,
+                    },
+                )
+                fallback_resp.raise_for_status()
+                data = fallback_resp.json()
+                if "choices" not in data:
+                    logger.error(f"Fallback also failed for {user_id}: {str(data)[:300]}")
+                    return "Sorry, I'm having a brief moment. Try again?"
             reply = data["choices"][0]["message"]["content"]
             # Log cost from usage data
             usage = data.get("usage", {})
