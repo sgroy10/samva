@@ -1409,10 +1409,11 @@ async def indian_stocks(query: str, context: dict = None) -> str:
         "nifty": "NIFTY", "sensex": "SENSEX",
     }
 
-    # Find stock symbol
+    # Find stock symbol — use word boundary to avoid "itc" matching inside "bitcoin"
+    import re as stock_re
     symbol = None
     for name, sym in stock_map.items():
-        if name in query_lower:
+        if stock_re.search(r'\b' + stock_re.escape(name) + r'\b', query_lower):
             symbol = sym
             break
 
@@ -2142,9 +2143,10 @@ async def wiki_summary(query: str, context: dict = None) -> str:
     if not topic or len(topic) < 3:
         return ""
 
-    topic_encoded = topic.replace(' ', '_')
+    import urllib.parse
+    topic_encoded = urllib.parse.quote(topic.replace(' ', '_'))
     try:
-        async with hx.AsyncClient(timeout=10) as client:
+        async with hx.AsyncClient(timeout=10, follow_redirects=True) as client:
             resp = await client.get(f"https://en.wikipedia.org/api/rest_v1/page/summary/{topic_encoded}")
             if resp.status_code == 200:
                 data = resp.json()
