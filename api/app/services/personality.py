@@ -271,24 +271,30 @@ async def get_proactive_nudges(db: AsyncSession, user_id: str) -> list[str]:
         except Exception:
             pass  # Never block on smart suggestions
 
-    # ── Fallback: If NOTHING triggered, send a gentle check-in ──
-    if not nudges and not _already_sent(user_id, "fallback_checkin", period="2h"):
+    # ── Fallback: If NOTHING triggered, send a varied topic ──
+    if not nudges and not _already_sent(user_id, "fallback_checkin", period="4h"):
         if 8 <= hour <= 22:  # Only during waking hours
-            if is_hindi:
-                msgs = [
-                    "Sab theek? Main yahin hoon agar kuch chahiye toh 🙂",
-                    "Koi kaam ho toh batao — main ready hoon! 💪",
-                    "Bolo bolo, kya chal raha hai? 😊",
-                ]
-            else:
-                msgs = [
-                    "Just checking in — need anything? I'm here 🙂",
-                    "Hey! Anything I can help with? 💪",
-                    "How's it going? Let me know if you need anything 😊",
-                ]
-            nudges.append(random.choice(msgs))
+            # Rotate topics so Sam never repeats the same thing
+            topic_pool_hi = [
+                "Aaj ka interesting fact: India mein 22,000+ registered startups hain! 🚀 Kuch naya seekhna hai?",
+                "Ek tip: Roz 10 min walk karo after lunch — digestion aur focus dono improve hota hai 🚶",
+                "Kya aapne aaj paani piya? 💧 8 glass ka target rakhte hain!",
+                "Reminder: Agar koi important call pending hai toh abhi kar lo — kal pe mat chhodo 📞",
+                "Quick thought — koi goal set karna hai is month ke liye? Main track karungi! 🎯",
+            ]
+            topic_pool_en = [
+                "Fun fact: India has 22,000+ registered startups! 🚀 Want to explore something new?",
+                "Quick tip: A 10-min walk after lunch boosts digestion and focus 🚶",
+                "Water check! 💧 How many glasses today? Let's aim for 8!",
+                "Reminder: Any important calls pending? Better today than tomorrow 📞",
+                "Want to set a goal for this month? I'll help track it! 🎯",
+            ]
+            # Pick based on current hour to get variety across the day
+            idx = (hour + now.day) % len(topic_pool_hi)
+            nudges.append(topic_pool_hi[idx] if is_hindi else topic_pool_en[idx])
 
-    return nudges
+    # Cap at 2 nudges max per cycle — don't overwhelm
+    return nudges[:2]
 
 
 async def _generate_smart_suggestion(db: AsyncSession, user_id: str, soul, is_hindi: bool) -> str:

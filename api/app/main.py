@@ -11,7 +11,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, text
 
 from .config import settings
 from .database import get_db, init_db
@@ -787,6 +787,21 @@ async def handle_chat_intelligence(db: AsyncSession = Depends(get_db)):
     notifications = []
     for user in users:
         try:
+            # Log inbox message count for debugging
+            from .models import InboxMessage
+            inbox_count = await db.execute(
+                select(func.count(InboxMessage.id)).where(InboxMessage.user_id == user.id)
+            )
+            total = inbox_count.scalar() or 0
+            recent = await db.execute(
+                select(func.count(InboxMessage.id)).where(
+                    InboxMessage.user_id == user.id,
+                    InboxMessage.from_me == False,
+                ).where(text("created_at >= NOW() - INTERVAL '1 hour'"))
+            )
+            recent_count = recent.scalar() or 0
+            logger.info(f"[chat-intel] {user.id}: {total} total inbox msgs, {recent_count} in last hour")
+
             # 1. Analyze new messages for urgency
             insights = await analyze_new_messages(db, user.id)
             if insights:
@@ -814,17 +829,16 @@ async def handle_chat_intelligence(db: AsyncSession = Depends(get_db)):
 
 @app.post("/cron/email-sync")
 async def handle_email_sync(db: AsyncSession = Depends(get_db)):
-    """Every 30 min — auto-fetch email for users with configured accounts."""
-    from .services.email_service import check_all_accounts
+    """Every 30 min — auto-fetch ONLY NEW emails since last sync."""
+    from .services.email_service import check_new_emails_since_last_sync
     from .models import EmailConfig
-    # Find users with email configs
     result = await db.execute(select(EmailConfig.user_id).distinct())
     user_ids = [r[0] for r in result.all()]
     summaries = []
     for uid in user_ids:
         try:
-            summary = await check_all_accounts(db, uid, count_per=5)
-            if summary and "no new" not in summary.lower():
+            summary = await check_new_emails_since_last_sync(db, uid)
+            if summary:
                 summaries.append({"user_id": uid, "summary": summary})
         except Exception as e:
             logger.error(f"Email sync error for {uid}: {e}")

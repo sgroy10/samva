@@ -357,6 +357,145 @@ Keep it SHORT — WhatsApp format."""
         return f"Email check mein problem — thodi der mein try karo."
 
 
+async def check_new_emails_since_last_sync(db: AsyncSession, user_id: str) -> str:
+    """Only fetch and report emails received SINCE last sync. No repeats."""
+    from ..models import UserMemory
+    from datetime import timedelta
+    import time
+
+    # Get last sync timestamp
+    mem_result = await db.execute(
+        select(UserMemory).where(
+            UserMemory.user_id == user_id,
+            UserMemory.key == "_email_last_sync_ts",
+        )
+    )
+    mem = mem_result.scalar_one_or_none()
+    last_ts = int(mem.value) if mem else 0
+
+    # Get email configs
+    result = await db.execute(
+        select(EmailConfig).where(EmailConfig.user_id == user_id, EmailConfig.enabled == True)
+    )
+    accounts = result.scalars().all()
+    if not accounts:
+        return ""
+
+    now_ts = int(time.time())
+    # IMAP SINCE date (use date from last sync, or 1 hour ago for first run)
+    if last_ts > 0:
+        since_date = datetime.utcfromtimestamp(last_ts).strftime("%d-%b-%Y")
+    else:
+        since_date = (datetime.utcnow() - timedelta(hours=1)).strftime("%d-%b-%Y")
+
+    all_new_emails = []
+    for acc in accounts:
+        try:
+            new_emails = await _fetch_emails_since(acc, since_date, last_ts)
+            all_new_emails.extend(new_emails)
+        except Exception as e:
+            logger.error(f"Email sync fetch error for {acc.email_address}: {e}")
+
+    # Update last sync timestamp
+    try:
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        stmt = pg_insert(UserMemory).values(
+            user_id=user_id, key="_email_last_sync_ts", value=str(now_ts)
+        ).on_conflict_do_update(
+            constraint="uq_user_memory_user_key",
+            set_={"value": str(now_ts)}
+        )
+        await db.execute(stmt)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+
+    if not all_new_emails:
+        return ""  # No new emails — return empty, bridge won't send anything
+
+    # Summarize only the NEW emails
+    email_text = "\n---\n".join(
+        f"From: {e['from']}\nSubject: {e['subject']}\nBody: {e['body'][:300]}" for e in all_new_emails
+    )
+
+    prompt = f"""You are summarizing {len(all_new_emails)} NEW email(s) that just arrived.
+Give a brief 1-line summary for each. Flag urgent/bills/action-needed.
+Keep it SHORT — this goes on WhatsApp. Max 3-4 lines total.
+If it's all promotional/spam, just say "Only promo emails — nothing important."
+"""
+    summary = await call_gemini(prompt, email_text, user_id=user_id, max_tokens=300)
+    return f"📧 *{len(all_new_emails)} new email(s):*\n{summary}"
+
+
+async def _fetch_emails_since(config: EmailConfig, since_date: str, last_ts: int) -> list:
+    """Fetch emails from IMAP that arrived after last_ts."""
+    password = _decrypt(config.password_encrypted)
+    imap_host = config.imap_host or _get_servers(config.email_address)[0]
+
+    def _fetch():
+        mail = imaplib.IMAP4_SSL(imap_host, 993)
+        mail.login(config.email_address, password)
+        mail.select("INBOX")
+
+        # Use SINCE to only get recent emails
+        try:
+            _, data = mail.search(None, f'(SINCE "{since_date}")')
+        except Exception:
+            _, data = mail.search(None, "UNSEEN")
+
+        if not data[0]:
+            mail.logout()
+            return []
+
+        ids = data[0].split()
+        ids = ids[-20:]  # Cap at 20 to avoid overload
+        emails = []
+
+        for eid in reversed(ids):
+            try:
+                _, msg_data = mail.fetch(eid, "(RFC822)")
+                if not msg_data or not msg_data[0]:
+                    continue
+                msg = email_lib.message_from_bytes(msg_data[0][1])
+
+                # Parse date and skip if older than last_ts
+                from email.utils import parsedate_to_datetime
+                try:
+                    msg_dt = parsedate_to_datetime(msg.get("Date", ""))
+                    if last_ts > 0 and msg_dt.timestamp() <= last_ts:
+                        continue  # Already reported
+                except Exception:
+                    pass  # Can't parse date — include it anyway
+
+                subject = _decode_header(msg.get("Subject", ""))
+                sender = msg.get("From", "")[:80]
+                date = msg.get("Date", "")[:30]
+
+                body = ""
+                if msg.is_multipart():
+                    for part in msg.walk():
+                        if part.get_content_type() == "text/plain":
+                            try:
+                                body = part.get_payload(decode=True).decode("utf-8", errors="ignore")
+                            except Exception:
+                                pass
+                            break
+                else:
+                    try:
+                        body = msg.get_payload(decode=True).decode("utf-8", errors="ignore")
+                    except Exception:
+                        pass
+
+                emails.append({"from": sender, "subject": subject, "body": body[:400], "date": date})
+            except Exception:
+                continue
+
+        mail.logout()
+        return emails
+
+    return await asyncio.get_event_loop().run_in_executor(None, _fetch)
+
+
 async def smart_email_summary(db: AsyncSession, user_id: str) -> str:
     """Deep summary — bills, subscriptions, critical flags across ALL accounts."""
     result = await db.execute(
