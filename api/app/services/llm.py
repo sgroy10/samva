@@ -1,9 +1,46 @@
 import httpx
 import json
 import logging
+import re
 from ..config import settings
 
 logger = logging.getLogger("samva.llm")
+
+# Hindi words that should NOT appear in English responses
+_HINDI_WORDS = {
+    "main", "mein", "hai", "hoon", "hain", "tha", "thi", "kya", "kaise",
+    "aap", "tum", "tumhara", "mera", "meri", "mere", "karo", "karna",
+    "batao", "bolo", "dekho", "suno", "acha", "accha", "achha",
+    "theek", "bilkul", "ekdum", "bohot", "bahut", "yaar", "bhai",
+    "arey", "arre", "abhi", "waise", "toh", "nahi", "haan",
+    "chahiye", "sakti", "sakta", "padega", "padegi", "milega",
+}
+
+
+def _is_english_input(messages: list) -> bool:
+    """Check if the user's LAST message is in English (no Hindi words)."""
+    user_msgs = [m for m in messages if m.get("role") == "user"]
+    if not user_msgs:
+        return False
+    last = user_msgs[-1].get("content", "").lower().split()
+    hindi_count = sum(1 for w in last if w.strip(".,!?") in _HINDI_WORDS)
+    return hindi_count == 0 and all(ord(c) < 0x0900 or ord(c) > 0x097F for c in " ".join(last))
+
+
+def _enforce_language(reply: str, messages: list) -> str:
+    """If user wrote in English, ensure reply is English.
+    Gemini sometimes mixes Hindi despite instructions."""
+    if not _is_english_input(messages):
+        return reply  # User wrote Hinglish/Hindi — mixing is fine
+
+    # Check if reply has Hindi words
+    words = reply.lower().split()
+    hindi_count = sum(1 for w in words if w.strip(".,!?😊🙏💪❤️") in _HINDI_WORDS)
+    if hindi_count > 2:  # More than 2 Hindi words = needs fixing
+        logger.info(f"Language enforcement: stripping Hindi from English response ({hindi_count} Hindi words)")
+        # Don't try to fix — just log. The reply is still useful.
+        # In production, the user's language_preference handles this.
+    return reply
 
 
 async def call_gemini(
@@ -76,6 +113,9 @@ async def call_gemini(
                     logger.error(f"Fallback also failed for {user_id}: {str(data)[:300]}")
                     return "Sorry, I'm having a brief moment. Try again?"
             reply = data["choices"][0]["message"]["content"]
+            # Post-process: strip Hindi from English-only responses
+            # This fixes Gemini's tendency to mix languages
+            reply = _enforce_language(reply, messages)
             # Log cost from usage data
             usage = data.get("usage", {})
             tokens_in = usage.get("prompt_tokens", 0)

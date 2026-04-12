@@ -1198,11 +1198,63 @@ async def graha_sthiti(query: str, context: dict = None) -> str:
 # These are referenced here for the orchestrator's routing table.
 
 
+# ── Panchang / Rahu Kaal (code-based, not LLM) ─────────────────
+async def panchang_info(query: str, context: dict = None) -> str:
+    """Indian panchang information — Rahu Kaal, Tithi etc.
+    Uses calculation, not LLM hallucination."""
+    from datetime import datetime
+    import pytz
+
+    now = datetime.now(pytz.timezone("Asia/Kolkata"))
+    weekday = now.weekday()  # 0=Monday
+
+    # Rahu Kaal timings by weekday (standard Vedic calculation)
+    # These are approximate fixed timings — real ones vary by city/sunrise
+    rahu_kaal = {
+        0: ("7:30 AM - 9:00 AM", "Monday"),    # Monday
+        1: ("3:00 PM - 4:30 PM", "Tuesday"),    # Tuesday
+        2: ("12:00 PM - 1:30 PM", "Wednesday"), # Wednesday
+        3: ("1:30 PM - 3:00 PM", "Thursday"),   # Thursday
+        4: ("10:30 AM - 12:00 PM", "Friday"),   # Friday
+        5: ("9:00 AM - 10:30 AM", "Saturday"),  # Saturday
+        6: ("4:30 PM - 6:00 PM", "Sunday"),     # Sunday
+    }
+
+    query_lower = query.lower()
+
+    if any(w in query_lower for w in ["rahu", "rahu kaal", "rahu kal"]):
+        time_range, day = rahu_kaal[weekday]
+        return (
+            f"🕉️ *Aaj ka Rahu Kaal ({day}):*\n\n"
+            f"⏰ {time_range}\n\n"
+            f"Rahu Kaal mein naye kaam shuru karna avoid karein.\n"
+            f"_(Yeh standard timings hain — exact timing sunrise pe depend karti hai)_"
+        )
+    elif any(w in query_lower for w in ["panchang", "tithi", "muhurat", "shubh"]):
+        time_range, day = rahu_kaal[weekday]
+        return (
+            f"🕉️ *Aaj ka Panchang ({now.strftime('%d %B %Y, %A')}):*\n\n"
+            f"Rahu Kaal: {time_range}\n\n"
+            f"_Detailed panchang ke liye kripya jyotishi se sampark karein._\n"
+            f"_Sam Rahu Kaal standard timings de sakti hai._"
+        )
+    return ""
+
+
 # ══════════════════════════════════════════════════════════════════
 # SKILL REGISTRY — the routing table the orchestrator uses
 # ══════════════════════════════════════════════════════════════════
 
 SKILL_REGISTRY = [
+    # ── Indian Spiritual ─────────────────────────────────────
+    {
+        "name": "panchang",
+        "description": "Rahu Kaal, Panchang, Shubh Muhurat",
+        "keywords": ["rahu kaal", "rahu kal", "panchang", "tithi", "muhurat",
+                      "shubh muhurat", "nakshatra", "rahu", "kaal"],
+        "vertical": "universal",
+        "execute": panchang_info,
+    },
     # ── Universal ────────────────────────────────────────────
     {
         "name": "weather",
