@@ -51,7 +51,7 @@ async def call_gemini(
             resp.raise_for_status()
             data = resp.json()
             if "choices" not in data:
-                logger.warning(f"Primary model failed for {user_id}: {str(data)[:300]}. Trying fallback...")
+                logger.warning(f"Primary model ({settings.samva_model}) failed for {user_id}: {str(data)[:300]}. Trying fallback...")
                 # Fallback to Llama 70B (text-only but reliable)
                 fallback_resp = await client.post(
                     "https://openrouter.ai/api/v1/chat/completions",
