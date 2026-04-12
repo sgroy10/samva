@@ -155,7 +155,103 @@ async def get_proactive_nudges(db: AsyncSession, user_id: str) -> list[str]:
         name, msg = FESTIVALS[month_day]
         nudges.append(msg)
 
+    # ── Smart Context-Aware Suggestions ────────────────────
+    # These are the "magical" proactive messages that make Sam feel alive
+    if not _already_sent(user_id, "smart_suggestion"):
+        try:
+            smart = await _generate_smart_suggestion(db, user_id, soul, is_hindi)
+            if smart:
+                nudges.append(smart)
+        except Exception:
+            pass  # Never block on smart suggestions
+
     return nudges
+
+
+async def _generate_smart_suggestion(db: AsyncSession, user_id: str, soul, is_hindi: bool) -> str:
+    """Generate context-aware proactive suggestion based on user's recent activity."""
+    from ..models import Conversation, Reminder, InboxMessage
+    from datetime import datetime, timedelta
+    import pytz
+
+    now = datetime.now(IST)
+
+    # 1. Check for overdue follow-ups from diary
+    diary_result = await db.execute(
+        select(UserMemory).where(
+            UserMemory.user_id == user_id,
+            UserMemory.key == "_last_diary_text",
+        )
+    )
+    diary = diary_result.scalar_one_or_none()
+    if diary and diary.value:
+        diary_lower = diary.value.lower()
+        # Check if diary mentioned someone to call/follow up
+        action_words = ["call", "reply", "follow up", "payment", "pending"]
+        for word in action_words:
+            if word in diary_lower:
+                if is_hindi:
+                    return f"Waise, kal raat maine note kiya tha — '{diary.value[:80]}...' Hua kuch? 🤔"
+                else:
+                    return f"Hey, I noted last night — '{diary.value[:80]}...' Any update? 🤔"
+
+    # 2. Check for unreplied important messages (>24h)
+    cutoff_24h = now - timedelta(hours=24)
+    unreplied_result = await db.execute(
+        select(InboxMessage)
+        .where(
+            InboxMessage.user_id == user_id,
+            InboxMessage.from_me == False,
+            InboxMessage.replied == False,
+            InboxMessage.msg_timestamp >= cutoff_24h,
+        )
+        .order_by(InboxMessage.msg_timestamp.desc())
+        .limit(3)
+    )
+    unreplied = unreplied_result.scalars().all()
+    if unreplied:
+        names = list(set(m.sender_name or m.chat_name for m in unreplied if m.sender_name or m.chat_name))
+        if names:
+            name_str = ", ".join(names[:3])
+            if is_hindi:
+                return f"⚠️ {name_str} ka reply pending hai — kal se. Bolo 'messages dikhao' ya reply karoon?"
+            else:
+                return f"⚠️ {name_str} hasn't heard back from you (24h+). Want me to help draft a reply?"
+
+    # 3. Check if user hasn't chatted in 2+ days (care check-in)
+    last_msg_result = await db.execute(
+        select(Conversation)
+        .where(Conversation.user_id == user_id, Conversation.role == "user")
+        .order_by(Conversation.created_at.desc())
+        .limit(1)
+    )
+    last_msg = last_msg_result.scalar_one_or_none()
+    if last_msg and last_msg.created_at:
+        days_silent = (now - last_msg.created_at.replace(tzinfo=IST)).days
+        if days_silent >= 2:
+            if is_hindi:
+                return f"Hey! {days_silent} din ho gaye baat nahi hui. Sab theek? Main yahin hoon 🤗"
+            else:
+                return f"Hey! Haven't heard from you in {days_silent} days. Everything okay? I'm here 🤗"
+
+    # 4. Overdue reminders (past due but not sent)
+    overdue_result = await db.execute(
+        select(Reminder)
+        .where(
+            Reminder.user_id == user_id,
+            Reminder.sent == False,
+            Reminder.remind_at <= now,
+        )
+        .limit(1)
+    )
+    overdue = overdue_result.scalar_one_or_none()
+    if overdue:
+        if is_hindi:
+            return f"⏰ Reminder missed: '{overdue.text}' — yeh pending hai. Karna hai ya postpone?"
+        else:
+            return f"⏰ Missed reminder: '{overdue.text}' — still pending. Want to do it or postpone?"
+
+    return ""
 
 
 async def analyze_food_photo(image_base64: str, user_id: str) -> str:

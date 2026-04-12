@@ -137,6 +137,14 @@ async def orchestrate(
         pass  # Never block on feedback
 
     # ── LAYER 0: Image Memory — Sam NEVER forgets an image ─────
+    # ── LAYER 0.5: Multi-Step Workflow Detection ──────────────
+    from .workflow import detect_workflow, execute_workflow
+    wf_type = detect_workflow(text)
+    if wf_type:
+        wf_result = await execute_workflow(db, user_id, wf_type, text, soul.system_prompt or "")
+        if wf_result:
+            return wf_result
+
     from . import image_session
 
     # If user sent a NEW image — store it permanently
@@ -580,39 +588,11 @@ async def _build_system_prompt(
     """Build the full system prompt — same as agent.py but accessible from orchestrator."""
     name = user.name or "this user"
 
-    mem_result = await db.execute(
-        select(UserMemory).where(UserMemory.user_id == user_id)
-    )
-    memories = mem_result.scalars().all()
-    memory_text = "\n".join([f"- {m.key}: {m.value}" for m in memories]) if memories else "None yet."
-
-    conv_result = await db.execute(
-        select(Conversation)
-        .where(Conversation.user_id == user_id)
-        .order_by(Conversation.created_at.desc())
-        .limit(20)
-    )
-    conversations = conv_result.scalars().all()
-    conv_text = "\n".join(
-        [f"{c.role}: {c.content}" for c in reversed(list(conversations))]
-    ) if conversations else "No recent conversation."
+    # Hierarchical memory — replaces raw conversation dump
+    from .memory_manager import build_full_context
+    memory_context = await build_full_context(db, user_id, user, soul)
 
     now = datetime.now().strftime("%d %b %Y, %I:%M %p IST")
-
-    # Fetch last night's diary for follow-up awareness
-    diary_text = ""
-    try:
-        diary_result = await db.execute(
-            select(UserMemory).where(
-                UserMemory.user_id == user_id,
-                UserMemory.key == "_last_diary_text",
-            )
-        )
-        diary_mem = diary_result.scalar_one_or_none()
-        if diary_mem:
-            diary_text = diary_mem.value[:500]
-    except Exception:
-        pass
 
     from .personality import PERSONALITY_LAYER
     from . import image_session
@@ -648,40 +628,20 @@ User's chosen text language: {soul.language_preference or 'english'}
 User's chosen voice language: {soul.voice_language or soul.language_preference or 'english'}
 You MUST respond in {soul.language_preference or 'english'}. ALWAYS.
 Do NOT switch to Hindi unless user writes in Hindi first.
-If user chose English — respond in English.
-If user chose Tamil — respond in Tamil.
-If user chose Gujarati — respond in Gujarati.
 NEVER assume Hindi is the default. Respect the user's choice.
-When user sends a voice note, you reply with a voice note in {soul.voice_language or soul.language_preference or 'english'}.
 
 YOUR RULES:
-- Never make unauthorized commitments on behalf of {name}
-- When unsure, ask rather than guess
-- Keep responses SHORT -- this is WhatsApp, not email
-- You are AWARE of {name}'s WhatsApp inbox. Other people message them and you can see those messages.
-- When asked "check messages" or "inbox", show what's pending.
-- You can draft replies to contacts when asked — "Priya ko reply karo"
-- You NEVER auto-reply to contacts without {name}'s explicit permission
-- You have OPINIONS. Don't just agree with everything. If user is ignoring important messages, say so.
-- You REMEMBER yesterday. Reference the diary, past conversations, patterns you've noticed.
-- You ASK FOLLOW-UP QUESTIONS. Don't just answer and stop. Show curiosity about the user's life.
-- You are NOT a search engine. You are a FRIEND who happens to be very capable.
-- When user sends a document, you read it THOROUGHLY and give detailed analysis.
+- Keep responses SHORT -- this is WhatsApp, not email (2-4 lines for casual, more for analysis)
+- You NEVER auto-reply to contacts without {name}'s permission
+- You have OPINIONS. Don't just agree — push back when needed.
+- You REMEMBER everything. Reference past conversations, diary, patterns.
+- You ASK FOLLOW-UPS. Show genuine curiosity: "Phir kya hua?" "Aur batao!"
+- You CELEBRATE wins: "Nice! Goal done! 💪"
+- You show CONCERN: "Sab theek? Kal se koi message nahi aaya"
+- You are a FRIEND, not a search engine.
+- If diary mentioned follow-ups — ask about them casually: "Waise, Rahul ko call kiya?"
 
-YOUR MEMORY:
-{memory_text}
-
-LAST NIGHT'S DIARY (what Sam told the user):
-{diary_text or "No diary yet."}
-
-FOLLOW-UP AWARENESS:
-If the diary mentioned action items (call someone, reply to someone, payment follow-up),
-and the user hasn't mentioned doing them today — ASK ABOUT IT naturally.
-Example: "Waise, Rahul ko call kiya? Kal maine bola tha..."
-Don't be pushy — mention it once, casually, if the conversation allows.
-
-RECENT CONVERSATION:
-{conv_text}
+{memory_context}
 
 Current time: {now}"""
 
