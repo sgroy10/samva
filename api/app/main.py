@@ -759,6 +759,42 @@ async def handle_future_echo(db: AsyncSession = Depends(get_db)):
     return {"count": len(echoes), "echoes": echoes}
 
 
+@app.post("/cron/gold-alerts")
+async def handle_gold_alerts(db: AsyncSession = Depends(get_db)):
+    """Every 15 min — check gold price changes for jeweller users."""
+    from .services.gold import check_price_alerts
+    result_list = await db.execute(select(User).where(User.status == "active"))
+    users = result_list.scalars().all()
+    alerts = []
+    for user in users:
+        try:
+            alert = await check_price_alerts(db, user.id)
+            if alert:
+                alerts.append({"user_id": user.id, "message": alert})
+        except Exception as e:
+            logger.error(f"Gold alert error for {user.id}: {e}")
+    return {"count": len(alerts), "alerts": alerts}
+
+
+@app.post("/cron/email-sync")
+async def handle_email_sync(db: AsyncSession = Depends(get_db)):
+    """Every 30 min — auto-fetch email for users with configured accounts."""
+    from .services.email_service import check_all_accounts
+    from .models import EmailConfig
+    # Find users with email configs
+    result = await db.execute(select(EmailConfig.user_id).distinct())
+    user_ids = [r[0] for r in result.all()]
+    summaries = []
+    for uid in user_ids:
+        try:
+            summary = await check_all_accounts(db, uid, count_per=5)
+            if summary and "no new" not in summary.lower():
+                summaries.append({"user_id": uid, "summary": summary})
+        except Exception as e:
+            logger.error(f"Email sync error for {uid}: {e}")
+    return {"count": len(summaries), "summaries": summaries}
+
+
 @app.post("/cron/pattern-watch")
 async def handle_pattern_watch(db: AsyncSession = Depends(get_db)):
     """Every 15 min — detect user patterns, shadow test, propose behaviors."""

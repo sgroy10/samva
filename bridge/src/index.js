@@ -291,6 +291,36 @@ app.listen(PORT, async () => {
     }
   });
 
+  // Gold Price Alerts: every 15 min — alert jewellers on price moves
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      const resp = await coreClient.callCron('/cron/gold-alerts');
+      if (resp.count > 0) {
+        console.log(`[Cron] Gold alerts: ${resp.count}`);
+        for (const alert of (resp.alerts || [])) {
+          await sessionManager.sendAlertToUser(alert.user_id, alert.message);
+        }
+      }
+    } catch (err) {
+      // Silent
+    }
+  });
+
+  // Email Auto-Sync: every 30 min — fetch inbox, alert on important emails
+  cron.schedule('*/30 * * * *', async () => {
+    try {
+      const resp = await coreClient.callCron('/cron/email-sync');
+      if (resp.count > 0) {
+        console.log(`[Cron] Email sync: ${resp.count} users with new mail`);
+        for (const item of (resp.summaries || [])) {
+          await sessionManager.sendAlertToUser(item.user_id, `📧 *New emails:*\n${item.summary}`);
+        }
+      }
+    } catch (err) {
+      // Silent
+    }
+  });
+
   // Pattern Watcher: every 15 min — detect patterns, propose behaviors
   cron.schedule('*/15 * * * *', async () => {
     try {

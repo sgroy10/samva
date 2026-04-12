@@ -346,6 +346,18 @@ class NetworkMatch(Base):
     created_at = Column(DateTime, default=func.now())
 
 
+class FeedbackSignal(Base):
+    """Track user reactions to Sam's proactive messages.
+    Sam learns: do more of what user likes, less of what they ignore."""
+    __tablename__ = "feedback_signals"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String(36), nullable=False, index=True)
+    feature = Column(String(50), nullable=False)
+    signal = Column(String(20), nullable=False)
+    context = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+
+
 class ApiCostLog(Base):
     """Every API call logged with cost. Powers the admin cost dashboard."""
     __tablename__ = "api_cost_logs"

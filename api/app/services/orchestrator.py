@@ -126,6 +126,16 @@ async def orchestrate(
     business_type = soul.business_type or ""
     text_lower = (text or "").lower().strip()
 
+    # ── LAYER -1: Feedback Detection — Sam learns from reactions ──
+    try:
+        from .feedback import detect_feedback_from_reply
+        # Check last proactive message type from memory
+        last_proactive = await _get_last_proactive_feature(db, user_id)
+        if last_proactive:
+            await detect_feedback_from_reply(db, user_id, text, last_proactive)
+    except Exception:
+        pass  # Never block on feedback
+
     # ── LAYER 0: Image Memory — Sam NEVER forgets an image ─────
     from . import image_session
 
@@ -692,3 +702,33 @@ async def _maybe_build_bg(user_id: str, text: str, reply: str, soul_prompt: str)
                 logger.info(f"[{user_id}] SKILL BUILT: {notification[:80]}")
     except Exception as e:
         logger.error(f"[{user_id}] Background skill build error: {e}", exc_info=True)
+
+
+async def _get_last_proactive_feature(db, user_id: str) -> str:
+    """Get the last proactive feature Sam sent (gold_brief, future_echo, etc.)
+    by checking recent assistant messages for known patterns."""
+    from ..models import Conversation
+    result = await db.execute(
+        select(Conversation)
+        .where(Conversation.user_id == user_id, Conversation.role == "assistant")
+        .order_by(Conversation.created_at.desc())
+        .limit(1)
+    )
+    last = result.scalar_one_or_none()
+    if not last or not last.content:
+        return ""
+
+    content_lower = last.content.lower()
+    if "gold" in content_lower and ("rate" in content_lower or "brief" in content_lower):
+        return "gold_brief"
+    elif "future" in content_lower and "echo" in content_lower:
+        return "future_echo"
+    elif "good morning" in content_lower or "suprabhat" in content_lower:
+        return "morning_nudge"
+    elif "lunch" in content_lower and "kha" in content_lower:
+        return "lunch_nudge"
+    elif "pattern" in content_lower and ("detected" in content_lower or "noticed" in content_lower):
+        return "pattern_proposal"
+    elif "weekly" in content_lower and "report" in content_lower:
+        return "weekly_report"
+    return ""
