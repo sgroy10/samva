@@ -1338,18 +1338,47 @@ async def train_info(query: str, context: dict = None) -> str:
     pnr_match = re.search(r'\b(\d{10})\b', query)
     if pnr_match:
         pnr = pnr_match.group(1)
-        try:
-            async with hx.AsyncClient(timeout=10) as client:
-                resp = await client.get(f"https://indianrailapi.com/api/v2/PNRCheck/apikey/demo/PNRNumber/{pnr}")
-                if resp.status_code == 200:
-                    data = resp.json()
-                    if data.get("ResponseCode") == "200":
-                        train = data.get("TrainName", "Unknown")
-                        status = data.get("CurrentStatus", "")
-                        return f"🚂 *PNR {pnr}:*\nTrain: {train}\nStatus: {status}"
-        except Exception:
-            pass
-        return f"🚂 PNR {pnr} check karo: https://www.indianrail.gov.in/enquiry/PNR/PnrEnquiry.html?locale=en"
+        # Try multiple PNR APIs
+        apis = [
+            f"https://indianrailapi.com/api/v2/PNRCheck/apikey/demo/PNRNumber/{pnr}",
+            f"https://pnr-status-indian-railway.p.rapidapi.com/pnr-check/{pnr}",
+        ]
+        for api_url in apis:
+            try:
+                async with hx.AsyncClient(timeout=10) as client:
+                    resp = await client.get(api_url, headers={"User-Agent": "Samva/1.0"})
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        train = data.get("TrainName", data.get("train_name", data.get("trainName", "")))
+                        status = data.get("CurrentStatus", data.get("current_status", data.get("chartStatus", "")))
+                        boarding = data.get("BoardingPoint", data.get("boarding_point", ""))
+                        dest = data.get("ReservationUpto", data.get("destination", ""))
+                        date_journey = data.get("DateOfJourney", data.get("journey_date", ""))
+
+                        passengers = data.get("PassengerStatus", data.get("passengers", []))
+                        pax_text = ""
+                        if passengers and isinstance(passengers, list):
+                            for j, p in enumerate(passengers[:4]):
+                                pax_status = p.get("CurrentStatus", p.get("current_status", ""))
+                                pax_text += f"\n  Passenger {j+1}: {pax_status}"
+
+                        return (
+                            f"🚂 *PNR: {pnr}*\n\n"
+                            f"Train: {train}\n"
+                            f"Date: {date_journey}\n"
+                            f"From: {boarding} → {dest}\n"
+                            f"Status: {status}"
+                            f"{pax_text}"
+                        )
+            except Exception:
+                continue
+        # All APIs failed — still give useful response
+        return (
+            f"🚂 *PNR {pnr}:*\n\n"
+            f"Live status abhi fetch nahi ho raha.\n"
+            f"Check karo: https://www.indianrail.gov.in/enquiry/PNR\n"
+            f"Ya IRCTC app pe PNR dal ke dekho."
+        )
 
     # General train query
     return (
@@ -1390,25 +1419,62 @@ async def indian_stocks(query: str, context: dict = None) -> str:
     if not symbol:
         return ""
 
+    # Try multiple free stock APIs
+    apis = [
+        f"https://stock-market-india-api.vercel.app/nse/{symbol}",
+        f"https://priceapi.moneycontrol.com/techCharts/techChartController/symbols?symbol={symbol}&resolution=1D",
+        f"https://groww.in/v1/api/stocks_data/v1/accord_points/exchange/NSE/segment/CASH/latest_prices_ohlc/{symbol}",
+    ]
+
+    for api_url in apis:
+        try:
+            async with hx.AsyncClient(timeout=8) as client:
+                resp = await client.get(api_url, headers={"User-Agent": "Samva/1.0"})
+                if resp.status_code == 200:
+                    data = resp.json()
+                    # Handle different API response formats
+                    price = (data.get("lastPrice") or data.get("close") or
+                             data.get("ltp") or data.get("price") or
+                             data.get("lastTradedPrice"))
+                    change = (data.get("pChange") or data.get("change_percent") or
+                              data.get("dayChangePerc") or "")
+
+                    if price:
+                        arrow = "↑" if str(change).replace('-','').replace('.','').isdigit() and float(str(change)) > 0 else "↓"
+                        return (
+                            f"📈 *{symbol}:* ₹{price:,}" if isinstance(price, (int, float)) else f"📈 *{symbol}:* ₹{price}\n"
+                            f"Change: {arrow}{change}%\n\n"
+                            f"Watchlist mein add karun?"
+                        )
+        except Exception:
+            continue
+
+    # Fallback — use Yahoo Finance
     try:
-        async with hx.AsyncClient(timeout=10) as client:
+        async with hx.AsyncClient(timeout=8) as client:
             resp = await client.get(
-                f"https://indian-stock-market-api.vercel.app/api/stocks/{symbol}",
+                f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}.NS?interval=1d&range=1d",
                 headers={"User-Agent": "Samva/1.0"}
             )
             if resp.status_code == 200:
                 data = resp.json()
-                price = data.get("price", data.get("lastPrice", "N/A"))
-                change = data.get("change", data.get("pChange", ""))
-                return (
-                    f"📈 *{symbol}:* ₹{price}\n"
-                    f"Change: {change}%\n\n"
-                    f"Watchlist mein add karun?"
-                )
+                result = data.get("chart", {}).get("result", [{}])[0]
+                meta = result.get("meta", {})
+                price = meta.get("regularMarketPrice", 0)
+                prev = meta.get("previousClose", 0)
+                if price and prev:
+                    change = round((price - prev) / prev * 100, 2)
+                    arrow = "↑" if change > 0 else "↓"
+                    return (
+                        f"📈 *{symbol}:* ₹{price:,.2f}\n"
+                        f"Change: {arrow}{abs(change)}%\n"
+                        f"Prev close: ₹{prev:,.2f}\n\n"
+                        f"Watchlist mein add karun?"
+                    )
     except Exception:
         pass
 
-    return f"📈 {symbol} ka live rate check karo: https://www.google.com/finance/quote/{symbol}:NSE"
+    return f"📈 {symbol}: Rate abhi fetch nahi ho raha. Thodi der mein try karo."
 
 
 # ── IFSC Code Lookup ────────────────────────────────────────────
@@ -1726,7 +1792,11 @@ async def mutual_fund(query: str, context: dict = None) -> str:
 
     query_lower = query.lower()
 
-    # Common fund name mappings
+    # Only match if "fund" or "nav" or "sip" or "mf" is mentioned
+    if not any(w in query_lower for w in ["fund", "nav", "sip", "mutual", "mf "]):
+        return ""
+
+    # Common fund name mappings (AMFI scheme codes)
     fund_map = {
         "sbi": "119598", "hdfc": "118989", "icici": "120505",
         "axis": "120503", "kotak": "120166", "nippon": "118778",
@@ -1770,10 +1840,17 @@ async def crypto_price(query: str, context: dict = None) -> str:
     import httpx as hx
 
     query_lower = query.lower()
+
+    # Only match if crypto-specific word is present
+    if not any(w in query_lower for w in ["bitcoin", "btc", "ethereum", "eth", "crypto",
+                                           "dogecoin", "doge", "solana", "xrp", "ripple",
+                                           "cryptocurrency"]):
+        return ""
+
     crypto_map = {
         "bitcoin": "bitcoin", "btc": "bitcoin",
-        "ethereum": "ethereum", "eth": "ethereum",
-        "solana": "solana", "sol": "solana",
+        "ethereum": "ethereum", "eth ": "ethereum",
+        "solana": "solana",
         "dogecoin": "dogecoin", "doge": "dogecoin",
         "xrp": "ripple", "ripple": "ripple",
     }
@@ -1785,7 +1862,7 @@ async def crypto_price(query: str, context: dict = None) -> str:
             break
 
     if not coin_id:
-        return ""
+        coin_id = "bitcoin"  # Default to BTC if just "crypto" mentioned
 
     try:
         async with hx.AsyncClient(timeout=10) as client:
