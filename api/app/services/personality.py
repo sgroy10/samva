@@ -305,7 +305,7 @@ async def _generate_smart_suggestion(db: AsyncSession, user_id: str, soul, is_hi
 
     now = datetime.now(IST)
 
-    # 1. Check for overdue follow-ups from diary
+    # 1. Check for overdue follow-ups from diary (only if diary is from today/yesterday)
     diary_result = await db.execute(
         select(UserMemory).where(
             UserMemory.user_id == user_id,
@@ -313,16 +313,21 @@ async def _generate_smart_suggestion(db: AsyncSession, user_id: str, soul, is_hi
         )
     )
     diary = diary_result.scalar_one_or_none()
-    if diary and diary.value:
-        diary_lower = diary.value.lower()
-        # Check if diary mentioned someone to call/follow up
-        action_words = ["call", "reply", "follow up", "payment", "pending"]
-        for word in action_words:
-            if word in diary_lower:
-                if is_hindi:
-                    return f"Waise, kal raat maine note kiya tha — '{diary.value[:80]}...' Hua kuch? 🤔"
-                else:
-                    return f"Hey, I noted last night — '{diary.value[:80]}...' Any update? 🤔"
+    if diary and diary.value and diary.updated_at:
+        # Only reference diary if it was written in the last 24 hours
+        diary_age = now - pytz.utc.localize(diary.updated_at).astimezone(IST)
+        if diary_age.total_seconds() < 86400:  # Less than 24h old
+            diary_lower = diary.value.lower()
+            # Only flag if diary has REAL action items (not greetings)
+            action_phrases = ["call karo", "reply karo", "follow up", "payment pending",
+                              "need to call", "pending reply", "meeting with", "deadline"]
+            if any(phrase in diary_lower for phrase in action_phrases):
+                # Check if we already nudged about this diary
+                if not _already_sent(user_id, "diary_followup"):
+                    if is_hindi:
+                        return f"Waise, kal raat maine note kiya tha — '{diary.value[:80]}...' Hua kuch? 🤔"
+                    else:
+                        return f"Hey, I noted last night — '{diary.value[:80]}...' Any update? 🤔"
 
     # 2. Check for unreplied important messages (>24h)
     import time
