@@ -639,13 +639,19 @@ IMPORTANT: The user may reference this image — "render it", "change the stone"
 If they switch topics and come back — you still remember the image.
 Say "show me the original" or "pehle wala dikhao" to recall previous versions."""
 
-    # Gender context for Hindi grammar
-    gender = getattr(soul, 'gender', 'unknown') or 'unknown'
+    # Gender context for Hindi grammar (from learned memory)
     gender_instruction = ""
-    if gender == "female":
-        gender_instruction = "\nGENDER: This user is FEMALE. Use feminine Hindi: sakti, hogi, kar rahi, degi. NEVER use masculine sakta/hoga/dega."
-    elif gender == "male":
-        gender_instruction = "\nGENDER: This user is MALE. Use masculine Hindi: sakta, hoga, kar raha, dega."
+    try:
+        gender_mem = await db.execute(
+            select(UserMemory).where(UserMemory.user_id == user_id, UserMemory.key == "_learned_detected_gender")
+        )
+        gender_val = gender_mem.scalar_one_or_none()
+        if gender_val and gender_val.value == "female":
+            gender_instruction = "\nGENDER: This user is FEMALE. Use feminine Hindi: sakti, hogi, kar rahi, degi."
+        elif gender_val and gender_val.value == "male":
+            gender_instruction = "\nGENDER: This user is MALE. Use masculine Hindi: sakta, hoga, kar raha, dega."
+    except Exception:
+        pass
 
     return f"""You are Sam -- a personal WhatsApp assistant for {name}.
 {PERSONALITY_LAYER}

@@ -145,17 +145,7 @@ async def learn_from_interactions(db: AsyncSession, user_id: str) -> list:
         detected_gender = "unknown"
     if detected_gender != "unknown":
         await _save_learning(db, user_id, "detected_gender", detected_gender)
-        # Also update AgentSoul directly
-        try:
-            from sqlalchemy import update as sa_update
-            from ..models import AgentSoul
-            await db.execute(
-                sa_update(AgentSoul).where(AgentSoul.user_id == user_id).values(gender=detected_gender)
-            )
-            await db.commit()
-            learned.append(f"Learned: gender = {detected_gender}")
-        except Exception:
-            pass
+        learned.append(f"Learned: gender = {detected_gender}")
 
     # 6. Learn active hours
     active_hours = Counter()

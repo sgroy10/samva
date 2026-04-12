@@ -64,7 +64,6 @@ async def _run_migrations():
         "ALTER TABLE email_configs ADD COLUMN IF NOT EXISTS account_type VARCHAR(50) DEFAULT 'personal'",
         "ALTER TABLE email_configs ADD COLUMN IF NOT EXISTS is_primary BOOLEAN DEFAULT FALSE",
         "ALTER TABLE agent_souls ADD COLUMN IF NOT EXISTS voice_language VARCHAR(50) DEFAULT 'auto'",
-        "ALTER TABLE agent_souls ADD COLUMN IF NOT EXISTS gender VARCHAR(20) DEFAULT 'unknown'",
         # Phase 1.3: Index conversation search for Memory Beast speed
         "CREATE INDEX IF NOT EXISTS idx_conversations_user_date ON conversations (user_id, created_at DESC)",
         "CREATE INDEX IF NOT EXISTS idx_conversations_content ON conversations USING GIN (to_tsvector('english', content))",
