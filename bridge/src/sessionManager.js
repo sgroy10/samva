@@ -412,12 +412,19 @@ async function reconnectAll() {
 
 async function checkAllAlerts() {
     for (const [userId, sd] of activeSessions) {
-        if (!sd.ownJid && !sd.ownLid) continue;
+        if (!sd.ownJid && !sd.ownLid) {
+            console.log(`[alerts] Skipping ${userId} — no JID/LID (session not ready)`);
+            continue;
+        }
         try {
             const result = await coreClient.checkAlerts(userId);
+            console.log(`[alerts] ${userId}: ${result.count || 0} alerts returned`);
             if (result.alerts?.length > 0) {
                 const jid = getReplyJid(sd);
-                for (const alert of result.alerts) await rateLimitedSend(sd.socket, jid, alert);
+                for (const alert of result.alerts) {
+                    console.log(`[alerts] Sending to ${userId}: ${alert.substring(0, 80)}...`);
+                    await rateLimitedSend(sd.socket, jid, alert);
+                }
             }
         } catch (err) { console.error(`[session] Alert error ${userId}:`, err.message); }
     }

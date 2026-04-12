@@ -680,6 +680,8 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
         # Personality nudges — lunch, evening, water, motivation, festivals
         from .personality import get_proactive_nudges
         nudges = await get_proactive_nudges(db, user_id)
+        if nudges:
+            logger.info(f"[{user_id}] Personality nudges: {len(nudges)} — {[n[:50] for n in nudges]}")
         alerts.extend(nudges)
 
         # Relationship decay alerts
@@ -714,4 +716,5 @@ async def check_alerts(db: AsyncSession, user_id: str) -> list[str]:
     except Exception as e:
         logger.error(f"Alert check error for {user_id}: {e}", exc_info=True)
 
+    logger.info(f"[{user_id}] Total alerts: {len(alerts)}")
     return alerts
