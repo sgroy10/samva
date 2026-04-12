@@ -41,6 +41,36 @@ RECALL_SIGNALS = [
     "bataya tha", "pucha tha", "bola tha",
 ]
 
+# Semantic synonyms — "kitna kamata hoon" should find "salary"
+SEMANTIC_SYNONYMS = {
+    "salary": ["kamata", "kamaata", "earn", "income", "pay", "tankhwa", "salary", "package", "ctc", "naukri"],
+    "payment": ["payment", "paisa", "paise", "money", "amount", "transfer", "upi", "pending", "bhugtan"],
+    "gold": ["gold", "sona", "rate", "bhav", "24k", "22k", "18k", "carat", "karat", "sunar"],
+    "wedding": ["shaadi", "wedding", "marriage", "vivah", "dulhan", "baraat", "mandap", "rishta"],
+    "birthday": ["birthday", "janamdin", "janmadin", "born", "cake", "gift"],
+    "health": ["health", "doctor", "davai", "medicine", "hospital", "bimar", "sick", "test", "report", "bp", "sugar"],
+    "travel": ["travel", "flight", "train", "hotel", "booking", "trip", "yatra", "ticket", "airport"],
+    "food": ["food", "khana", "lunch", "dinner", "breakfast", "nashta", "recipe", "restaurant"],
+    "family": ["family", "mummy", "papa", "wife", "husband", "bhai", "behen", "baccha", "son", "daughter"],
+    "car": ["car", "gaadi", "vehicle", "drive", "petrol", "diesel", "parking", "service"],
+    "home": ["ghar", "home", "flat", "apartment", "rent", "emi", "loan", "property"],
+    "school": ["school", "college", "exam", "padhai", "study", "teacher", "class", "marks", "result"],
+    "work": ["office", "kaam", "meeting", "boss", "client", "project", "deadline", "promotion"],
+}
+
+
+def expand_search_terms(terms: list) -> list:
+    """Expand search terms with semantic synonyms."""
+    expanded = set(terms)
+    for term in terms:
+        term_lower = term.lower()
+        for concept, synonyms in SEMANTIC_SYNONYMS.items():
+            if term_lower in synonyms:
+                expanded.update(synonyms)
+                break
+    return list(expanded)[:15]  # Cap at 15 terms
+
+
 # Topic extraction patterns — nouns/proper nouns that are likely references
 TOPIC_WORDS_TO_SKIP = {
     "i", "you", "me", "my", "sam", "samva", "the", "a", "an", "is", "was",
@@ -83,16 +113,20 @@ def extract_search_terms(text: str) -> list[str]:
 async def search_conversations(db: AsyncSession, user_id: str, query: str, limit: int = 10) -> list[dict]:
     """
     Search ALL conversation history for relevant messages.
-    Uses PostgreSQL ILIKE for each search term.
-    Returns list of {role, content, created_at} ordered by relevance.
+    Uses semantic synonym expansion + PostgreSQL ILIKE.
+    "kitna kamata hoon" will find "salary" because both map to the same concept.
     """
     terms = extract_search_terms(query)
     if not terms:
         return []
 
-    # Build OR conditions for each term
+    # Semantic expansion — find related terms
+    expanded = expand_search_terms(terms)
+    logger.info(f"Memory search: {terms} → expanded to {expanded}")
+
+    # Build OR conditions for each expanded term
     conditions = []
-    for term in terms:
+    for term in expanded:
         conditions.append(Conversation.content.ilike(f"%{term}%"))
 
     try:
@@ -119,13 +153,14 @@ async def search_conversations(db: AsyncSession, user_id: str, query: str, limit
 
 
 async def search_inbox(db: AsyncSession, user_id: str, query: str, limit: int = 5) -> list[dict]:
-    """Search inbox messages from contacts for relevant context."""
+    """Search inbox messages from contacts for relevant context. Uses semantic expansion."""
     terms = extract_search_terms(query)
     if not terms:
         return []
 
+    expanded = expand_search_terms(terms)
     conditions = []
-    for term in terms:
+    for term in expanded:
         conditions.append(InboxMessage.content.ilike(f"%{term}%"))
         conditions.append(InboxMessage.chat_name.ilike(f"%{term}%"))
 

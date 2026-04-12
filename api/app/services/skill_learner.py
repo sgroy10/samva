@@ -131,7 +131,33 @@ async def learn_from_interactions(db: AsyncSession, user_id: str) -> list:
     style = "formal" if formal_count > casual_count else "casual"
     await _save_learning(db, user_id, "communication_style", style)
 
-    # 5. Learn active hours
+    # 5. Detect gender from conversation patterns
+    female_signals = ["meri", "hoon main ladki", "girlfriend", "behen", "sister", "wife",
+                      "aunty", "didi", "mummy", "ladki", "girl", "she", "her", "sakti"]
+    male_signals = ["mera", "bhai", "brother", "husband", "uncle", "ladka", "boy", "he", "his", "sakta"]
+    female_score = sum(all_text.count(w) for w in female_signals)
+    male_score = sum(all_text.count(w) for w in male_signals)
+    if female_score > male_score + 3:
+        detected_gender = "female"
+    elif male_score > female_score + 3:
+        detected_gender = "male"
+    else:
+        detected_gender = "unknown"
+    if detected_gender != "unknown":
+        await _save_learning(db, user_id, "detected_gender", detected_gender)
+        # Also update AgentSoul directly
+        try:
+            from sqlalchemy import update as sa_update
+            from ..models import AgentSoul
+            await db.execute(
+                sa_update(AgentSoul).where(AgentSoul.user_id == user_id).values(gender=detected_gender)
+            )
+            await db.commit()
+            learned.append(f"Learned: gender = {detected_gender}")
+        except Exception:
+            pass
+
+    # 6. Learn active hours
     active_hours = Counter()
     for m in messages:
         if m.created_at:

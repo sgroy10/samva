@@ -141,15 +141,33 @@ async def get_proactive_nudges(db: AsyncSession, user_id: str) -> list[str]:
     # ── Festival Awareness ───────────────────────────────────
     month_day = now.strftime("%m-%d")
     FESTIVALS = {
-        "01-14": ("Makar Sankranti", "Happy Makar Sankranti! \U0001f31e Til-gur khaya?"),
-        "01-26": ("Republic Day", "Happy Republic Day! \U0001f1ee\U0001f1f3 Jai Hind!"),
-        "03-17": ("Holi", "Happy Holi! \U0001f308 Rang barse!"),
-        "08-15": ("Independence Day", "Happy Independence Day! \U0001f1ee\U0001f1f3"),
-        "10-02": ("Gandhi Jayanti", "Remembering Bapu \U0001f64f"),
+        "01-14": ("Makar Sankranti", "Happy Makar Sankranti! \U0001f31e Til-gur khaya? Patang udayi kya?"),
+        "01-15": ("Pongal", "Happy Pongal! \U0001f33e Pongalo Pongal! Tamil festival of harvest."),
+        "01-26": ("Republic Day", "Happy Republic Day! \U0001f1ee\U0001f1f3 Jai Hind! 75+ saal ka safar!"),
+        "02-14": ("Valentine's Day", "Happy Valentine's Day! \u2764\ufe0f Kisi special ko wish kiya?"),
+        "03-08": ("Women's Day", "Happy Women's Day! \U0001f4aa Har woman ek superpower hai!"),
+        "03-17": ("Holi", "Happy Holi! \U0001f308 Rang barse! Gulaal se khelna, chemical se nahi!"),
+        "04-14": ("Ambedkar Jayanti", "Babasaheb ko naman \U0001f64f Samata aur nyay ke prateek."),
+        "04-14": ("Baisakhi", "Happy Baisakhi! \U0001f33e Naya saal, nayi fasal!"),
+        "05-01": ("May Day", "Happy Labour Day! \U0001f4aa Har kaamgar ka samman!"),
+        "06-21": ("Yoga Day", "International Yoga Day! \U0001f9d8 Aaj thoda yoga karo!"),
+        "07-04": ("Guru Purnima", "Happy Guru Purnima! \U0001f64f Apne guru ko yaad karo."),
+        "08-15": ("Independence Day", "Happy Independence Day! \U0001f1ee\U0001f1f3 Jai Hind!"),
+        "08-19": ("Janmashtami", "Happy Janmashtami! \U0001f64f Nand Ghar Anand Bhayo!"),
+        "08-29": ("Raksha Bandhan", "Happy Raksha Bandhan! \U0001f380 Bhai-behen ka pyaar!"),
+        "09-07": ("Ganesh Chaturthi", "Ganpati Bappa Morya! \U0001f418 Mangal Murti Morya!"),
+        "09-15": ("Onam", "Happy Onam! \U0001f3f5 Kerala ka harvest festival! Onashamsakal!"),
+        "10-02": ("Gandhi Jayanti", "Remembering Bapu \U0001f64f Ahimsa ka path."),
+        "10-12": ("Navratri", "Navratri ki hardik shubhkamnayein! \U0001f64f 9 din, 9 shakti!"),
+        "10-20": ("Karva Chauth", "Happy Karva Chauth! \U0001f319 Chand nikla?"),
         "10-24": ("Dussehra", "Happy Dussehra! \U0001f3f9 Burai pe acchai ki jeet!"),
-        "11-01": ("Diwali", "Happy Diwali! \U0001f386\U0001f384 Shubh Deepawali!"),
+        "10-31": ("Halloween", "Happy Halloween! \U0001f383"),
+        "11-01": ("Diwali", "Happy Diwali! \U0001f386 Shubh Deepawali! Diyon se sajao ghar!"),
         "11-02": ("Govardhan Puja", "Happy Govardhan Puja! \U0001f64f"),
-        "12-25": ("Christmas", "Merry Christmas! \U0001f384"),
+        "11-03": ("Bhai Dooj", "Happy Bhai Dooj! \U0001f46b Bhai-behen ka rishta sabse pyaara!"),
+        "11-15": ("Guru Nanak Jayanti", "Waheguru! Guru Nanak Dev Ji ki jayanti! \U0001f64f"),
+        "12-25": ("Christmas", "Merry Christmas! \U0001f384 Santa ne kya gift laaya?"),
+        "12-31": ("New Year Eve", "Last day of the year! \U0001f389 Kal se naya saal, naye irade!"),
     }
     if month_day in FESTIVALS and not _already_sent(user_id, f"festival_{month_day}"):
         name, msg = FESTIVALS[month_day]
@@ -367,8 +385,18 @@ WHAT YOU NEVER DO:
 - FULL LANGUAGE COMMITMENT: When user writes in Tamil, respond ENTIRELY in Tamil. Don't start
   in Tamil and switch to English. Same for Gujarati, Bengali, Telugu, etc. If you don't know
   how to say something in that language, say it in transliterated form, NEVER switch to English.
-- INDIA CONTEXT: For stocks, mention Nifty 50, SIP, PPF, ELSS — not S&P 500. For investments,
-  assume INR unless stated otherwise. India-first thinking always.
+- INDIA CONTEXT (deeply ingrained, not surface-level):
+  * Stocks: Nifty 50, Sensex, SIP, PPF, ELSS, NPS, sovereign gold bonds. Not S&P 500.
+  * Currency: INR default. "50K" means ₹50,000 unless stated otherwise.
+  * Places: Know major Indian cities, states, tourist spots. "Goa jaana hai" = help plan.
+  * Food: Know Indian cuisines — dal chawal, biryani, dosa, poha, chole bhature.
+  * Culture: Respect for elders (ji suffix), festivals, pujas, cricket, Bollywood.
+  * Government: Aadhaar, PAN, GST, ITR, Digilocker, IRCTC, UPI, BHIM.
+  * Sports: IPL teams, cricket legends, kabaddi, hockey. Not NFL/NBA.
+  * History: Freedom fighters, Independence, Constitution, cultural heritage.
+  * Religions: Respect ALL — Hindu, Muslim, Sikh, Christian, Buddhist, Jain.
+  * Regional pride: Every state has its culture. Gujarat ≠ Tamil Nadu ≠ Punjab.
+  * Emergency: 112 (universal), 100 (police), 1091 (women), 102 (ambulance), 181 (NCW).
 - MOTIVATION MUST BE SPECIFIC: Don't say "har problem opportunity hai". Instead: reference
   something specific the user mentioned, tie it to their situation, offer ONE concrete action.
 - JEWELRY BOM: When jeweller asks for BOM, CALCULATE using: metal rate × grams + loss% +

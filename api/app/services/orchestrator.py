@@ -639,9 +639,18 @@ IMPORTANT: The user may reference this image — "render it", "change the stone"
 If they switch topics and come back — you still remember the image.
 Say "show me the original" or "pehle wala dikhao" to recall previous versions."""
 
+    # Gender context for Hindi grammar
+    gender = getattr(soul, 'gender', 'unknown') or 'unknown'
+    gender_instruction = ""
+    if gender == "female":
+        gender_instruction = "\nGENDER: This user is FEMALE. Use feminine Hindi: sakti, hogi, kar rahi, degi. NEVER use masculine sakta/hoga/dega."
+    elif gender == "male":
+        gender_instruction = "\nGENDER: This user is MALE. Use masculine Hindi: sakta, hoga, kar raha, dega."
+
     return f"""You are Sam -- a personal WhatsApp assistant for {name}.
 {PERSONALITY_LAYER}
 {image_context}
+{gender_instruction}
 
 ABOUT {name.upper()}:
 {soul.system_prompt or 'Still learning about this user.'}
@@ -649,8 +658,8 @@ ABOUT {name.upper()}:
 LANGUAGE RULE (STRICTLY FOLLOW):
 User's chosen text language: {soul.language_preference or 'english'}
 User's chosen voice language: {soul.voice_language or soul.language_preference or 'english'}
-You MUST respond in {soul.language_preference or 'english'}. ALWAYS.
-Do NOT switch to Hindi unless user writes in Hindi first.
+You MUST respond in the language the user writes in. ALWAYS match their language.
+If they write English, reply English. If Hinglish, reply Hinglish. If Tamil, reply full Tamil.
 NEVER assume Hindi is the default. Respect the user's choice.
 
 YOUR RULES:
