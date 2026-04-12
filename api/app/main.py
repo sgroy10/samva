@@ -776,6 +776,36 @@ async def handle_gold_alerts(db: AsyncSession = Depends(get_db)):
     return {"count": len(alerts), "alerts": alerts}
 
 
+@app.post("/cron/chat-intelligence")
+async def handle_chat_intelligence(db: AsyncSession = Depends(get_db)):
+    """Every 15 min — analyze inbox messages, detect urgency, flag important stuff.
+    This is what makes Sam INTELLIGENT about your WhatsApp life."""
+    from .services.chat_intelligence import analyze_new_messages, get_undelivered_insights, detect_proactive_context
+    result_list = await db.execute(select(User).where(User.status == "active"))
+    users = result_list.scalars().all()
+    notifications = []
+    for user in users:
+        try:
+            # 1. Analyze new messages for urgency
+            insights = await analyze_new_messages(db, user.id)
+            if insights:
+                logger.info(f"Chat intelligence: {len(insights)} insights for {user.id}")
+
+            # 2. Get undelivered insights to send as proactive alerts
+            alert_text = await get_undelivered_insights(db, user.id)
+            if alert_text:
+                notifications.append({"user_id": user.id, "message": alert_text})
+
+            # 3. Proactive context detection (restaurant, travel, delivery, etc.)
+            proactive = await detect_proactive_context(db, user.id)
+            for msg in proactive:
+                notifications.append({"user_id": user.id, "message": msg})
+
+        except Exception as e:
+            logger.error(f"Chat intelligence error for {user.id}: {e}")
+    return {"count": len(notifications), "notifications": notifications}
+
+
 @app.post("/cron/email-sync")
 async def handle_email_sync(db: AsyncSession = Depends(get_db)):
     """Every 30 min — auto-fetch email for users with configured accounts."""

@@ -198,3 +198,93 @@ async def get_chat_summary(db: AsyncSession, user_id: str, hours: int = 24) -> s
     lines.append("Reply karna hai? Naam batao.")
 
     return "\n".join(lines)
+
+
+# ══════════════════════════════════════════════════════════════
+# PROACTIVE CONTEXT INTELLIGENCE
+# Sam reads your messages and ACTS on them without being asked
+# ══════════════════════════════════════════════════════════════
+
+CONTEXT_TRIGGERS = {
+    "restaurant": {
+        "keywords": ["restaurant", "booking", "reservation", "table for",
+                      "dinner at", "lunch at", "booked at", "dineout",
+                      "zomato", "swiggy", "eazydiner", "confirmed your"],
+    },
+    "travel": {
+        "keywords": ["flight booked", "ticket confirmed", "pnr",
+                      "boarding pass", "hotel booking", "check-in",
+                      "makemytrip", "cleartrip", "goibibo"],
+    },
+    "delivery": {
+        "keywords": ["out for delivery", "dispatched", "shipped",
+                      "arriving today", "delivery scheduled", "otp for delivery"],
+    },
+    "payment": {
+        "keywords": ["payment of", "credited", "debited", "transferred",
+                      "received rs", "sent rs"],
+    },
+    "appointment": {
+        "keywords": ["appointment confirmed", "doctor appointment",
+                      "appointment at", "scheduled for", "consultation"],
+    },
+}
+
+
+async def detect_proactive_context(db: AsyncSession, user_id: str) -> list:
+    """
+    Scan recent inbox messages for life events Sam should react to.
+    Returns list of proactive messages Sam should send.
+
+    Example: User's WhatsApp gets "Table booked at Barbeque Nation 7:30 PM"
+    Sam says: "Boss, dinner plan hai aaj 7:30 pe Barbeque Nation!
+       Reminder set kar diya. Health tip: zyada oily avoid karo."
+    """
+    from sqlalchemy import text as sql_text
+    from .llm import call_gemini
+
+    result = await db.execute(
+        select(InboxMessage).where(
+            InboxMessage.user_id == user_id,
+        ).where(sql_text("created_at >= NOW() - INTERVAL '2 hours'"))
+        .order_by(InboxMessage.msg_timestamp.desc()).limit(50)
+    )
+    messages = result.scalars().all()
+
+    if not messages:
+        return []
+
+    proactive_messages = []
+
+    for msg in messages:
+        content = (msg.content or "").lower()
+        sender = msg.sender_name or msg.chat_name or ""
+
+        for context_type, config in CONTEXT_TRIGGERS.items():
+            if any(kw in content for kw in config["keywords"]):
+                try:
+                    proactive = await call_gemini(
+                        f"""You are Sam, a proactive WhatsApp assistant. You noticed this message
+in the user's inbox:
+
+From: {sender}
+Message: {msg.content[:300]}
+Context: {context_type}
+
+Generate a SHORT (3-4 lines) proactive WhatsApp message:
+1. Acknowledge what you noticed ("Boss, dinner plan hai aaj!")
+2. Offer to set a reminder
+3. Share ONE useful tip (restaurant speciality, health tip, travel tip)
+4. Be warm, caring, Hinglish. Be a FRIEND who pays attention.""",
+                        f"From {sender}: {msg.content[:200]}",
+                        user_id=user_id,
+                        max_tokens=200,
+                    )
+                    if proactive and len(proactive) > 20:
+                        proactive_messages.append(proactive)
+                        logger.info(f"[{user_id}] Proactive: {context_type} from {sender}")
+                except Exception as e:
+                    logger.error(f"Proactive context error: {e}")
+                break
+
+    return proactive_messages

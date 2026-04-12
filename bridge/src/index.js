@@ -291,6 +291,21 @@ app.listen(PORT, async () => {
     }
   });
 
+  // Chat Intelligence: every 15 min — analyze inbox, flag urgent messages
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      const resp = await coreClient.callCron('/cron/chat-intelligence');
+      if (resp.count > 0) {
+        console.log(`[Cron] Chat intelligence: ${resp.count} alerts`);
+        for (const notif of (resp.notifications || [])) {
+          await sessionManager.sendAlertToUser(notif.user_id, notif.message);
+        }
+      }
+    } catch (err) {
+      // Silent
+    }
+  });
+
   // Gold Price Alerts: every 15 min — alert jewellers on price moves
   cron.schedule('*/15 * * * *', async () => {
     try {
