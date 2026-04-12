@@ -291,6 +291,32 @@ app.listen(PORT, async () => {
     }
   });
 
+  // Pattern Watcher: every 15 min — detect patterns, propose behaviors
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      const resp = await coreClient.callCron('/cron/pattern-watch');
+      if (resp.count > 0) {
+        console.log(`[Cron] Pattern engine: ${resp.count} users with activity`);
+        // Send proposals to users via WhatsApp
+        for (const result of (resp.results || [])) {
+          if (result.proposals && result.proposals.length > 0) {
+            for (const proposal of result.proposals) {
+              await sessionManager.sendAlertToUser(result.user_id, proposal);
+            }
+          }
+          // Execute active behaviors (auto-send gold brief, etc.)
+          if (result.executions && result.executions.length > 0) {
+            for (const exec of result.executions) {
+              await sessionManager.sendAlertToUser(result.user_id, exec);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Silent — don't spam logs
+    }
+  });
+
   // Soul Evolution: Sunday 11pm IST
   cron.schedule('0 23 * * 0', async () => {
     console.log('[Cron] Running soul evolution...');

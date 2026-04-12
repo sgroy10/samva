@@ -64,6 +64,11 @@ async def _run_migrations():
         "ALTER TABLE email_configs ADD COLUMN IF NOT EXISTS account_type VARCHAR(50) DEFAULT 'personal'",
         "ALTER TABLE email_configs ADD COLUMN IF NOT EXISTS is_primary BOOLEAN DEFAULT FALSE",
         "ALTER TABLE agent_souls ADD COLUMN IF NOT EXISTS voice_language VARCHAR(50) DEFAULT 'auto'",
+        # Phase 1.3: Index conversation search for Memory Beast speed
+        "CREATE INDEX IF NOT EXISTS idx_conversations_user_date ON conversations (user_id, created_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_conversations_content ON conversations USING GIN (to_tsvector('english', content))",
+        "CREATE INDEX IF NOT EXISTS idx_inbox_messages_user ON inbox_messages (user_id, msg_timestamp DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_user_memory_user ON user_memory (user_id)",
     ]
     async with engine.begin() as conn:
         for sql in migrations:

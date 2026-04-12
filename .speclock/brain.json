@@ -8,11 +8,61 @@
     "updatedAt": "2026-03-31T18:33:08.604Z"
   },
   "goal": {
-    "text": "Samva — multi-tenant WhatsApp personal assistant SaaS",
-    "updatedAt": "2026-03-24T01:09:48.689Z"
+    "text": "Make Sam extraordinary \u2014 a friend who is funny, serious, emotional, caring. Covers personal, business, health. India-first, Hinglish-native, proactive WhatsApp AI.",
+    "updatedAt": "2026-04-12T08:13:46.632482Z"
   },
   "specLock": {
     "items": [
+      {
+        "id": "lock_phase1_001",
+        "text": "PHASE 1 PLAN: Fix pattern_watcher cron, gold alerts, conversation index, email sync, feedback tracking. NO new features until Phase 1 complete.",
+        "createdAt": "2026-04-12T08:13:46.632466Z",
+        "source": "user",
+        "tags": [
+          "phase1"
+        ],
+        "active": true
+      },
+      {
+        "id": "lock_phase1_002",
+        "text": "NEVER hardcode API keys in source code. ALL keys via process.env or Railway variables.",
+        "createdAt": "2026-04-12T08:13:46.632474Z",
+        "source": "user",
+        "tags": [
+          "security"
+        ],
+        "active": true
+      },
+      {
+        "id": "lock_phase1_003",
+        "text": "Sam personality: friend, funny, serious, emotional, caring, personal, business, health \u2014 covers EVERYTHING in users life. Not a robot, not an assistant \u2014 a FRIEND.",
+        "createdAt": "2026-04-12T08:13:46.632476Z",
+        "source": "user",
+        "tags": [
+          "personality"
+        ],
+        "active": true
+      },
+      {
+        "id": "lock_phase1_004",
+        "text": "Test EVERY code change with curl before git push. Never push blind.",
+        "createdAt": "2026-04-12T08:13:46.632477Z",
+        "source": "user",
+        "tags": [
+          "process"
+        ],
+        "active": true
+      },
+      {
+        "id": "lock_phase1_005",
+        "text": "Do NOT touch Samva LLM/Modal/Together until Sam WhatsApp is extraordinary.",
+        "createdAt": "2026-04-12T08:13:46.632479Z",
+        "source": "user",
+        "tags": [
+          "focus"
+        ],
+        "active": true
+      },
       {
         "id": "lock_067097c5c532",
         "text": "Behaviors execute only after user explicitly says YES. Never auto-activate.",
@@ -31,7 +81,7 @@
       },
       {
         "id": "lock_ddca8a98558b",
-        "text": "ALL WhatsApp messages stored in inbox_messages table — Sam sees everything, not just self-chat",
+        "text": "ALL WhatsApp messages stored in inbox_messages table \u2014 Sam sees everything, not just self-chat",
         "createdAt": "2026-03-27T17:16:34.275Z",
         "source": "user",
         "tags": [],
@@ -39,7 +89,7 @@
       },
       {
         "id": "lock_e7043c544ccd",
-        "text": "Max 3 skill builds per user per day — rate limited to prevent credit exhaustion",
+        "text": "Max 3 skill builds per user per day \u2014 rate limited to prevent credit exhaustion",
         "createdAt": "2026-03-25T16:56:37.595Z",
         "source": "user",
         "tags": [],
@@ -47,7 +97,7 @@
       },
       {
         "id": "lock_ca79d9df8933",
-        "text": "Skill execution MUST run in isolated subprocess — never exec() in main process",
+        "text": "Skill execution MUST run in isolated subprocess \u2014 never exec() in main process",
         "createdAt": "2026-03-25T16:56:37.267Z",
         "source": "user",
         "tags": [],
@@ -63,7 +113,7 @@
       },
       {
         "id": "lock_64112eb81b16",
-        "text": "Admin phone 8928731453 — free access, no payment, no subscription check, plan=admin",
+        "text": "Admin phone 8928731453 \u2014 free access, no payment, no subscription check, plan=admin",
         "createdAt": "2026-03-24T18:22:45.195Z",
         "source": "user",
         "tags": [],
@@ -71,7 +121,7 @@
       },
       {
         "id": "lock_c668af6ad0f1",
-        "text": "Architecture: Node.js bridge + Python FastAPI in single Dockerfile — do not split into separate services",
+        "text": "Architecture: Node.js bridge + Python FastAPI in single Dockerfile \u2014 do not split into separate services",
         "createdAt": "2026-03-24T01:10:01.100Z",
         "source": "user",
         "tags": [],
@@ -79,7 +129,7 @@
       },
       {
         "id": "lock_a89b42991487",
-        "text": "All Railway management via CLI — never ask user to use dashboard",
+        "text": "All Railway management via CLI \u2014 never ask user to use dashboard",
         "createdAt": "2026-03-24T01:10:00.799Z",
         "source": "user",
         "tags": [],
@@ -87,7 +137,7 @@
       },
       {
         "id": "lock_69968390d0c2",
-        "text": "GitHub repo: sgroy10/samva — git push auto-deploys to Railway",
+        "text": "GitHub repo: sgroy10/samva \u2014 git push auto-deploys to Railway",
         "createdAt": "2026-03-24T01:10:00.487Z",
         "source": "user",
         "tags": [],
@@ -95,7 +145,7 @@
       },
       {
         "id": "lock_2a4de79a73a3",
-        "text": "Railway project: terrific-grace, Service: romantic-generosity, URL: https://romantic-generosity-production.up.railway.app — NEVER change these",
+        "text": "Railway project: terrific-grace, Service: romantic-generosity, URL: https://romantic-generosity-production.up.railway.app \u2014 NEVER change these",
         "createdAt": "2026-03-24T01:10:00.180Z",
         "source": "user",
         "tags": [],
@@ -103,7 +153,7 @@
       },
       {
         "id": "lock_99f43bab3840",
-        "text": "Never touch JewelClaw code — Samva is a completely separate repo at /Users/gadgetzone/samva",
+        "text": "Never touch JewelClaw code \u2014 Samva is a completely separate repo at /Users/gadgetzone/samva",
         "createdAt": "2026-03-24T01:09:59.858Z",
         "source": "user",
         "tags": [],
@@ -128,7 +178,7 @@
     },
     {
       "id": "dec_a4cbc98c22bc",
-      "text": "Self-builder pipeline: Perplexity researches API → Claude Sonnet writes code → subprocess tests → activate",
+      "text": "Self-builder pipeline: Perplexity researches API \u2192 Claude Sonnet writes code \u2192 subprocess tests \u2192 activate",
       "createdAt": "2026-03-26T17:47:04.021Z",
       "source": "user",
       "tags": []
@@ -142,7 +192,7 @@
     },
     {
       "id": "dec_73a9aa014dc6",
-      "text": "Orchestrator routing order: prebuilt → custom-built → image → LLM chat → background self-build",
+      "text": "Orchestrator routing order: prebuilt \u2192 custom-built \u2192 image \u2192 LLM chat \u2192 background self-build",
       "createdAt": "2026-03-26T17:16:49.728Z",
       "source": "user",
       "tags": []
@@ -191,7 +241,7 @@
     },
     {
       "id": "dec_623808d20c0a",
-      "text": "OpenRouter for Gemini 2.5 Flash — all LLM calls go through OpenRouter",
+      "text": "OpenRouter for Gemini 2.5 Flash \u2014 all LLM calls go through OpenRouter",
       "createdAt": "2026-03-24T01:10:32.502Z",
       "source": "user",
       "tags": []
@@ -205,7 +255,7 @@
     },
     {
       "id": "dec_a1b80ffa66a0",
-      "text": "Razorpay live keys active — rzp_live_6B2TJ6eDeIzIqX",
+      "text": "Razorpay live keys active \u2014 rzp_live_6B2TJ6eDeIzIqX",
       "createdAt": "2026-03-24T01:10:31.891Z",
       "source": "user",
       "tags": []
@@ -259,7 +309,7 @@
     "recentChanges": [
       {
         "eventId": "evt_1093f76750bb",
-        "summary": "THE A-HA MOMENT: Pattern detection engine — Sam predicts what you need",
+        "summary": "THE A-HA MOMENT: Pattern detection engine \u2014 Sam predicts what you need",
         "files": [
           "api/app/services/pattern_watcher.py",
           "api/app/services/agent.py",
@@ -298,7 +348,7 @@
       },
       {
         "eventId": "evt_cb8efab26177",
-        "summary": "WhatsApp voice conversations: user speaks → Sam speaks back as voice note",
+        "summary": "WhatsApp voice conversations: user speaks \u2192 Sam speaks back as voice note",
         "files": [
           "api/app/services/llm.py",
           "api/app/main.py",
@@ -347,7 +397,7 @@
       },
       {
         "eventId": "evt_361993d9d9f7",
-        "summary": "Astrology vertical: 7 skills — panchang, kundli, rashifal, gun milan, muhurat, vastu, graha sthiti",
+        "summary": "Astrology vertical: 7 skills \u2014 panchang, kundli, rashifal, gun milan, muhurat, vastu, graha sthiti",
         "files": [
           "api/app/services/prebuilt_skills.py"
         ],
@@ -389,7 +439,7 @@
       },
       {
         "eventId": "evt_19d380d1f27e",
-        "summary": "THE INVENTION: Sam's self-plugin builder — detect need, find API, write code, test, activate",
+        "summary": "THE INVENTION: Sam's self-plugin builder \u2014 detect need, find API, write code, test, activate",
         "files": [
           "api/app/services/skill_builder.py",
           "api/app/services/agent.py",

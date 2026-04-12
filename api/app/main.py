@@ -759,6 +759,24 @@ async def handle_future_echo(db: AsyncSession = Depends(get_db)):
     return {"count": len(echoes), "echoes": echoes}
 
 
+@app.post("/cron/pattern-watch")
+async def handle_pattern_watch(db: AsyncSession = Depends(get_db)):
+    """Every 15 min — detect user patterns, shadow test, propose behaviors."""
+    from .services.pattern_watcher import run_pattern_engine
+    result_list = await db.execute(select(User).where(User.status == "active"))
+    users = result_list.scalars().all()
+    results = []
+    for user in users:
+        try:
+            result = await run_pattern_engine(db, user.id)
+            if result.get("detected") or result.get("proposals") or result.get("executions"):
+                logger.info(f"Pattern engine for {user.id}: {result}")
+                results.append({"user_id": user.id, **result})
+        except Exception as e:
+            logger.error(f"Pattern watch error for {user.id}: {e}")
+    return {"count": len(results), "results": results}
+
+
 @app.post("/cron/weekly-report")
 async def handle_weekly_report(db: AsyncSession = Depends(get_db)):
     """Sunday 9 AM — weekly report card."""
