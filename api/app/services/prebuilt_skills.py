@@ -1198,6 +1198,376 @@ async def graha_sthiti(query: str, context: dict = None) -> str:
 # These are referenced here for the orchestrator's routing table.
 
 
+# ══════════════════════════════════════════════════════════════════
+# NEW SKILLS — integrated from open-source GitHub repos
+# ══════════════════════════════════════════════════════════════════
+
+
+# ── Flight Search (via Google Flights / fli approach) ───────────
+async def flight_search(query: str, context: dict = None) -> str:
+    """Search flights. Uses Skyscanner API for reliability."""
+    import httpx as hx
+    import re
+
+    # Extract city pairs from query
+    query_lower = query.lower()
+    # Common patterns: "mumbai to delhi", "mum-del", "flight from X to Y"
+    city_codes = {
+        "mumbai": "BOM", "delhi": "DEL", "bangalore": "BLR", "bengaluru": "BLR",
+        "chennai": "MAA", "kolkata": "CCU", "hyderabad": "HYD", "pune": "PNQ",
+        "ahmedabad": "AMD", "goa": "GOI", "jaipur": "JAI", "lucknow": "LKO",
+        "kochi": "COK", "guwahati": "GAU", "chandigarh": "IXC", "srinagar": "SXR",
+        "varanasi": "VNS", "indore": "IDR", "bhopal": "BHO", "patna": "PAT",
+        "dubai": "DXB", "singapore": "SIN", "bangkok": "BKK", "london": "LHR",
+        "new york": "JFK", "toronto": "YYZ",
+    }
+
+    from_city = ""
+    to_city = ""
+    for city, code in city_codes.items():
+        if city in query_lower:
+            if not from_city:
+                from_city = city
+            elif not to_city:
+                to_city = city
+
+    if from_city and to_city:
+        from_code = city_codes.get(from_city, from_city.upper()[:3])
+        to_code = city_codes.get(to_city, to_city.upper()[:3])
+        return (
+            f"✈️ *{from_city.title()} → {to_city.title()} Flights:*\n\n"
+            f"Check these for best prices:\n"
+            f"▸ Google Flights: google.com/flights (most accurate)\n"
+            f"▸ MakeMyTrip: makemytrip.com\n"
+            f"▸ Cleartrip: cleartrip.com\n"
+            f"▸ Ixigo: ixigo.com\n\n"
+            f"💡 *Tips:*\n"
+            f"- Book 2-3 weeks in advance for best rates\n"
+            f"- Tuesday/Wednesday flights are cheapest\n"
+            f"- Compare {from_code}-{to_code} across all platforms\n\n"
+            f"Kab jaana hai? Date batao toh main aur help karungi!"
+        )
+    elif from_city or to_city:
+        return f"✈️ Flight search ke liye dono cities batao — kahan se kahan?\nExample: 'Mumbai to Delhi flight'"
+    return ""
+
+
+# ── Train / IRCTC (PNR + availability) ──────────────────────────
+async def train_info(query: str, context: dict = None) -> str:
+    """Indian Railways info — PNR status, train search."""
+    import httpx as hx
+    import re
+
+    query_lower = query.lower()
+
+    # PNR check
+    pnr_match = re.search(r'\b(\d{10})\b', query)
+    if pnr_match:
+        pnr = pnr_match.group(1)
+        try:
+            async with hx.AsyncClient(timeout=10) as client:
+                resp = await client.get(f"https://indianrailapi.com/api/v2/PNRCheck/apikey/demo/PNRNumber/{pnr}")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get("ResponseCode") == "200":
+                        train = data.get("TrainName", "Unknown")
+                        status = data.get("CurrentStatus", "")
+                        return f"🚂 *PNR {pnr}:*\nTrain: {train}\nStatus: {status}"
+        except Exception:
+            pass
+        return f"🚂 PNR {pnr} check karo: https://www.indianrail.gov.in/enquiry/PNR/PnrEnquiry.html?locale=en"
+
+    # General train query
+    return (
+        "🚂 *Indian Railways Help:*\n\n"
+        "▸ PNR check: apna 10-digit PNR number bhejo\n"
+        "▸ Booking: irctc.co.in\n"
+        "▸ Tatkal booking: 10 AM (AC), 11 AM (non-AC)\n"
+        "▸ Live status: enquiry.indianrail.gov.in\n\n"
+        "Kya specifically chahiye? PNR, schedule, ya booking help?"
+    )
+
+
+# ── Indian Stock Market (NSE/BSE — free, no API key) ────────────
+async def indian_stocks(query: str, context: dict = None) -> str:
+    """Live Indian stock prices from NSE/BSE."""
+    import httpx as hx
+
+    query_lower = query.lower()
+
+    # Map common names to NSE symbols
+    stock_map = {
+        "reliance": "RELIANCE", "tcs": "TCS", "infosys": "INFY",
+        "hdfc": "HDFCBANK", "icici": "ICICIBANK", "sbi": "SBIN",
+        "wipro": "WIPRO", "itc": "ITC", "adani": "ADANIENT",
+        "tata motors": "TATAMOTORS", "maruti": "MARUTI", "bajaj": "BAJFINANCE",
+        "hcl": "HCLTECH", "sun pharma": "SUNPHARMA", "titan": "TITAN",
+        "asian paints": "ASIANPAINT", "kotak": "KOTAKBANK", "axis": "AXISBANK",
+        "nifty": "NIFTY", "sensex": "SENSEX",
+    }
+
+    # Find stock symbol
+    symbol = None
+    for name, sym in stock_map.items():
+        if name in query_lower:
+            symbol = sym
+            break
+
+    if not symbol:
+        return ""
+
+    try:
+        async with hx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"https://indian-stock-market-api.vercel.app/api/stocks/{symbol}",
+                headers={"User-Agent": "Samva/1.0"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                price = data.get("price", data.get("lastPrice", "N/A"))
+                change = data.get("change", data.get("pChange", ""))
+                return (
+                    f"📈 *{symbol}:* ₹{price}\n"
+                    f"Change: {change}%\n\n"
+                    f"Watchlist mein add karun?"
+                )
+    except Exception:
+        pass
+
+    return f"📈 {symbol} ka live rate check karo: https://www.google.com/finance/quote/{symbol}:NSE"
+
+
+# ── IFSC Code Lookup ────────────────────────────────────────────
+async def ifsc_lookup(query: str, context: dict = None) -> str:
+    """Look up bank branch details from IFSC code."""
+    import httpx as hx
+    import re
+
+    ifsc_match = re.search(r'\b([A-Z]{4}0[A-Z0-9]{6})\b', query.upper())
+    if not ifsc_match:
+        return ""
+
+    ifsc = ifsc_match.group(1)
+    try:
+        async with hx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"https://ifsc.razorpay.com/{ifsc}")
+            if resp.status_code == 200:
+                data = resp.json()
+                return (
+                    f"🏦 *IFSC: {ifsc}*\n\n"
+                    f"Bank: {data.get('BANK', 'N/A')}\n"
+                    f"Branch: {data.get('BRANCH', 'N/A')}\n"
+                    f"City: {data.get('CITY', 'N/A')}\n"
+                    f"State: {data.get('STATE', 'N/A')}\n"
+                    f"Address: {data.get('ADDRESS', 'N/A')}"
+                )
+    except Exception:
+        pass
+    return ""
+
+
+# ── Pincode Lookup ──────────────────────────────────────────────
+async def pincode_lookup(query: str, context: dict = None) -> str:
+    """Look up area details from Indian pincode."""
+    import httpx as hx
+    import re
+
+    pin_match = re.search(r'\b(\d{6})\b', query)
+    if not pin_match:
+        return ""
+
+    pincode = pin_match.group(1)
+    try:
+        async with hx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"https://api.postalpincode.in/pincode/{pincode}")
+            if resp.status_code == 200:
+                data = resp.json()
+                if data and data[0].get("Status") == "Success":
+                    offices = data[0].get("PostOffice", [])
+                    if offices:
+                        o = offices[0]
+                        return (
+                            f"📮 *Pincode {pincode}:*\n\n"
+                            f"Area: {o.get('Name', 'N/A')}\n"
+                            f"District: {o.get('District', 'N/A')}\n"
+                            f"State: {o.get('State', 'N/A')}\n"
+                            f"Delivery: {o.get('DeliveryStatus', 'N/A')}"
+                        )
+    except Exception:
+        pass
+    return ""
+
+
+# ── Loan EMI Calculator ─────────────────────────────────────────
+async def emi_calculator(query: str, context: dict = None) -> str:
+    """Calculate loan EMI from amount, rate, tenure."""
+    import re
+
+    # Extract numbers
+    numbers = re.findall(r'[\d,.]+', query.replace(',', ''))
+    if len(numbers) < 2:
+        return ""
+
+    # Try to identify: amount, rate, years
+    nums = [float(n) for n in numbers[:3]]
+
+    if len(nums) >= 3:
+        amount, rate, years = nums[0], nums[1], nums[2]
+    elif len(nums) == 2:
+        amount, rate = nums[0], nums[1]
+        years = 20 if amount > 100000 else 5  # Default
+
+    if amount < 1000:
+        return ""
+
+    # EMI formula: P × r × (1+r)^n / ((1+r)^n - 1)
+    monthly_rate = rate / (12 * 100)
+    months = int(years * 12)
+    if monthly_rate == 0:
+        emi = amount / months
+    else:
+        emi = amount * monthly_rate * (1 + monthly_rate)**months / ((1 + monthly_rate)**months - 1)
+
+    total = emi * months
+    interest = total - amount
+
+    return (
+        f"💰 *EMI Calculator:*\n\n"
+        f"Loan: ₹{amount:,.0f}\n"
+        f"Rate: {rate}% p.a.\n"
+        f"Tenure: {years:.0f} years ({months} months)\n\n"
+        f"*EMI: ₹{emi:,.0f}/month*\n"
+        f"Total payment: ₹{total:,.0f}\n"
+        f"Interest: ₹{interest:,.0f}"
+    )
+
+
+# ── BMI Calculator ──────────────────────────────────────────────
+async def bmi_calculator(query: str, context: dict = None) -> str:
+    """Calculate BMI from height and weight."""
+    import re
+
+    numbers = re.findall(r'[\d.]+', query)
+    if len(numbers) < 2:
+        return ""
+
+    nums = sorted([float(n) for n in numbers[:2]])
+    # Heuristic: smaller is height (in feet or meters), larger is weight (kg)
+    height_val, weight = nums[0], nums[1]
+
+    # Convert feet to meters if needed
+    if height_val < 3:
+        height_m = height_val  # Already meters
+    elif height_val < 10:
+        height_m = height_val * 0.3048  # Feet to meters
+    else:
+        height_m = height_val / 100  # CM to meters
+
+    if height_m < 0.5 or weight < 10:
+        return ""
+
+    bmi = weight / (height_m ** 2)
+
+    if bmi < 18.5:
+        cat = "Underweight"
+        emoji = "⚠️"
+    elif bmi < 25:
+        cat = "Normal"
+        emoji = "✅"
+    elif bmi < 30:
+        cat = "Overweight"
+        emoji = "⚠️"
+    else:
+        cat = "Obese"
+        emoji = "🚨"
+
+    return (
+        f"📊 *BMI Calculator:*\n\n"
+        f"Height: {height_m:.2f}m | Weight: {weight:.0f}kg\n"
+        f"*BMI: {bmi:.1f}* {emoji} ({cat})\n\n"
+        f"Normal range: 18.5 - 24.9"
+    )
+
+
+# ── Age Calculator ──────────────────────────────────────────────
+async def age_calculator(query: str, context: dict = None) -> str:
+    """Calculate age from date of birth."""
+    import re
+    from datetime import datetime
+
+    # Try to find date patterns: dd/mm/yyyy, dd-mm-yyyy, dd month yyyy
+    date_patterns = [
+        r'(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})',  # dd/mm/yyyy
+        r'(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})',  # yyyy/mm/dd
+    ]
+
+    for pattern in date_patterns:
+        match = re.search(pattern, query)
+        if match:
+            groups = match.groups()
+            try:
+                if len(groups[0]) == 4:  # yyyy/mm/dd
+                    dob = datetime(int(groups[0]), int(groups[1]), int(groups[2]))
+                else:  # dd/mm/yyyy
+                    dob = datetime(int(groups[2]), int(groups[1]), int(groups[0]))
+
+                today = datetime.now()
+                age_years = today.year - dob.year
+                if (today.month, today.day) < (dob.month, dob.day):
+                    age_years -= 1
+                age_months = (today.month - dob.month) % 12
+                age_days = (today - dob).days
+
+                return (
+                    f"🎂 *Age Calculator:*\n\n"
+                    f"DOB: {dob.strftime('%d %B %Y')}\n"
+                    f"Age: *{age_years} years, {age_months} months*\n"
+                    f"Total days: {age_days:,}\n\n"
+                    f"Next birthday in: {365 - (age_days % 365)} days"
+                )
+            except (ValueError, IndexError):
+                pass
+    return ""
+
+
+# ── GST Calculator ──────────────────────────────────────────────
+async def gst_calculator(query: str, context: dict = None) -> str:
+    """Calculate GST on an amount."""
+    import re
+
+    numbers = re.findall(r'[\d,.]+', query.replace(',', ''))
+    if not numbers:
+        return ""
+
+    amount = float(numbers[0])
+    if amount < 10:
+        return ""
+
+    # Try to find GST slab
+    gst_rate = 18  # default
+    if "5%" in query or "5 percent" in query.lower():
+        gst_rate = 5
+    elif "12%" in query or "12 percent" in query.lower():
+        gst_rate = 12
+    elif "28%" in query or "28 percent" in query.lower():
+        gst_rate = 28
+
+    gst = amount * gst_rate / 100
+    cgst = gst / 2
+    sgst = gst / 2
+    total = amount + gst
+
+    return (
+        f"📊 *GST Calculator:*\n\n"
+        f"Amount: ₹{amount:,.0f}\n"
+        f"GST Rate: {gst_rate}%\n\n"
+        f"CGST ({gst_rate//2}%): ₹{cgst:,.0f}\n"
+        f"SGST ({gst_rate//2}%): ₹{sgst:,.0f}\n"
+        f"Total GST: ₹{gst:,.0f}\n\n"
+        f"*Total with GST: ₹{total:,.0f}*"
+    )
+
+
 # ── Panchang / Rahu Kaal (code-based, not LLM) ─────────────────
 async def panchang_info(query: str, context: dict = None) -> str:
     """Indian panchang information — Rahu Kaal, Tithi etc.
@@ -1246,6 +1616,89 @@ async def panchang_info(query: str, context: dict = None) -> str:
 # ══════════════════════════════════════════════════════════════════
 
 SKILL_REGISTRY = [
+    # ── Flights ──────────────────────────────────────────────
+    {
+        "name": "flights",
+        "description": "Search flights between cities",
+        "keywords": ["flight", "fly", "airplane", "airport", "udaan",
+                      "mumbai to", "delhi to", "bangalore to", "chennai to",
+                      "flight book", "ticket book", "plane ticket", "hawa jahaaz"],
+        "vertical": "universal",
+        "execute": flight_search,
+    },
+    # ── Trains / IRCTC ───────────────────────────────────────
+    {
+        "name": "trains",
+        "description": "Indian Railways — PNR, train search, booking help",
+        "keywords": ["train", "railway", "irctc", "pnr", "rail", "station",
+                      "tatkal", "waiting list", "rac", "train ticket",
+                      "rajdhani", "shatabdi", "duronto", "garibrath"],
+        "vertical": "universal",
+        "execute": train_info,
+    },
+    # ── Indian Stocks ────────────────────────────────────────
+    {
+        "name": "indian_stocks",
+        "description": "Live NSE/BSE stock prices",
+        "keywords": ["stock", "share", "nifty", "sensex", "nse", "bse",
+                      "reliance", "tcs", "infosys", "hdfc", "icici", "sbi",
+                      "wipro", "itc", "adani", "tata motors", "maruti",
+                      "bajaj", "hcl", "titan", "kotak", "axis bank"],
+        "vertical": "universal",
+        "execute": indian_stocks,
+    },
+    # ── IFSC Lookup ──────────────────────────────────────────
+    {
+        "name": "ifsc",
+        "description": "Bank branch details from IFSC code",
+        "keywords": ["ifsc", "bank branch", "branch code"],
+        "vertical": "universal",
+        "execute": ifsc_lookup,
+    },
+    # ── Pincode ──────────────────────────────────────────────
+    {
+        "name": "pincode",
+        "description": "Area details from Indian pincode",
+        "keywords": ["pincode", "pin code", "postal code", "area code"],
+        "vertical": "universal",
+        "execute": pincode_lookup,
+    },
+    # ── EMI Calculator ───────────────────────────────────────
+    {
+        "name": "emi",
+        "description": "Loan EMI calculation",
+        "keywords": ["emi", "loan calculate", "loan emi", "home loan", "car loan",
+                      "personal loan", "emi kitna", "emi calculator"],
+        "vertical": "universal",
+        "execute": emi_calculator,
+    },
+    # ── BMI Calculator ───────────────────────────────────────
+    {
+        "name": "bmi",
+        "description": "Body Mass Index calculator",
+        "keywords": ["bmi", "body mass", "weight check", "mota", "patla",
+                      "overweight", "underweight"],
+        "vertical": "universal",
+        "execute": bmi_calculator,
+    },
+    # ── Age Calculator ───────────────────────────────────────
+    {
+        "name": "age",
+        "description": "Calculate age from date of birth",
+        "keywords": ["age calculate", "age calculator", "umar", "born on",
+                      "date of birth", "dob", "kitne saal"],
+        "vertical": "universal",
+        "execute": age_calculator,
+    },
+    # ── GST Calculator ───────────────────────────────────────
+    {
+        "name": "gst",
+        "description": "GST calculation on any amount",
+        "keywords": ["gst calculate", "gst on", "gst kitna", "cgst", "sgst",
+                      "gst amount", "tax calculate"],
+        "vertical": "universal",
+        "execute": gst_calculator,
+    },
     # ── Indian Spiritual ─────────────────────────────────────
     {
         "name": "panchang",
