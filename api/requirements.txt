@@ -11,12 +11,3 @@ cryptography>=41.0.0
 python-multipart>=0.0.6
 playwright>=1.40.0
 fpdf2>=2.7.0
-fli @ git+https://github.com/punitarani/fli.git
-deep-translator>=1.11.0
-yfinance>=0.2.0
-mftool>=3.0
-pyswisseph>=2.10
-PyJHora>=4.0
-geocoder>=1.38
-geopy>=2.0
-timezonefinder>=6.0
