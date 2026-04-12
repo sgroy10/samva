@@ -1198,6 +1198,35 @@ async def graha_sthiti(query: str, context: dict = None) -> str:
 # These are referenced here for the orchestrator's routing table.
 
 
+# ── Gold/Silver Rate (uses existing gold.py) ───────────────────
+async def gold_rate_skill(query: str, context: dict = None) -> str:
+    """Live gold/silver/platinum rates — calls the existing gold service."""
+    try:
+        from .gold import _fetch_prices
+        prices = await _fetch_prices()
+        if not prices or not prices.get("gold_24k"):
+            return "📊 Gold rate abhi fetch nahi ho raha. Thodi der mein try karo."
+
+        g24 = prices.get("gold_24k", 0)
+        g22 = prices.get("gold_22k", 0)
+        g18 = prices.get("gold_18k", 0)
+        silver = prices.get("silver_inr", 0)
+        platinum = prices.get("platinum_inr", 0)
+
+        lines = ["📊 *Live Gold & Silver Rates:*\n"]
+        lines.append(f"▸ Gold 24K: ₹{g24:,.0f}/gm")
+        lines.append(f"▸ Gold 22K: ₹{g22:,.0f}/gm")
+        lines.append(f"▸ Gold 18K: ₹{g18:,.0f}/gm")
+        if silver:
+            lines.append(f"▸ Silver: ₹{silver:,.0f}/gm")
+        if platinum:
+            lines.append(f"▸ Platinum: ₹{platinum:,.0f}/gm")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"📊 Gold rate fetch error: {str(e)[:50]}"
+
+
 # ══════════════════════════════════════════════════════════════════
 # NEW SKILLS — integrated from open-source GitHub repos
 # ══════════════════════════════════════════════════════════════════
@@ -1461,18 +1490,23 @@ async def indian_stocks(query: str, context: dict = None) -> str:
         volume = info.last_volume
         prev = info.previous_close
 
-        if price and prev:
-            change = round((price - prev) / prev * 100, 2)
-            arrow = "↑" if change > 0 else "↓"
-            return (
-                f"📈 *{symbol}:* ₹{price:,.2f} {arrow}{abs(change)}%\n"
-                f"High: ₹{day_high:,.2f} | Low: ₹{day_low:,.2f}\n"
-                f"Volume: {volume:,}\n"
-                f"Prev: ₹{prev:,.2f}\n\n"
-                f"Watchlist mein add karun?"
-            )
-    except Exception:
-        pass
+        if price:
+            lines = [f"📈 *{symbol}:* ₹{price:,.2f}"]
+            if prev:
+                change = round((price - prev) / prev * 100, 2)
+                arrow = "↑" if change > 0 else "↓"
+                lines[0] += f" {arrow}{abs(change)}%"
+            if day_high and day_low:
+                lines.append(f"High: ₹{day_high:,.2f} | Low: ₹{day_low:,.2f}")
+            if volume:
+                lines.append(f"Volume: {volume:,}")
+            if prev:
+                lines.append(f"Prev: ₹{prev:,.2f}")
+            lines.append("\nWatchlist mein add karun?")
+            return "\n".join(lines)
+    except Exception as e:
+        import logging
+        logging.getLogger("samva.skills").warning(f"yfinance error for {symbol}: {e}")
 
     return f"📈 {symbol}: Rate abhi fetch nahi ho raha. Market band ho sakta hai."
 
@@ -1948,23 +1982,38 @@ async def translate_text(query: str, context: dict = None) -> str:
     if not text or len(text) < 2:
         return ""
 
+    # Try deep_translator first, then httpx fallback
     try:
         from deep_translator import GoogleTranslator
         if to_hindi:
             result = GoogleTranslator(source='en', target='hi').translate(text)
-            return f"🔤 *Translation:*\n\n{text} → *{result}*"
         elif to_english:
             result = GoogleTranslator(source='hi', target='en').translate(text)
-            return f"🔤 *Translation:*\n\n{text} → *{result}*"
         else:
-            # Auto-detect and translate
             result = GoogleTranslator(source='auto', target='en').translate(text)
-            return f"🔤 *Translation:*\n\n{text} → *{result}*"
+        return f"🔤 *Translation:*\n\n{text} → *{result}*"
     except ImportError:
         pass
     except Exception:
         pass
-    return ""
+
+    # Fallback: use free translation API
+    try:
+        import httpx as hx
+        target = "hi" if to_hindi else "en"
+        source = "en" if to_hindi else "hi"
+        async with hx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"https://api.mymemory.translated.net/get?q={text}&langpair={source}|{target}"
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                translated = data.get("responseData", {}).get("translatedText", "")
+                if translated:
+                    return f"🔤 *Translation:*\n\n{text} → *{translated}*"
+    except Exception:
+        pass
+    return f"🔤 Translation abhi available nahi hai. Try: translate.google.com"
 
 
 # ── Air Quality Index (Indian cities) ──────────────────────────
@@ -2473,6 +2522,33 @@ SKILL_REGISTRY = [
         "vertical": "universal",
         "execute": train_info,
     },
+    # ── Gold/Silver Rate (calls existing gold.py service) ──
+    {
+        "name": "gold_rate",
+        "description": "Live gold, silver, platinum rates",
+        "keywords": ["gold rate", "sona", "sone ka", "gold price", "gold bhav",
+                      "silver rate", "chandi", "platinum rate", "sona kitne ka",
+                      "22k rate", "24k rate", "18k rate", "gold batao"],
+        "vertical": "universal",
+        "execute": gold_rate_skill,
+    },
+    # ── Finance (MF + Crypto BEFORE stocks — keyword priority) ─
+    {
+        "name": "mutual_fund",
+        "description": "Mutual fund NAV from AMFI/mftool",
+        "keywords": ["mutual fund", "nav check", "sip", "mf nav", "mutual fund nav",
+                      "fund nav", "fund ka nav", "fund return"],
+        "vertical": "universal",
+        "execute": mutual_fund,
+    },
+    {
+        "name": "crypto",
+        "description": "Cryptocurrency prices in INR",
+        "keywords": ["bitcoin", "btc", "ethereum", "eth", "crypto", "cryptocurrency",
+                      "dogecoin", "doge", "solana", "xrp", "ripple"],
+        "vertical": "universal",
+        "execute": crypto_price,
+    },
     # ── Indian Stocks ────────────────────────────────────────
     {
         "name": "indian_stocks",
@@ -2544,23 +2620,6 @@ SKILL_REGISTRY = [
         "keywords": ["qr code", "qr bana", "qr generate", "qr create"],
         "vertical": "universal",
         "execute": qr_generator,
-    },
-    # ── Finance (BEFORE stocks — priority for fund/crypto keywords) ─
-    {
-        "name": "mutual_fund",
-        "description": "Mutual fund NAV from AMFI",
-        "keywords": ["mutual fund", "nav check", "sip", "mf nav", "mutual fund nav",
-                      "fund nav", "fund ka nav", "fund return"],
-        "vertical": "universal",
-        "execute": mutual_fund,
-    },
-    {
-        "name": "crypto",
-        "description": "Cryptocurrency prices",
-        "keywords": ["bitcoin", "btc", "ethereum", "eth", "crypto", "cryptocurrency",
-                      "dogecoin", "doge", "solana", "xrp", "ripple"],
-        "vertical": "universal",
-        "execute": crypto_price,
     },
     # ── Cricket ──────────────────────────────────────────────
     {
