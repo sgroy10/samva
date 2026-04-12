@@ -1886,6 +1886,337 @@ async def crypto_price(query: str, context: dict = None) -> str:
     return ""
 
 
+# ── Cricket Live Scores ─────────────────────────────────────────
+async def cricket_score(query: str, context: dict = None) -> str:
+    """Live cricket scores from Cricbuzz."""
+    import httpx as hx
+    try:
+        async with hx.AsyncClient(timeout=10) as client:
+            resp = await client.get("https://cricbuzz-live.vercel.app/matches/live",
+                                    headers={"User-Agent": "Samva/1.0"})
+            if resp.status_code == 200:
+                data = resp.json()
+                matches = data if isinstance(data, list) else data.get("matches", data.get("data", []))
+                if matches:
+                    lines = ["🏏 *Live Cricket:*\n"]
+                    for m in matches[:3]:
+                        title = m.get("title", m.get("matchDesc", ""))
+                        team1 = m.get("team1", {})
+                        team2 = m.get("team2", {})
+                        t1_name = team1.get("name", team1.get("teamName", "")) if isinstance(team1, dict) else str(team1)
+                        t2_name = team2.get("name", team2.get("teamName", "")) if isinstance(team2, dict) else str(team2)
+                        status = m.get("status", m.get("matchStatus", ""))
+                        lines.append(f"▸ {t1_name} vs {t2_name}")
+                        if status:
+                            lines.append(f"  {status}")
+                    return "\n".join(lines)
+    except Exception:
+        pass
+    return "🏏 Live scores check kar rahi hoon... Cricbuzz pe dekho: cricbuzz.com"
+
+
+# ── Translation (Hindi ↔ English + Indian langs) ───────────────
+async def translate_text(query: str, context: dict = None) -> str:
+    """Translate text between Hindi, English, and Indian languages."""
+    import re
+    query_lower = query.lower()
+
+    # Extract: "translate X to Y" or "X ka hindi" or "hindi mein batao"
+    to_hindi = any(w in query_lower for w in ["hindi mein", "hindi me", "ka hindi", "to hindi"])
+    to_english = any(w in query_lower for w in ["english mein", "english me", "ka english", "to english",
+                                                  "meaning of", "matlab"])
+
+    # Extract the text to translate
+    text = re.sub(r'(translate|hindi mein|english mein|ka hindi|ka english|to hindi|to english|meaning of|matlab|batao)', '', query_lower).strip()
+    if not text or len(text) < 2:
+        return ""
+
+    try:
+        from deep_translator import GoogleTranslator
+        if to_hindi:
+            result = GoogleTranslator(source='en', target='hi').translate(text)
+            return f"🔤 *Translation:*\n\n{text} → *{result}*"
+        elif to_english:
+            result = GoogleTranslator(source='hi', target='en').translate(text)
+            return f"🔤 *Translation:*\n\n{text} → *{result}*"
+        else:
+            # Auto-detect and translate
+            result = GoogleTranslator(source='auto', target='en').translate(text)
+            return f"🔤 *Translation:*\n\n{text} → *{result}*"
+    except ImportError:
+        pass
+    except Exception:
+        pass
+    return ""
+
+
+# ── Air Quality Index (Indian cities) ──────────────────────────
+async def air_quality(query: str, context: dict = None) -> str:
+    """Get air quality index for Indian cities."""
+    import httpx as hx
+    import re
+
+    # Extract city
+    query_lower = query.lower()
+    city_coords = {
+        "delhi": (28.61, 77.23), "mumbai": (19.07, 72.88), "bangalore": (12.97, 77.59),
+        "chennai": (13.08, 80.27), "kolkata": (22.57, 88.36), "hyderabad": (17.38, 78.49),
+        "pune": (18.52, 73.85), "ahmedabad": (23.02, 72.57), "jaipur": (26.91, 75.79),
+        "lucknow": (26.85, 80.95), "noida": (28.57, 77.32), "gurgaon": (28.46, 77.03),
+    }
+
+    city = None
+    for c in city_coords:
+        if c in query_lower:
+            city = c
+            break
+
+    if not city:
+        return ""
+
+    lat, lon = city_coords[city]
+    try:
+        async with hx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&current=pm2_5,pm10,us_aqi"
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("current", {})
+                aqi = data.get("us_aqi", 0)
+                pm25 = data.get("pm2_5", 0)
+                pm10 = data.get("pm10", 0)
+
+                if aqi <= 50: level, emoji = "Good", "🟢"
+                elif aqi <= 100: level, emoji = "Moderate", "🟡"
+                elif aqi <= 150: level, emoji = "Unhealthy (Sensitive)", "🟠"
+                elif aqi <= 200: level, emoji = "Unhealthy", "🔴"
+                else: level, emoji = "Hazardous", "🟣"
+
+                return (
+                    f"🌬️ *Air Quality — {city.title()}:*\n\n"
+                    f"AQI: {aqi} {emoji} ({level})\n"
+                    f"PM2.5: {pm25} µg/m³\n"
+                    f"PM10: {pm10} µg/m³\n\n"
+                    f"{'Mask lagao bahar jaate waqt!' if aqi > 100 else 'Fresh air hai, enjoy!'}"
+                )
+    except Exception:
+        pass
+    return ""
+
+
+# ── Indian Holidays ────────────────────────────────────────────
+async def indian_holiday(query: str, context: dict = None) -> str:
+    """Check upcoming Indian holidays."""
+    from datetime import date, timedelta
+
+    # Hardcoded 2026 holidays (reliable, no API needed)
+    holidays_2026 = [
+        (date(2026, 1, 14), "Makar Sankranti / Pongal"),
+        (date(2026, 1, 26), "Republic Day"),
+        (date(2026, 3, 10), "Maha Shivaratri"),
+        (date(2026, 3, 17), "Holi"),
+        (date(2026, 3, 31), "Eid ul-Fitr"),
+        (date(2026, 4, 2), "Good Friday"),
+        (date(2026, 4, 6), "Ram Navami"),
+        (date(2026, 4, 14), "Ambedkar Jayanti / Baisakhi"),
+        (date(2026, 5, 1), "May Day"),
+        (date(2026, 5, 26), "Buddha Purnima"),
+        (date(2026, 6, 7), "Bakrid / Eid ul-Adha"),
+        (date(2026, 7, 7), "Muharram"),
+        (date(2026, 7, 17), "Guru Purnima"),
+        (date(2026, 8, 15), "Independence Day"),
+        (date(2026, 8, 19), "Janmashtami"),
+        (date(2026, 8, 29), "Raksha Bandhan"),
+        (date(2026, 9, 5), "Milad un-Nabi"),
+        (date(2026, 9, 7), "Ganesh Chaturthi"),
+        (date(2026, 10, 2), "Gandhi Jayanti"),
+        (date(2026, 10, 20), "Dussehra"),
+        (date(2026, 11, 1), "Diwali"),
+        (date(2026, 11, 15), "Guru Nanak Jayanti"),
+        (date(2026, 12, 25), "Christmas"),
+    ]
+
+    today = date.today()
+    upcoming = [(d, name) for d, name in holidays_2026 if d >= today][:5]
+
+    if not upcoming:
+        return "📅 Is saal ke holidays khatam. Naye saal ka intezaar!"
+
+    lines = ["📅 *Upcoming Indian Holidays:*\n"]
+    for d, name in upcoming:
+        days_left = (d - today).days
+        lines.append(f"▸ {d.strftime('%d %b')} — {name} ({days_left} din)")
+
+    return "\n".join(lines)
+
+
+# ── Income Tax Calculator (India) ──────────────────────────────
+async def income_tax(query: str, context: dict = None) -> str:
+    """Calculate Indian income tax under new regime."""
+    import re
+
+    numbers = re.findall(r'[\d,.]+', query.replace(',', ''))
+    if not numbers:
+        return ""
+
+    income = float(numbers[0])
+    if income < 10000:
+        income *= 100000  # Convert lakhs to rupees
+
+    if income < 300000:
+        return f"💰 Income: ₹{income:,.0f}\nTax: *₹0* (below ₹3L exempt)\n\nNo tax! 🎉"
+
+    # New regime 2024-25 slabs
+    tax = 0
+    slabs = [
+        (300000, 0), (600000, 0.05), (900000, 0.10),
+        (1200000, 0.15), (1500000, 0.20), (float('inf'), 0.30),
+    ]
+
+    remaining = income
+    prev = 0
+    breakdown = []
+    for limit, rate in slabs:
+        if remaining <= 0:
+            break
+        slab_amount = min(remaining, limit - prev)
+        slab_tax = slab_amount * rate
+        tax += slab_tax
+        if rate > 0:
+            breakdown.append(f"  ₹{prev:,.0f}-{min(limit, income):,.0f} @ {int(rate*100)}%: ₹{slab_tax:,.0f}")
+        remaining -= slab_amount
+        prev = limit
+
+    cess = tax * 0.04
+    total = tax + cess
+
+    result = (
+        f"💰 *Income Tax Calculator (New Regime):*\n\n"
+        f"Income: ₹{income:,.0f}\n\n"
+        f"*Slabs:*\n"
+        + "\n".join(breakdown) + "\n\n"
+        f"Tax: ₹{tax:,.0f}\n"
+        f"Cess (4%): ₹{cess:,.0f}\n"
+        f"*Total Tax: ₹{total:,.0f}*"
+    )
+    return result
+
+
+# ── Bhagavad Gita Shloka ──────────────────────────────────────
+async def gita_shloka(query: str, context: dict = None) -> str:
+    """Get a Bhagavad Gita shloka with translation."""
+    import httpx as hx
+    import random
+
+    chapter = random.randint(1, 18)
+    verse = random.randint(1, 20)
+
+    try:
+        async with hx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"https://bhagavadgitaapi.in/slok/{chapter}/{verse}")
+            if resp.status_code == 200:
+                data = resp.json()
+                sanskrit = data.get("slok", "")
+                hindi = data.get("tej", {}).get("ht", "") if isinstance(data.get("tej"), dict) else ""
+                english = data.get("spicer", {}).get("et", "") if isinstance(data.get("spicer"), dict) else ""
+
+                return (
+                    f"🙏 *Bhagavad Gita — Chapter {chapter}, Verse {verse}:*\n\n"
+                    f"_{sanskrit[:200]}_\n\n"
+                    f"*Hindi:* {hindi[:200]}\n"
+                    f"*English:* {english[:200]}"
+                )
+    except Exception:
+        pass
+    return "🙏 Gita shloka abhi fetch nahi ho raha. 'Karmanye vadhikaraste ma phaleshu kadachan' — Bhagavad Gita"
+
+
+# ── Wikipedia Summary ──────────────────────────────────────────
+async def wiki_summary(query: str, context: dict = None) -> str:
+    """Get Wikipedia article summary."""
+    import httpx as hx
+    import re
+
+    # Extract topic
+    topic = re.sub(r'(wikipedia|wiki|about|tell me about|kya hai|ke baare mein|batao)', '', query.lower()).strip()
+    if not topic or len(topic) < 3:
+        return ""
+
+    topic_encoded = topic.replace(' ', '_')
+    try:
+        async with hx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"https://en.wikipedia.org/api/rest_v1/page/summary/{topic_encoded}")
+            if resp.status_code == 200:
+                data = resp.json()
+                title = data.get("title", topic)
+                extract = data.get("extract", "")[:400]
+                return f"📖 *{title}:*\n\n{extract}"
+    except Exception:
+        pass
+    return ""
+
+
+# ── FD/RD Calculator ──────────────────────────────────────────
+async def fd_calculator(query: str, context: dict = None) -> str:
+    """Calculate Fixed Deposit returns."""
+    import re
+
+    numbers = re.findall(r'[\d,.]+', query.replace(',', ''))
+    if len(numbers) < 2:
+        return ""
+
+    amount = float(numbers[0])
+    rate = float(numbers[1])
+    years = float(numbers[2]) if len(numbers) > 2 else 1
+
+    if amount < 100:
+        return ""
+
+    # Quarterly compounding (most Indian banks)
+    n = 4  # quarters per year
+    maturity = amount * (1 + rate / (n * 100)) ** (n * years)
+    interest = maturity - amount
+
+    return (
+        f"🏦 *FD Calculator:*\n\n"
+        f"Principal: ₹{amount:,.0f}\n"
+        f"Rate: {rate}% p.a.\n"
+        f"Tenure: {years:.0f} year(s)\n\n"
+        f"Interest: ₹{interest:,.0f}\n"
+        f"*Maturity: ₹{maturity:,.0f}*"
+    )
+
+
+# ── Phone Number Validator ────────────────────────────────────
+async def phone_validator(query: str, context: dict = None) -> str:
+    """Validate and identify Indian phone numbers."""
+    import re
+
+    # Find 10-digit Indian number
+    phone_match = re.search(r'(?:\+91|91|0)?(\d{10})', query.replace(' ', ''))
+    if not phone_match:
+        return ""
+
+    number = phone_match.group(1)
+    first4 = number[:4]
+
+    # Indian mobile operators by prefix (approximate)
+    operators = {
+        "6": "Jio/Airtel/Vi", "7": "Airtel/Jio/BSNL",
+        "8": "Airtel/Jio/Vi", "9": "Airtel/Vi/BSNL",
+    }
+
+    op = operators.get(number[0], "Unknown")
+    is_mobile = number[0] in "6789"
+
+    return (
+        f"📞 *Phone: +91 {number[:5]} {number[5:]}*\n\n"
+        f"Type: {'Mobile' if is_mobile else 'Landline'}\n"
+        f"Operator: {op} (approx)\n"
+        f"Valid: {'✅' if len(number) == 10 and is_mobile else '⚠️ Check'}"
+    )
+
+
 # ── Panchang / Rahu Kaal (code-based, not LLM) ─────────────────
 async def panchang_info(query: str, context: dict = None) -> str:
     """Indian panchang information — Rahu Kaal, Tithi etc.
@@ -2059,6 +2390,87 @@ SKILL_REGISTRY = [
                       "dogecoin", "doge", "solana", "xrp", "ripple"],
         "vertical": "universal",
         "execute": crypto_price,
+    },
+    # ── Cricket ──────────────────────────────────────────────
+    {
+        "name": "cricket",
+        "description": "Live cricket scores",
+        "keywords": ["cricket", "score", "ipl", "match", "batting", "bowling",
+                      "cricket score", "live score", "india match"],
+        "vertical": "universal",
+        "execute": cricket_score,
+    },
+    # ── Translation ──────────────────────────────────────────
+    {
+        "name": "translate",
+        "description": "Translate Hindi ↔ English + Indian languages",
+        "keywords": ["translate", "translation", "hindi mein", "english mein",
+                      "ka hindi", "ka english", "matlab kya", "meaning of"],
+        "vertical": "universal",
+        "execute": translate_text,
+    },
+    # ── Air Quality ──────────────────────────────────────────
+    {
+        "name": "aqi",
+        "description": "Air quality index for Indian cities",
+        "keywords": ["air quality", "aqi", "pollution", "pradushan", "pm2.5",
+                      "hawa kaisi", "mask lagana"],
+        "vertical": "universal",
+        "execute": air_quality,
+    },
+    # ── Holidays ─────────────────────────────────────────────
+    {
+        "name": "holidays",
+        "description": "Upcoming Indian holidays",
+        "keywords": ["holiday", "chutti", "bank holiday", "gazetted holiday",
+                      "next holiday", "upcoming holiday", "public holiday"],
+        "vertical": "universal",
+        "execute": indian_holiday,
+    },
+    # ── Income Tax ───────────────────────────────────────────
+    {
+        "name": "income_tax",
+        "description": "Indian income tax calculator (new regime)",
+        "keywords": ["income tax", "tax calculate", "tax kitna", "tax slab",
+                      "income par tax", "salary tax"],
+        "vertical": "universal",
+        "execute": income_tax,
+    },
+    # ── Bhagavad Gita ────────────────────────────────────────
+    {
+        "name": "gita",
+        "description": "Random Bhagavad Gita shloka with Hindi/English translation",
+        "keywords": ["gita", "bhagavad", "shloka", "geeta", "krishna", "arjun",
+                      "bhagwan", "spiritual"],
+        "vertical": "universal",
+        "execute": gita_shloka,
+    },
+    # ── Wikipedia ────────────────────────────────────────────
+    {
+        "name": "wikipedia",
+        "description": "Wikipedia article summaries",
+        "keywords": ["wikipedia", "wiki", "ke baare mein batao", "kya hai yeh",
+                      "tell me about", "who is", "what is"],
+        "vertical": "universal",
+        "execute": wiki_summary,
+    },
+    # ── FD Calculator ────────────────────────────────────────
+    {
+        "name": "fd_calc",
+        "description": "Fixed Deposit returns calculator",
+        "keywords": ["fd calculate", "fixed deposit", "fd kitna", "fd returns",
+                      "fd interest", "fd maturity"],
+        "vertical": "universal",
+        "execute": fd_calculator,
+    },
+    # ── Phone Validator ──────────────────────────────────────
+    {
+        "name": "phone",
+        "description": "Validate Indian phone numbers",
+        "keywords": ["phone number", "mobile number", "phone check", "number validate",
+                      "kis ka number", "operator check"],
+        "vertical": "universal",
+        "execute": phone_validator,
     },
     # ── Indian Spiritual ─────────────────────────────────────
     {
