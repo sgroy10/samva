@@ -20,18 +20,32 @@ from ..models import AgentSoul, UserMemory
 logger = logging.getLogger("samva.personality")
 IST = pytz.timezone("Asia/Kolkata")
 
-# Anti-spam: track what's been sent today per user
-_nudge_sent = {}  # (user_id, date, type) -> True
+# Anti-spam: track what's been sent per user
+# key = (user_id, period_key, type) -> True
+_nudge_sent = {}
 
 
-def _already_sent(user_id: str, nudge_type: str) -> bool:
-    today = datetime.now(IST).strftime("%Y-%m-%d")
-    key = (user_id, today, nudge_type)
+def _already_sent(user_id: str, nudge_type: str, period: str = "day") -> bool:
+    """Check if nudge already sent in this period.
+    period: 'day' = once/day, '4h' = once per 4-hour block, '2h' = once per 2-hour block
+    """
+    now = datetime.now(IST)
+    if period == "day":
+        period_key = now.strftime("%Y-%m-%d")
+    elif period == "4h":
+        period_key = now.strftime("%Y-%m-%d") + f"-{now.hour // 4}"
+    elif period == "2h":
+        period_key = now.strftime("%Y-%m-%d") + f"-{now.hour // 2}"
+    else:
+        period_key = now.strftime("%Y-%m-%d")
+
+    key = (user_id, period_key, nudge_type)
     if key in _nudge_sent:
         return True
     _nudge_sent[key] = True
-    # Clean old entries
-    old = [k for k in _nudge_sent if k[1] != today]
+    # Clean old entries (anything not from today)
+    today = now.strftime("%Y-%m-%d")
+    old = [k for k in _nudge_sent if not k[1].startswith(today)]
     for k in old:
         del _nudge_sent[k]
     return False
@@ -173,6 +187,70 @@ async def get_proactive_nudges(db: AsyncSession, user_id: str) -> list[str]:
         name, msg = FESTIVALS[month_day]
         nudges.append(msg)
 
+    # ── Mid-Morning Check (9:30-12:00) — fill the gap ──────
+    if 9 <= hour <= 11 and hour != 9 and not _already_sent(user_id, "midmorning"):
+        # Only if no morning greeting was sent or it's past 9:30
+        if hour >= 10 or (hour == 9 and minute >= 30):
+            from .inbox import _count_unreplied
+            unreplied = await _count_unreplied(db, user_id)
+            if unreplied > 0:
+                if is_hindi:
+                    nudges.append(f"📬 {unreplied} messages pending hain. Bolo 'messages dikhao' to review.")
+                else:
+                    nudges.append(f"📬 {unreplied} messages waiting for your reply. Say 'check messages'.")
+
+    # ── Early Afternoon (1:30-3:00 PM) — fill the gap ─────
+    if (hour == 13 and minute > 30) or hour == 14:
+        if not _already_sent(user_id, "early_afternoon"):
+            if is_hindi:
+                msgs = [
+                    "Post-lunch productivity time! 💪 Koi task pending hai?",
+                    "Dopahar ki chai pi lo ☕ aur kaam shuru! Kuch help chahiye?",
+                ]
+            else:
+                msgs = [
+                    "Post-lunch productivity boost! 💪 Need help with anything?",
+                    "Afternoon check — any tasks I can help with? ☕",
+                ]
+            nudges.append(random.choice(msgs))
+
+    # ── Late Afternoon (3:30-6:00 PM) — fill the gap ──────
+    if (hour == 15 and minute > 30) or (16 <= hour <= 17):
+        if not _already_sent(user_id, "late_afternoon"):
+            from .inbox import _count_unreplied
+            unreplied = await _count_unreplied(db, user_id)
+            if unreplied > 2:
+                if is_hindi:
+                    nudges.append(f"⚡ {unreplied} messages abhi bhi pending! Kal pe mat chhodo — bolo 'messages dikhao'.")
+                else:
+                    nudges.append(f"⚡ {unreplied} messages still pending! Don't push to tomorrow — say 'check messages'.")
+            else:
+                if is_hindi:
+                    msgs = [
+                        "Shaam hone wali hai! Koi kaam pending? Reminder set karoon? ⏰",
+                        "4 baj gaye boss! Aaj kya achieve kiya? Batao! 💪",
+                    ]
+                else:
+                    msgs = [
+                        "Afternoon's flying by! Anything pending I can help with? ⏰",
+                        "Quick check — need any reminders set for tomorrow?",
+                    ]
+                nudges.append(random.choice(msgs))
+
+    # ── Post-Evening (7:00-9:30 PM) — fill the gap ────────
+    if 19 < hour <= 21 and not _already_sent(user_id, "post_evening"):
+        if is_hindi:
+            msgs = [
+                "Dinner ho gaya? 🍽️ Kal ke liye koi plan banana hai?",
+                "Aaj bohot kaam kiya! 😊 Kuch relaxing karo ab.",
+            ]
+        else:
+            msgs = [
+                "Had dinner? 🍽️ Want to plan anything for tomorrow?",
+                "You've been busy today! Time to unwind 😊",
+            ]
+        nudges.append(random.choice(msgs))
+
     # ── Goal Check-in (if user has active goal) ───────────
     if not _already_sent(user_id, "goal_checkin"):
         try:
@@ -183,15 +261,32 @@ async def get_proactive_nudges(db: AsyncSession, user_id: str) -> list[str]:
         except Exception:
             pass
 
-    # ── Smart Context-Aware Suggestions ────────────────────
+    # ── Smart Context-Aware Suggestions (every 4 hours) ───
     # These are the "magical" proactive messages that make Sam feel alive
-    if not _already_sent(user_id, "smart_suggestion"):
+    if not _already_sent(user_id, "smart_suggestion", period="4h"):
         try:
             smart = await _generate_smart_suggestion(db, user_id, soul, is_hindi)
             if smart:
                 nudges.append(smart)
         except Exception:
             pass  # Never block on smart suggestions
+
+    # ── Fallback: If NOTHING triggered, send a gentle check-in ──
+    if not nudges and not _already_sent(user_id, "fallback_checkin", period="2h"):
+        if 8 <= hour <= 22:  # Only during waking hours
+            if is_hindi:
+                msgs = [
+                    "Sab theek? Main yahin hoon agar kuch chahiye toh 🙂",
+                    "Koi kaam ho toh batao — main ready hoon! 💪",
+                    "Bolo bolo, kya chal raha hai? 😊",
+                ]
+            else:
+                msgs = [
+                    "Just checking in — need anything? I'm here 🙂",
+                    "Hey! Anything I can help with? 💪",
+                    "How's it going? Let me know if you need anything 😊",
+                ]
+            nudges.append(random.choice(msgs))
 
     return nudges
 
@@ -224,14 +319,15 @@ async def _generate_smart_suggestion(db: AsyncSession, user_id: str, soul, is_hi
                     return f"Hey, I noted last night — '{diary.value[:80]}...' Any update? 🤔"
 
     # 2. Check for unreplied important messages (>24h)
-    cutoff_24h = datetime.utcnow() - timedelta(hours=24)  # Naive UTC to match DB
+    import time
+    cutoff_ts = int(time.time()) - 86400  # Unix timestamp 24h ago
     unreplied_result = await db.execute(
         select(InboxMessage)
         .where(
             InboxMessage.user_id == user_id,
             InboxMessage.from_me == False,
             InboxMessage.replied == False,
-            InboxMessage.msg_timestamp >= cutoff_24h,
+            InboxMessage.msg_timestamp >= cutoff_ts,
         )
         .order_by(InboxMessage.msg_timestamp.desc())
         .limit(3)
@@ -255,7 +351,9 @@ async def _generate_smart_suggestion(db: AsyncSession, user_id: str, soul, is_hi
     )
     last_msg = last_msg_result.scalar_one_or_none()
     if last_msg and last_msg.created_at:
-        days_silent = (now - last_msg.created_at.replace(tzinfo=IST)).days
+        # DB stores naive UTC; localize to UTC first, then compare with IST now
+        last_utc = pytz.utc.localize(last_msg.created_at)
+        days_silent = (now - last_utc.astimezone(IST)).days
         if days_silent >= 2:
             if is_hindi:
                 return f"Hey! {days_silent} din ho gaye baat nahi hui. Sab theek? Main yahin hoon 🤗"
