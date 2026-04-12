@@ -781,6 +781,7 @@ async def handle_chat_intelligence(db: AsyncSession = Depends(get_db)):
     """Every 15 min — analyze inbox messages, detect urgency, flag important stuff.
     This is what makes Sam INTELLIGENT about your WhatsApp life."""
     from .services.chat_intelligence import analyze_new_messages, get_undelivered_insights, detect_proactive_context
+    from .services.life_observer import observe_life
     result_list = await db.execute(select(User).where(User.status == "active"))
     users = result_list.scalars().all()
     notifications = []
@@ -799,6 +800,11 @@ async def handle_chat_intelligence(db: AsyncSession = Depends(get_db)):
             # 3. Proactive context detection (restaurant, travel, delivery, etc.)
             proactive = await detect_proactive_context(db, user.id)
             for msg in proactive:
+                notifications.append({"user_id": user.id, "message": msg})
+
+            # 4. Life Observer — spending, food, relationships, subscriptions
+            life_alerts = await observe_life(db, user.id)
+            for msg in life_alerts:
                 notifications.append({"user_id": user.id, "message": msg})
 
         except Exception as e:
