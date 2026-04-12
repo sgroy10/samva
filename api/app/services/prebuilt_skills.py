@@ -1203,15 +1203,16 @@ async def graha_sthiti(query: str, context: dict = None) -> str:
 # ══════════════════════════════════════════════════════════════════
 
 
-# ── Flight Search (via Google Flights / fli approach) ───────────
+# ── Flight Search (REAL Google Flights via fli library) ─────────
 async def flight_search(query: str, context: dict = None) -> str:
-    """Search flights. Uses Skyscanner API for reliability."""
-    import httpx as hx
+    """Search REAL flights using Google Flights via fli library.
+    Returns actual prices, airlines, times — not just links."""
     import re
+    from datetime import date, datetime, timedelta
 
-    # Extract city pairs from query
     query_lower = query.lower()
-    # Common patterns: "mumbai to delhi", "mum-del", "flight from X to Y"
+
+    # City to IATA code mapping
     city_codes = {
         "mumbai": "BOM", "delhi": "DEL", "bangalore": "BLR", "bengaluru": "BLR",
         "chennai": "MAA", "kolkata": "CCU", "hyderabad": "HYD", "pune": "PNQ",
@@ -1219,37 +1220,110 @@ async def flight_search(query: str, context: dict = None) -> str:
         "kochi": "COK", "guwahati": "GAU", "chandigarh": "IXC", "srinagar": "SXR",
         "varanasi": "VNS", "indore": "IDR", "bhopal": "BHO", "patna": "PAT",
         "dubai": "DXB", "singapore": "SIN", "bangkok": "BKK", "london": "LHR",
-        "new york": "JFK", "toronto": "YYZ",
+        "new york": "JFK", "toronto": "YYZ", "doha": "DOH", "sharjah": "SHJ",
     }
 
+    # Extract cities
     from_city = ""
     to_city = ""
-    for city, code in city_codes.items():
+    for city in city_codes:
         if city in query_lower:
             if not from_city:
                 from_city = city
             elif not to_city:
                 to_city = city
 
-    if from_city and to_city:
-        from_code = city_codes.get(from_city, from_city.upper()[:3])
-        to_code = city_codes.get(to_city, to_city.upper()[:3])
-        return (
-            f"✈️ *{from_city.title()} → {to_city.title()} Flights:*\n\n"
-            f"Check these for best prices:\n"
-            f"▸ Google Flights: google.com/flights (most accurate)\n"
-            f"▸ MakeMyTrip: makemytrip.com\n"
-            f"▸ Cleartrip: cleartrip.com\n"
-            f"▸ Ixigo: ixigo.com\n\n"
-            f"💡 *Tips:*\n"
-            f"- Book 2-3 weeks in advance for best rates\n"
-            f"- Tuesday/Wednesday flights are cheapest\n"
-            f"- Compare {from_code}-{to_code} across all platforms\n\n"
-            f"Kab jaana hai? Date batao toh main aur help karungi!"
+    if not (from_city and to_city):
+        if from_city or to_city:
+            return "✈️ Dono cities batao — kahan se kahan?\nExample: 'Mumbai to Delhi flight 20 April'"
+        return ""
+
+    from_code = city_codes[from_city]
+    to_code = city_codes[to_city]
+
+    # Extract date (default: 7 days from now)
+    travel_date = date.today() + timedelta(days=7)
+    date_match = re.search(r'(\d{1,2})\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|april|march|june|july)', query_lower)
+    if date_match:
+        day = int(date_match.group(1))
+        month_str = date_match.group(2)[:3]
+        months = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+                  "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
+        month = months.get(month_str, date.today().month)
+        year = date.today().year
+        if month < date.today().month:
+            year += 1
+        try:
+            travel_date = date(year, month, day)
+        except ValueError:
+            pass
+
+    # Search using fli
+    try:
+        from fli.search import SearchFlights
+        from fli.models.google_flights.flights import FlightSearchFilters
+        from fli.models.google_flights.base import FlightSegment, PassengerInfo
+        from fli.models.airport import Airport
+
+        dep_airport = getattr(Airport, from_code, None)
+        arr_airport = getattr(Airport, to_code, None)
+        if not dep_airport or not arr_airport:
+            return f"✈️ Airport code {from_code} or {to_code} not found"
+
+        filters = FlightSearchFilters(
+            passenger_info=PassengerInfo(adults=1),
+            flight_segments=[
+                FlightSegment(
+                    departure_airport=[[dep_airport, 0]],
+                    arrival_airport=[[arr_airport, 0]],
+                    travel_date=travel_date.isoformat(),
+                )
+            ],
         )
-    elif from_city or to_city:
-        return f"✈️ Flight search ke liye dono cities batao — kahan se kahan?\nExample: 'Mumbai to Delhi flight'"
-    return ""
+
+        sf = SearchFlights()
+        results = sf.search(filters, top_n=5)
+
+        if not results:
+            return f"✈️ {from_city.title()} → {to_city.title()} ({travel_date.strftime('%d %b')}): No flights found"
+
+        # Format results
+        lines = [f"✈️ *{from_city.title()} → {to_city.title()}* ({travel_date.strftime('%d %b %Y')}):\n"]
+
+        cheapest = None
+        for i, flight in enumerate(results[:5]):
+            if flight.stops == 0:  # Prefer non-stop
+                leg = flight.legs[0]
+                airline = leg.airline.value if hasattr(leg.airline, 'value') else str(leg.airline)
+                dep_time = leg.departure_datetime.strftime("%H:%M") if leg.departure_datetime else "?"
+                arr_time = leg.arrival_datetime.strftime("%H:%M") if leg.arrival_datetime else "?"
+                duration_h = flight.duration // 60
+                duration_m = flight.duration % 60
+                price = int(flight.price)
+
+                if not cheapest or price < cheapest:
+                    cheapest = price
+
+                star = " ⭐" if price == cheapest else ""
+                lines.append(
+                    f"▸ {airline} {leg.flight_number} | {dep_time}→{arr_time} | "
+                    f"₹{price:,} | {duration_h}h{duration_m}m{star}"
+                )
+
+        if cheapest:
+            lines.append(f"\n💡 Cheapest non-stop: ₹{cheapest:,}")
+            lines.append("Book karun? Ya aur dates check karni hain?")
+
+        return "\n".join(lines)
+
+    except ImportError:
+        return (
+            f"✈️ *{from_city.title()} → {to_city.title()} ({travel_date.strftime('%d %b')}):*\n\n"
+            f"Check: google.com/flights, makemytrip.com, cleartrip.com\n"
+            f"💡 Book 2-3 weeks advance for best rates!"
+        )
+    except Exception as e:
+        return f"✈️ Flight search error: {str(e)[:100]}. Try google.com/flights"
 
 
 # ── Train / IRCTC (PNR + availability) ──────────────────────────

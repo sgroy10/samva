@@ -11,3 +11,4 @@ cryptography>=41.0.0
 python-multipart>=0.0.6
 playwright>=1.40.0
 fpdf2>=2.7.0
+fli @ git+https://github.com/punitarani/fli.git
