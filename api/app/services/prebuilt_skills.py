@@ -1892,12 +1892,12 @@ SKILL_REGISTRY = [
         "vertical": "universal",
         "execute": qr_generator,
     },
-    # ── Finance ──────────────────────────────────────────────
+    # ── Finance (BEFORE stocks — priority for fund/crypto keywords) ─
     {
         "name": "mutual_fund",
         "description": "Mutual fund NAV from AMFI",
-        "keywords": ["mutual fund", "nav", "sip", "mf", "mutual fund nav",
-                      "sbi fund", "hdfc fund", "icici fund", "axis fund"],
+        "keywords": ["mutual fund", "nav check", "sip", "mf nav", "mutual fund nav",
+                      "fund nav", "fund ka nav", "fund return"],
         "vertical": "universal",
         "execute": mutual_fund,
     },
