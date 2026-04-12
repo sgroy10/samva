@@ -2147,7 +2147,10 @@ async def wiki_summary(query: str, context: dict = None) -> str:
     topic_encoded = urllib.parse.quote(topic.replace(' ', '_'))
     try:
         async with hx.AsyncClient(timeout=10, follow_redirects=True) as client:
-            resp = await client.get(f"https://en.wikipedia.org/api/rest_v1/page/summary/{topic_encoded}")
+            resp = await client.get(
+                f"https://en.wikipedia.org/api/rest_v1/page/summary/{topic_encoded}",
+                headers={"User-Agent": "Samva/1.0 (https://samva.in; sgroy10@gmail.com) WhatsApp-AI-Assistant"}
+            )
             if resp.status_code == 200:
                 data = resp.json()
                 title = data.get("title", topic)
