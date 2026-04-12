@@ -204,8 +204,17 @@ async def build_full_context(db: AsyncSession, user_id: str, user, soul) -> str:
     except Exception:
         pass
 
+    # Learned behaviors from Hermes-style skill learner
+    learned_text = ""
+    try:
+        from .skill_learner import get_learned_context
+        learned_text = await get_learned_context(db, user_id)
+    except Exception:
+        pass
+
     return f"""{core}
 
 {working}
 {diary_text}
-{feedback_text}"""
+{feedback_text}
+{learned_text}"""

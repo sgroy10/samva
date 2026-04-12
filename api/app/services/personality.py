@@ -155,6 +155,16 @@ async def get_proactive_nudges(db: AsyncSession, user_id: str) -> list[str]:
         name, msg = FESTIVALS[month_day]
         nudges.append(msg)
 
+    # ── Goal Check-in (if user has active goal) ───────────
+    if not _already_sent(user_id, "goal_checkin"):
+        try:
+            from .goals import check_goal_progress
+            goal_nudge = await check_goal_progress(db, user_id)
+            if goal_nudge:
+                nudges.append(goal_nudge)
+        except Exception:
+            pass
+
     # ── Smart Context-Aware Suggestions ────────────────────
     # These are the "magical" proactive messages that make Sam feel alive
     if not _already_sent(user_id, "smart_suggestion"):

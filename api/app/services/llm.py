@@ -168,20 +168,40 @@ async def _gemini_tts(clean: str, user_id: str = "", voice_language: str = "auto
         has_hindi_words = any(w in clean.lower() for w in ["hai", "hoon", "karo", "hain", "nahi", "aaj", "bhai", "yaar", "ji"])
         voice = "Kore" if (has_hindi or has_hindi_words) else "Puck"
 
+    # Detect emotion from text content for voice personality
+    text_lower = clean.lower()
+    emotion = "warm"  # default
+    if any(w in text_lower for w in ["congratulations", "amazing", "great", "yay", "maza", "badhiya", "🎉", "💪"]):
+        emotion = "excited"
+    elif any(w in text_lower for w in ["sorry", "sad", "miss", "tough", "difficult", "mushkil", "😔"]):
+        emotion = "empathetic"
+    elif any(w in text_lower for w in ["urgent", "emergency", "warning", "alert", "🚨", "⚠️"]):
+        emotion = "serious"
+    elif any(w in text_lower for w in ["good morning", "good night", "morning", "subah"]):
+        emotion = "cheerful"
+
+    emotion_instruction = {
+        "warm": "Be warm, caring, and natural.",
+        "excited": "Be enthusiastic and celebratory! Show genuine excitement in your voice.",
+        "empathetic": "Be gentle, caring, and understanding. Speak softly with concern.",
+        "serious": "Be clear, direct, and urgent. This is important information.",
+        "cheerful": "Be bright, energetic, and uplifting. Start the day with positivity.",
+    }
+
     # Language-aware prompt for natural Indian delivery
     if voice_language in ("hindi", "hinglish", "auto") or voice == "Kore":
         speak_instruction = (
             "You are Sam, a warm Indian personal assistant. "
             "Speak naturally in Hinglish (Hindi-English mix) like a friendly colleague in Mumbai or Delhi would. "
             "Pronounce Indian names correctly — Sandeep, Rahul, Priya, Amit etc. with proper Hindi pronunciation. "
-            "Say rupees as 'rupaye', use natural Hindi intonation. Be warm and caring, not robotic."
+            f"Say rupees as 'rupaye', use natural Hindi intonation. {emotion_instruction[emotion]}"
         )
     else:
         speak_instruction = (
             "You are Sam, a warm Indian personal assistant. "
             "Speak in clear Indian English — the kind spoken by educated Indians in Mumbai or Bangalore. "
             "Pronounce Indian names correctly with Hindi/local pronunciation. "
-            "Be warm, friendly, conversational — not formal or robotic."
+            f"{emotion_instruction[emotion]}"
         )
 
     try:

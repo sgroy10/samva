@@ -427,6 +427,15 @@ async def run_pattern_engine(db: AsyncSession, user_id: str) -> dict:
     proposals = await get_pending_proposals(db, user_id)
     behavior_messages = await execute_active_behaviors(db, user_id)
 
+    # Hermes-style skill learning
+    try:
+        from .skill_learner import learn_from_interactions
+        learned = await learn_from_interactions(db, user_id)
+        if learned:
+            logger.info(f"[{user_id}] Skill learner: {learned}")
+    except Exception as e:
+        logger.error(f"[{user_id}] Skill learner error: {e}")
+
     return {
         "detected": len(detected),
         "proposals": proposals,
