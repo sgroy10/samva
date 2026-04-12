@@ -1575,6 +1575,166 @@ async def gst_calculator(query: str, context: dict = None) -> str:
     )
 
 
+# ── Hindi Jokes ─────────────────────────────────────────────────
+async def hindi_joke(query: str, context: dict = None) -> str:
+    """Get a random Hindi joke."""
+    import httpx as hx
+    try:
+        async with hx.AsyncClient(timeout=8) as client:
+            resp = await client.get("https://hindi-jokes-api.onrender.com/jokes?api_key=93ecab36e0")
+            if resp.status_code == 200:
+                data = resp.json()
+                joke = data.get("jokeContent", data.get("joke", ""))
+                if joke:
+                    return f"😂 *Joke:*\n\n{joke}"
+    except Exception:
+        pass
+    # Fallback jokes
+    import random
+    jokes = [
+        "Teacher: Tumne homework kyun nahi kiya?\nStudent: WiFi nahi tha.\nTeacher: Homework toh copy mein tha!\nStudent: ...virus aa gaya tha! 😂",
+        "Pappu: Doctor saab, sab log mujhe ignore karte hain.\nDoctor: Next please! 😂",
+        "Wife: Aaj khana nahi banaugi.\nHusband: Koi baat nahi.\nWife: Matlab?!\nHusband: Matlab... Zomato hai na! 😂",
+        "Chhotu: Main bada hokar pilot banunga!\nMummy: Pehle 10th pass kar lo! 😂",
+    ]
+    return f"😂 *Joke:*\n\n{random.choice(jokes)}"
+
+
+# ── Quotes (Hindi + English) ───────────────────────────────────
+async def daily_quote(query: str, context: dict = None) -> str:
+    """Get a motivational quote."""
+    import httpx as hx
+    try:
+        async with hx.AsyncClient(timeout=8) as client:
+            resp = await client.get("https://api.quotable.io/random?maxLength=150")
+            if resp.status_code == 200:
+                data = resp.json()
+                return f"💡 *Quote of the Day:*\n\n\"{data['content']}\"\n— {data['author']}"
+    except Exception:
+        pass
+    import random
+    quotes = [
+        "\"Kaam karo, fal ki chinta mat karo.\" — Bhagavad Gita 💪",
+        "\"Sapne wo nahi jo neend mein aaye, sapne wo hain jo neend na aane de.\" — APJ Abdul Kalam 🌟",
+        "\"Mushkilein toh aati hain, par himmat rakhne wala hi jeet-ta hai.\" 💪",
+        "\"Haar ke baad jeet hoti hai, aur raat ke baad subah.\" 🌅",
+    ]
+    return f"💡 *Aaj ka Vichar:*\n\n{random.choice(quotes)}"
+
+
+# ── QR Code Generator ──────────────────────────────────────────
+async def qr_generator(query: str, context: dict = None) -> str:
+    """Generate QR code for text/URL/UPI."""
+    import re
+    # Extract the content to encode
+    query_lower = query.lower()
+    # Remove trigger words
+    content = re.sub(r'qr\s*(code)?\s*(bana|generate|create|make|of|for|ka)?\s*', '', query_lower, flags=re.I).strip()
+    if not content or len(content) < 3:
+        return ""
+
+    # Use Google Charts API for QR (free, no key)
+    encoded = content.replace(' ', '+')
+    qr_url = f"https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl={encoded}"
+
+    return (
+        f"📱 *QR Code Generated:*\n\n"
+        f"Content: {content}\n"
+        f"Link: {qr_url}\n\n"
+        f"_Image bhi chahiye toh 'show qr' bolo_"
+    )
+
+
+# ── Mutual Fund NAV ────────────────────────────────────────────
+async def mutual_fund(query: str, context: dict = None) -> str:
+    """Get mutual fund NAV from AMFI."""
+    import httpx as hx
+
+    query_lower = query.lower()
+
+    # Common fund name mappings
+    fund_map = {
+        "sbi": "119598", "hdfc": "118989", "icici": "120505",
+        "axis": "120503", "kotak": "120166", "nippon": "118778",
+        "tata": "119551", "dsp": "119455",
+    }
+
+    fund_code = None
+    for name, code in fund_map.items():
+        if name in query_lower:
+            fund_code = code
+            break
+
+    if fund_code:
+        try:
+            async with hx.AsyncClient(timeout=10) as client:
+                resp = await client.get(f"https://api.mfapi.in/mf/{fund_code}/latest")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    nav_data = data.get("data", [{}])[0]
+                    scheme = data.get("meta", {}).get("scheme_name", "Fund")
+                    return (
+                        f"📊 *Mutual Fund NAV:*\n\n"
+                        f"Scheme: {scheme[:60]}\n"
+                        f"NAV: ₹{nav_data.get('nav', 'N/A')}\n"
+                        f"Date: {nav_data.get('date', 'N/A')}"
+                    )
+        except Exception:
+            pass
+
+    return (
+        "📊 *Mutual Fund Help:*\n\n"
+        "Fund ka naam batao — SBI, HDFC, ICICI, Axis, Kotak, Nippon, Tata, DSP\n"
+        "Example: 'SBI mutual fund NAV'\n\n"
+        "Investment advice: SIP (Systematic Investment Plan) sabse achha tarika hai!"
+    )
+
+
+# ── Crypto Prices ──────────────────────────────────────────────
+async def crypto_price(query: str, context: dict = None) -> str:
+    """Get cryptocurrency prices."""
+    import httpx as hx
+
+    query_lower = query.lower()
+    crypto_map = {
+        "bitcoin": "bitcoin", "btc": "bitcoin",
+        "ethereum": "ethereum", "eth": "ethereum",
+        "solana": "solana", "sol": "solana",
+        "dogecoin": "dogecoin", "doge": "dogecoin",
+        "xrp": "ripple", "ripple": "ripple",
+    }
+
+    coin_id = None
+    for name, cid in crypto_map.items():
+        if name in query_lower:
+            coin_id = cid
+            break
+
+    if not coin_id:
+        return ""
+
+    try:
+        async with hx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=inr,usd&include_24hr_change=true"
+            )
+            if resp.status_code == 200:
+                data = resp.json().get(coin_id, {})
+                inr = data.get("inr", "N/A")
+                usd = data.get("usd", "N/A")
+                change = data.get("inr_24h_change", 0)
+                arrow = "↑" if change > 0 else "↓"
+                return (
+                    f"₿ *{coin_id.title()}:*\n\n"
+                    f"₹{inr:,.0f} | ${usd:,.2f}\n"
+                    f"24h: {arrow}{abs(change):.1f}%\n\n"
+                    f"⚠️ Crypto volatile hai — invest carefully."
+                )
+    except Exception:
+        pass
+    return ""
+
+
 # ── Panchang / Rahu Kaal (code-based, not LLM) ─────────────────
 async def panchang_info(query: str, context: dict = None) -> str:
     """Indian panchang information — Rahu Kaal, Tithi etc.
@@ -1706,6 +1866,48 @@ SKILL_REGISTRY = [
                       "gst amount", "tax calculate"],
         "vertical": "universal",
         "execute": gst_calculator,
+    },
+    # ── Fun & Daily ──────────────────────────────────────────
+    {
+        "name": "joke",
+        "description": "Hindi jokes — instant mood lifter",
+        "keywords": ["joke", "jokes", "chutkula", "mazak", "funny", "hasi",
+                      "mast joke", "joke sunao", "hasao"],
+        "vertical": "universal",
+        "execute": hindi_joke,
+    },
+    {
+        "name": "quote",
+        "description": "Motivational quotes in Hindi/English",
+        "keywords": ["quote", "vichar", "suvichar", "motivational", "motivation",
+                      "inspirational", "thought of the day", "quote of the day"],
+        "vertical": "universal",
+        "execute": daily_quote,
+    },
+    # ── Tools ────────────────────────────────────────────────
+    {
+        "name": "qr_code",
+        "description": "Generate QR code for any text or URL",
+        "keywords": ["qr code", "qr bana", "qr generate", "qr create"],
+        "vertical": "universal",
+        "execute": qr_generator,
+    },
+    # ── Finance ──────────────────────────────────────────────
+    {
+        "name": "mutual_fund",
+        "description": "Mutual fund NAV from AMFI",
+        "keywords": ["mutual fund", "nav", "sip", "mf", "mutual fund nav",
+                      "sbi fund", "hdfc fund", "icici fund", "axis fund"],
+        "vertical": "universal",
+        "execute": mutual_fund,
+    },
+    {
+        "name": "crypto",
+        "description": "Cryptocurrency prices",
+        "keywords": ["bitcoin", "btc", "ethereum", "eth", "crypto", "cryptocurrency",
+                      "dogecoin", "doge", "solana", "xrp", "ripple"],
+        "vertical": "universal",
+        "execute": crypto_price,
     },
     # ── Indian Spiritual ─────────────────────────────────────
     {
