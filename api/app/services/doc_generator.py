@@ -423,12 +423,8 @@ Return JSON:
         for slot in ["morning", "lunch", "afternoon", "evening", "dinner"]:
             val = day_info.get(slot, "")
             if val:
-                marker = {"morning": ">", "lunch": "*", "afternoon": ">",
-                          "evening": ">", "dinner": "*"}.get(slot, "-")
                 pdf.set_font("Helvetica", "B", 10)
-                pdf.cell(25, 6, f"  {marker} {slot.title()}:")
-                pdf.set_font("Helvetica", "", 10)
-                pdf.multi_cell(0, 6, _safe_text(val))
+                pdf.multi_cell(0, 6, _safe_text(f"{slot.title()}: {val}"))
 
         tips = day_info.get("tips", "")
         if tips:
