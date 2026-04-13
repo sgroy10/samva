@@ -241,7 +241,22 @@ async def orchestrate(
             logger.info(f"[{user_id}] Prebuilt skill answered")
             return prebuilt_result
 
-    # ── LAYER 2: Custom-built Skills (user-specific, from self-builder) ──
+    # ── LAYER 2: Intent keywords — BEFORE custom skills ──────────
+    # These MUST go to agent.py's intent detection, not any skill
+    intent_keywords = [
+        "remind", "yaad", "reminder", "set reminder",
+        "email", "mail", "bhejo", "send email",
+        "meeting", "note", "meeting note", "just had a meeting", "met with",
+        "contact", "number", "ka number", "phone number",
+        "business card", "scanned a card",
+        "teach me", "learn a", "learn to", "word of the day", "practice ",
+        "teach me a", "teach me one", "teach me basic", "teach me how",
+        "sikhao", "seekho", "padhao",
+    ]
+    if any(kw in text_lower for kw in intent_keywords):
+        return ""  # Let agent.py handle via intent detection
+
+    # ── LAYER 2.5: Custom-built Skills (user-specific, from self-builder) ──
     custom_result = await skill_builder.execute_user_skill(db, user_id, text)
     if custom_result:
         logger.info(f"[{user_id}] Custom skill answered")
@@ -364,20 +379,7 @@ async def orchestrate(
     if any(kw in text_lower for kw in email_triggers) or text_lower.startswith("connect email"):
         return await email_service.handle_email_command(db, user_id, text)
 
-    # ── LAYER 3.5: Let intent-based skills through ───────────────
-    # These MUST go to agent.py's intent detection, not prebuilt
-    intent_keywords = [
-        "remind", "yaad", "reminder", "set reminder",
-        "email", "mail", "bhejo", "send email",
-        "meeting", "note", "meeting note", "just had a meeting", "met with",
-        "contact", "number", "ka number", "phone number",
-        "business card", "scanned a card",
-        "teach me", "learn a", "learn to", "word of the day", "practice ",
-        "teach me a", "teach me one", "teach me basic", "teach me how",
-        "sikhao", "seekho", "padhao",
-    ]
-    if any(kw in text_lower for kw in intent_keywords):
-        return ""  # Let agent.py handle via intent detection
+    # (Layer 3.5 intent keywords moved to Layer 2 — runs before custom skills)
 
     # ── LAYER 4: Smart General Chat — Sam is a FRIEND first ───
 
