@@ -300,10 +300,15 @@ async function handleIncomingMessage(userId, socket, sessionData, msg) {
                 await rateLimitedSend(socket, replyJid, result.reply);
             }
         } else if (result.reply.includes('__PDF__')) {
-            // PDF document
+            // PDF document — send text message first, then PDF file
             try {
                 const pdfMatch = result.reply.match(/__PDF__(.+?)__FILENAME__(.+?)$/);
                 if (pdfMatch) {
+                    // Send any text before __PDF__ as a separate message
+                    const textBefore = result.reply.split('__PDF__')[0].trim();
+                    if (textBefore) {
+                        await rateLimitedSend(socket, replyJid, textBefore);
+                    }
                     const pdfBuffer = Buffer.from(pdfMatch[1], 'base64');
                     const filename = pdfMatch[2];
                     await socket.sendMessage(replyJid, {

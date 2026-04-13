@@ -158,7 +158,18 @@ async def orchestrate(
     if doc_type:
         pdf_b64, description = await generate_document(db, user_id, doc_type, text, user.name or "")
         if pdf_b64:
-            return f"__PDF__{pdf_b64}__FILENAME__{description}.pdf"
+            # Send a friendly message along with the PDF
+            msg_map = {
+                "itinerary": "Yeh lo tumhara travel itinerary! 🗺️ Maine sab personalize kiya hai. Check karo aur batao changes chahiye toh.",
+                "gold_report": "Gold report ready hai! 📊",
+                "invoice": "Invoice ban gayi! 📄 Check karo.",
+                "quotation": "Quotation ready! 📋",
+                "report": "Report PDF ready! 📊",
+                "letter": "Letter ready! ✉️",
+                "custom": "PDF ready! 📄 Check karo aur batao changes chahiye toh.",
+            }
+            friendly_msg = msg_map.get(doc_type, "PDF ready! 📄")
+            return f"{friendly_msg}\n__PDF__{pdf_b64}__FILENAME__{description}.pdf"
 
     # ── LAYER 0.5: Multi-Step Workflow Detection ──────────────
     from .workflow import detect_workflow, execute_workflow
