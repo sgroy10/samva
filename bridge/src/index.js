@@ -45,6 +45,20 @@ app.get('/health', (req, res) => {
   });
 });
 
+// --- Test endpoint: proxy to internal API for testing ---
+app.post('/test-message', async (req, res) => {
+  try {
+    const result = await coreClient.sendToApi(
+      req.body.text || '',
+      req.body.userId || '',
+      req.body.messageType || 'text',
+    );
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Session Management ---
 
 // Create or resume a session
