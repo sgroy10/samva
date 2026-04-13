@@ -21,6 +21,7 @@ Each skill has:
 """
 
 import logging
+import re
 import httpx
 
 logger = logging.getLogger("samva.prebuilt")
@@ -3011,7 +3012,20 @@ async def find_and_execute(query: str, business_type: str, context: dict = None)
     available = get_skills_for_user(business_type)
 
     for skill in available:
-        if any(kw in query_lower for kw in skill["keywords"]):
+        # Use word boundary matching for short keywords to avoid substring false positives
+        # e.g. "emi" should not match inside "remind", "ad" not inside "bad"
+        matched = False
+        for kw in skill["keywords"]:
+            if len(kw) <= 4:
+                # Short keyword — require word boundary
+                if re.search(r'\b' + re.escape(kw) + r'\b', query_lower):
+                    matched = True
+                    break
+            else:
+                if kw in query_lower:
+                    matched = True
+                    break
+        if matched:
             try:
                 result = await skill["execute"](query, context)
                 if result and not result.startswith("__"):
