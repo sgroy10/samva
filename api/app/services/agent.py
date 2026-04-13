@@ -610,20 +610,25 @@ Examples:
     if not key or not value:
         return "Could you be more specific about what you'd like me to remember?"
 
+    # Ensure value is a string (LLM sometimes returns dicts/lists)
+    if not isinstance(value, str):
+        import json as _json
+        value = _json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+
     # Upsert memory
-    result = await db.execute(
-        select(UserMemory).where(
-            UserMemory.user_id == user_id, UserMemory.key == key
+    try:
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        stmt = pg_insert(UserMemory).values(
+            user_id=user_id, key=key, value=value
+        ).on_conflict_do_update(
+            constraint="uq_user_memory_user_key",
+            set_={"value": value}
         )
-    )
-    existing = result.scalar_one_or_none()
+        await db.execute(stmt)
+        await db.commit()
+    except Exception:
+        await db.rollback()
 
-    if existing:
-        existing.value = value
-    else:
-        db.add(UserMemory(user_id=user_id, key=key, value=value))
-
-    await db.commit()
     return f"Noted! I'll remember: {key} = {value}"
 
 

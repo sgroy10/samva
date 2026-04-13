@@ -1585,22 +1585,38 @@ async def emi_calculator(query: str, context: dict = None) -> str:
     """Calculate loan EMI from amount, rate, tenure."""
     import re
 
-    # Extract numbers
-    numbers = re.findall(r'[\d,.]+', query.replace(',', ''))
+    ql = query.lower()
+
+    # Handle lakh/crore multipliers
+    lakh_match = re.search(r'([\d,.]+)\s*(?:lakh|lac|lacs)', ql)
+    crore_match = re.search(r'([\d,.]+)\s*(?:crore|cr)', ql)
+
+    # Extract all numbers
+    numbers = re.findall(r'[\d,.]+', ql.replace(',', ''))
     if len(numbers) < 2:
         return ""
 
-    # Try to identify: amount, rate, years
     nums = [float(n) for n in numbers[:3]]
 
     if len(nums) >= 3:
         amount, rate, years = nums[0], nums[1], nums[2]
     elif len(nums) == 2:
         amount, rate = nums[0], nums[1]
-        years = 20 if amount > 100000 else 5  # Default
+        years = 20 if amount > 100000 else 5
 
-    if amount < 1000:
-        return ""
+    # Apply lakh/crore multiplier
+    if crore_match:
+        amount = float(crore_match.group(1).replace(',', '')) * 10000000
+    elif lakh_match:
+        amount = float(lakh_match.group(1).replace(',', '')) * 100000
+    elif amount < 1000:
+        # Maybe they said "50" meaning 50 lakh
+        if "lakh" in ql or "lac" in ql:
+            amount *= 100000
+        elif "crore" in ql or "cr" in ql:
+            amount *= 10000000
+        else:
+            return ""
 
     # EMI formula: P × r × (1+r)^n / ((1+r)^n - 1)
     monthly_rate = rate / (12 * 100)
