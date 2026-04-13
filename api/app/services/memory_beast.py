@@ -275,3 +275,54 @@ Reference specific dates, people, and details from the context above.
 If the user asked about something and you found it — answer confidently.
 If you found related but not exact matches — mention them helpfully.
 """
+
+
+async def _extract_and_save_fact(db: AsyncSession, user_id: str, text: str):
+    """Extract personal facts from user message and save to memory."""
+    from ..models import UserMemory
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    text_lower = text.lower()
+    facts = {}
+
+    # Diet preferences
+    if "vegetarian" in text_lower or "veg " in text_lower:
+        if "wife" in text_lower or "biwi" in text_lower or "spouse" in text_lower:
+            facts["wife_diet"] = "vegetarian"
+        elif "non-veg" in text_lower or "non veg" in text_lower:
+            facts["diet_preference"] = "non-vegetarian"
+        else:
+            facts["diet_preference"] = "vegetarian"
+    if "vegan" in text_lower:
+        facts["diet_preference"] = "vegan"
+
+    # Family
+    if "wife" in text_lower or "biwi" in text_lower:
+        if "pregnant" in text_lower:
+            facts["wife_status"] = "pregnant"
+    if "kid" in text_lower or "child" in text_lower or "bachcha" in text_lower:
+        facts["has_children"] = "yes"
+
+    # Health
+    if "b12" in text_lower:
+        facts["health_b12_deficiency"] = "yes"
+    if "diabetes" in text_lower or "sugar" in text_lower:
+        facts["health_diabetes"] = "mentioned"
+    if "bp" in text_lower or "blood pressure" in text_lower:
+        facts["health_bp"] = "mentioned"
+
+    # Save all detected facts
+    for key, value in facts.items():
+        try:
+            stmt = pg_insert(UserMemory).values(
+                user_id=user_id, key=key, value=value
+            ).on_conflict_do_update(
+                constraint="uq_user_memory_user_key",
+                set_={"value": value}
+            )
+            await db.execute(stmt)
+        except Exception:
+            pass
+
+    if facts:
+        await db.commit()

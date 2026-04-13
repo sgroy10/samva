@@ -29,6 +29,10 @@ DOC_TRIGGERS = {
     "quotation": ["quotation bana", "quote bana", "quotation for", "estimate bana"],
     "report": ["report bana", "weekly report", "monthly report", "summary pdf"],
     "letter": ["letter bana", "letter likh", "formal letter", "notice bana"],
+    "itinerary": ["itinerary", "travel plan", "trip plan", "yatra plan", "tour plan",
+                   "itenary", "travel pdf", "trip pdf"],
+    "custom": ["pdf bana", "pdf bhej", "make pdf", "make a pdf", "create pdf",
+               "document bana", "generate pdf", "pdf generate"],
 }
 
 
@@ -59,6 +63,10 @@ async def generate_document(
         return await _generate_summary_report(db, user_id, user_name, now)
     elif doc_type == "letter":
         return await _generate_letter(db, user_id, text, user_name, now)
+    elif doc_type == "itinerary":
+        return await _generate_itinerary(db, user_id, text, user_name, now)
+    elif doc_type == "custom":
+        return await _generate_custom_pdf(db, user_id, text, user_name, now)
     return ("", "")
 
 
@@ -320,3 +328,186 @@ async def _generate_letter(db, user_id, text, user_name, now) -> tuple:
     b64 = base64.b64encode(buf.getvalue()).decode()
 
     return (b64, f"Letter - {now.strftime('%d %b %Y')}")
+
+
+async def _generate_itinerary(db, user_id, text, user_name, now) -> tuple:
+    """Generate a travel itinerary PDF using LLM + user memory for personalization."""
+    from ..models import UserMemory
+    from sqlalchemy import select as sa_select
+
+    # Fetch user preferences from memory
+    mem_result = await db.execute(
+        sa_select(UserMemory).where(UserMemory.user_id == user_id)
+    )
+    memories = mem_result.scalars().all()
+    prefs = []
+    for m in memories:
+        if any(k in m.key.lower() for k in ["diet", "food", "vegetarian", "vegan", "allergy",
+                                              "wife", "family", "kid", "child", "spouse",
+                                              "budget", "travel", "hotel", "prefer"]):
+            prefs.append(f"- {m.key}: {m.value}")
+
+    pref_text = "\n".join(prefs) if prefs else "No specific preferences stored."
+
+    itinerary_data = await call_gemini_json(
+        f"""Create a detailed travel itinerary based on the user's request.
+CRITICAL: Use these personal preferences to PERSONALIZE the plan:
+{pref_text}
+
+If the user or their family is vegetarian, ALL restaurant recommendations MUST be
+vegetarian-friendly (Indian restaurants, pure veg places, South Indian, etc.).
+If they have kids, include kid-friendly activities.
+If budget is mentioned, respect it.
+
+Return JSON:
+{{
+    "destination": "City/Place name",
+    "duration": "X days",
+    "days": [
+        {{
+            "day": 1,
+            "title": "Day theme",
+            "morning": "Activity + location",
+            "lunch": "Restaurant name (MUST respect dietary preferences) + cuisine type",
+            "afternoon": "Activity + location",
+            "evening": "Activity",
+            "dinner": "Restaurant name (MUST respect dietary preferences) + cuisine type",
+            "tips": "Travel tips for the day"
+        }}
+    ],
+    "budget_estimate": "Total estimated budget in INR",
+    "packing_tips": ["item1", "item2"],
+    "important_notes": ["note1", "note2"]
+}}""",
+        text,
+        user_id=user_id,
+    )
+
+    if not itinerary_data or "days" not in itinerary_data:
+        return ("", "")
+
+    # Build PDF
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    # Header
+    pdf.set_fill_color(255, 120, 50)  # Samva orange
+    pdf.rect(0, 0, 210, 35, 'F')
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Helvetica", "B", 22)
+    pdf.cell(0, 15, f"Travel Itinerary", ln=True, align="C")
+    pdf.set_font("Helvetica", "", 12)
+    dest = itinerary_data.get("destination", "Trip")
+    duration = itinerary_data.get("duration", "")
+    pdf.cell(0, 8, f"{dest} | {duration} | For {user_name or 'You'}", ln=True, align="C")
+    pdf.ln(10)
+    pdf.set_text_color(0, 0, 0)
+
+    # Days
+    for day_info in itinerary_data.get("days", []):
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.set_fill_color(255, 240, 230)
+        pdf.cell(0, 10, f"Day {day_info.get('day', '')} - {day_info.get('title', '')}", ln=True, fill=True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.ln(2)
+
+        for slot in ["morning", "lunch", "afternoon", "evening", "dinner"]:
+            val = day_info.get(slot, "")
+            if val:
+                emoji = {"morning": "🌅", "lunch": "🍽️", "afternoon": "☀️",
+                         "evening": "🌆", "dinner": "🍛"}.get(slot, "•")
+                pdf.set_font("Helvetica", "B", 10)
+                pdf.cell(25, 6, f"  {emoji} {slot.title()}:")
+                pdf.set_font("Helvetica", "", 10)
+                pdf.multi_cell(0, 6, val)
+
+        tips = day_info.get("tips", "")
+        if tips:
+            pdf.set_font("Helvetica", "I", 9)
+            pdf.set_text_color(100, 100, 100)
+            pdf.multi_cell(0, 5, f"  Tip: {tips}")
+            pdf.set_text_color(0, 0, 0)
+        pdf.ln(4)
+
+    # Budget & notes
+    budget = itinerary_data.get("budget_estimate", "")
+    if budget:
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 8, f"Estimated Budget: {budget}", ln=True)
+
+    notes = itinerary_data.get("important_notes", [])
+    if notes:
+        pdf.ln(3)
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 7, "Important Notes:", ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        for note in notes:
+            pdf.multi_cell(0, 6, f"  • {note}")
+
+    # Footer
+    pdf.ln(5)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(150, 150, 150)
+    pdf.cell(0, 5, f"Generated by Sam | {now.strftime('%d %b %Y %I:%M %p IST')}", align="C")
+
+    buf = io.BytesIO()
+    pdf.output(buf)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    return (b64, f"Itinerary - {dest} - {now.strftime('%d %b %Y')}")
+
+
+async def _generate_custom_pdf(db, user_id, text, user_name, now) -> tuple:
+    """Generate any custom PDF — Sam figures out what's needed from the request."""
+    content = await call_gemini_json(
+        f"""The user wants a PDF document. Figure out what they need from their message.
+Return JSON:
+{{
+    "title": "Document title",
+    "sections": [
+        {{"heading": "Section name", "content": "Section text (detailed, useful)"}}
+    ],
+    "footer_note": "Any closing note"
+}}
+Make the content ACTUALLY USEFUL — don't just summarize the request, CREATE the content.
+User's name: {user_name}""",
+        text,
+        user_id=user_id,
+    )
+
+    if not content or "sections" not in content:
+        return ("", "")
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    # Header
+    pdf.set_fill_color(255, 120, 50)
+    pdf.rect(0, 0, 210, 25, 'F')
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Helvetica", "B", 18)
+    title = content.get("title", "Document")
+    pdf.cell(0, 15, title, ln=True, align="C")
+    pdf.ln(8)
+    pdf.set_text_color(0, 0, 0)
+
+    for section in content.get("sections", []):
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 8, section.get("heading", ""), ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        for line in section.get("content", "").split("\n"):
+            if line.strip():
+                pdf.multi_cell(0, 6, line.strip())
+        pdf.ln(4)
+
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(150, 150, 150)
+    footer = content.get("footer_note", f"Generated by Sam | {now.strftime('%d %b %Y')}")
+    pdf.cell(0, 5, footer, align="C")
+
+    buf = io.BytesIO()
+    pdf.output(buf)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    return (b64, f"{title} - {now.strftime('%d %b %Y')}")

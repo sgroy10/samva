@@ -368,40 +368,113 @@ async def orchestrate(
     if any(kw in text_lower for kw in intent_keywords):
         return ""  # Let agent.py handle via intent detection
 
-    # ── LAYER 4: Smart General Chat — Sam NEVER says "I can't" ───
-    # Check if user is asking Sam to DO something (not just chat)
+    # ── LAYER 4: Smart General Chat — Sam is a FRIEND first ───
+
+    # Memory Beast — search past conversations for relevant context
+    from .memory_beast import build_memory_context
+    memory_context = await build_memory_context(db, user_id, text)
+
+    # ── EMOTIONAL CONTEXT DETECTION — empathy BEFORE action ──
+    emotional_words = ["hospital", "doctor", "surgery", "injection", "sick", "unwell",
+                       "pain", "headache", "fever", "bimaar", "tabiyat", "health",
+                       "accident", "emergency", "anxious", "nervous", "scared", "tension",
+                       "stressed", "sad", "depressed", "crying", "rona", "dard",
+                       "lonely", "akela", "miss you", "breakup", "divorce", "death",
+                       "passed away", "lost", "fired", "job loss", "fail", "failed"]
+    needs_empathy = any(w in text_lower for w in emotional_words)
+
+    # Personal context detection — things about family, preferences, life
+    personal_words = ["wife", "husband", "biwi", "pati", "kid", "child", "bachcha",
+                      "mother", "father", "mummy", "papa", "family", "pregnant",
+                      "vegetarian", "vegan", "non-veg", "allergy", "diet",
+                      "birthday", "anniversary", "wedding"]
+    has_personal_context = any(w in text_lower for w in personal_words)
+
+    # Action detection (separate from emotional context)
     action_words = ["book", "find", "search", "track", "call", "order", "buy",
                     "nearest", "closest", "show me", "get me", "where is",
                     "how to reach", "directions", "price of", "compare",
                     "flight", "hotel", "uber", "ola", "cab", "taxi",
-                    "restaurant", "shop", "store", "hospital", "doctor",
+                    "restaurant", "shop", "store",
                     "gift", "flower", "cake", "deliver",
                     "translate", "convert", "calculate",
                     "dhundh", "khoj", "bata", "dikha", "manga", "bhej",
                     "kahan", "kitna", "booking", "ticket"]
     is_action = any(w in text_lower for w in action_words)
 
-    # Memory Beast — search past conversations for relevant context
-    from .memory_beast import build_memory_context
-    memory_context = await build_memory_context(db, user_id, text)
+    # Planning/creative requests
+    planning_words = ["plan", "itinerary", "suggest", "recommend", "sujhao",
+                      "help me decide", "kya karoon", "travel", "trip", "vacation",
+                      "weekend plan", "date plan", "menu plan"]
+    is_planning = any(w in text_lower for w in planning_words)
+
+    system = await _build_system_prompt(db, user_id, user, soul)
+    if memory_context:
+        system += "\n" + memory_context
+
+    # Build context-specific instructions
+    extra_instructions = ""
+
+    if needs_empathy:
+        extra_instructions += """
+
+EMOTIONAL CONTEXT DETECTED — EMPATHY FIRST, ALWAYS:
+The user is sharing something emotionally significant (health, stress, loss, fear).
+Your FIRST PRIORITY is to show genuine care and concern. You are their FRIEND.
+
+Rules:
+1. FIRST 1-2 lines: Show empathy. "Are you okay?", "That sounds tough", "Main hoon, tension mat le"
+2. Ask a caring follow-up: "Kya hua?", "Since when?", "Doctor ne kya bola?"
+3. Offer CONCRETE help (not generic platitudes):
+   - Health: suggest foods, remind about medicines, offer to track symptoms
+   - Stress: suggest specific relaxation, offer to clear their schedule
+   - Loss: just be present, don't try to "fix" it
+4. NEVER just say "ok I'll remind you" — that's robotic. A FRIEND would say:
+   "Hospital ja rahe ho? Sab theek? B12 ki kami se weakness hoti hai — kya main kuch
+   foods suggest karoon jo B12 rich hain? Aur haan, injection ke baad thoda rest lena."
+5. Set a reminder AFTER showing care, not as the only response.
+"""
+
+    if has_personal_context:
+        extra_instructions += """
+
+PERSONAL INFORMATION SHARED — REMEMBER AND USE IT:
+The user mentioned something personal (family, preferences, diet, etc.).
+1. ACKNOWLEDGE it warmly: "Achha, wife vegetarian hai? Perfect, main dhyan rakhungi!"
+2. SAVE it to memory immediately (note for yourself to remember next time)
+3. USE it in ALL future recommendations — restaurants, travel, gifts, everything
+4. Reference it proactively: "Wife ke liye ye pure veg place amazing hai!"
+"""
+
+    if is_planning:
+        extra_instructions += """
+
+PLANNING REQUEST — BE A THOUGHTFUL FRIEND, NOT GOOGLE:
+The user wants help planning something. A FRIEND plans differently than a search engine.
+1. Use EVERYTHING you know about them: diet, family, budget, past preferences
+2. Give SPECIFIC recommendations (restaurant names, not "find a restaurant")
+3. If family member is vegetarian → ALL restaurants must be veg-friendly
+4. If they have kids → include kid-friendly options
+5. Include Indian restaurants/options by default (this is India)
+6. Add personal touches: "Tumhe seafood pasand hai toh ye try karo" (if you know this)
+7. Don't give a generic Lonely Planet itinerary — make it PERSONAL
+"""
 
     if is_action:
-        # Sam tries to help via web search first, then skill builder
-        system = await _build_system_prompt(db, user_id, user, soul)
-        if memory_context:
-            system += "\n" + memory_context
-        system += """
+        extra_instructions += """
 
-IMPORTANT: The user is asking you to DO something or FIND something.
-You MUST try to help. NEVER say "I can't do that" or "I don't have access to that."
-Instead:
+ACTION REQUEST:
+You MUST try to help. NEVER say "I can't" or "I don't have access" or "give me API".
 - If you know the answer, give it directly
 - If you need current data, say you'll look it up
-- If it's a booking/ordering task, provide the steps, links, or offer to set a reminder
-- If you truly cannot do it, suggest the CLOSEST alternative you CAN do
-- Always be proactive: "Main abhi check karti hoon..." or "Let me find that for you..."
-You are a CAPABLE assistant who figures things out, not a chatbot that makes excuses."""
+- For booking/ordering: provide steps, links, or offer to set a reminder
+- Suggest the CLOSEST alternative you CAN do
+- Be proactive: "Main abhi check karti hoon..."
+"""
 
+    system += extra_instructions
+
+    if is_action or is_planning:
         # Try web search for current/location info
         from . import web_search
         try:
@@ -416,10 +489,15 @@ You are a CAPABLE assistant who figures things out, not a chatbot that makes exc
         except Exception:
             reply = await call_gemini(system, text, user_id=user_id, max_tokens=800)
     else:
-        system = await _build_system_prompt(db, user_id, user, soul)
-        if memory_context:
-            system += "\n" + memory_context
         reply = await call_gemini(system, text, user_id=user_id)
+
+    # Auto-save personal facts to memory
+    if has_personal_context:
+        try:
+            from .memory_beast import _extract_and_save_fact
+            await _extract_and_save_fact(db, user_id, text)
+        except Exception:
+            pass
 
     # ── LAYER 5: Background Skill Builder ────────────────────────
     soul_prompt = soul.system_prompt or ""
