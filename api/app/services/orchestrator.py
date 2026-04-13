@@ -137,28 +137,12 @@ async def orchestrate(
         pass  # Never block on feedback
 
     # ── LAYER 0: Image Memory — Sam NEVER forgets an image ─────
-    # ── LAYER 0.3: Goal Detection & Tracking ──────────────────
-    from .goals import detect_goal, create_goal, update_goal_progress
-    if detect_goal(text):
-        # Check if updating existing goal or creating new
-        from ..models import UserMemory as UM
-        existing = await db.execute(select(UM).where(UM.user_id == user_id, UM.key == "_active_goal"))
-        if existing.scalar_one_or_none():
-            update = await update_goal_progress(db, user_id, text)
-            if update:
-                return update
-        else:
-            goal_result = await create_goal(db, user_id, text)
-            if goal_result:
-                return goal_result
-
-    # ── LAYER 0.4: Document Generation ────────────────────────
+    # ── LAYER 0.3: Document Generation (before goals — "pdf bana do goals" is a PDF request) ──
     from .doc_generator import detect_doc_request, generate_document
     doc_type = detect_doc_request(text)
     if doc_type:
         pdf_b64, description = await generate_document(db, user_id, doc_type, text, user.name or "")
         if pdf_b64:
-            # Send a friendly message along with the PDF
             msg_map = {
                 "itinerary": "Yeh lo tumhara travel itinerary! 🗺️ Maine sab personalize kiya hai. Check karo aur batao changes chahiye toh.",
                 "gold_report": "Gold report ready hai! 📊",
@@ -170,6 +154,20 @@ async def orchestrate(
             }
             friendly_msg = msg_map.get(doc_type, "PDF ready! 📄")
             return f"{friendly_msg}\n__PDF__{pdf_b64}__FILENAME__{description}.pdf"
+
+    # ── LAYER 0.4: Goal Detection & Tracking ──────────────────
+    from .goals import detect_goal, create_goal, update_goal_progress
+    if detect_goal(text):
+        from ..models import UserMemory as UM
+        existing = await db.execute(select(UM).where(UM.user_id == user_id, UM.key == "_active_goal"))
+        if existing.scalar_one_or_none():
+            update = await update_goal_progress(db, user_id, text)
+            if update:
+                return update
+        else:
+            goal_result = await create_goal(db, user_id, text)
+            if goal_result:
+                return goal_result
 
     # ── LAYER 0.5: Multi-Step Workflow Detection ──────────────
     from .workflow import detect_workflow, execute_workflow
