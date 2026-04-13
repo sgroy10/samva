@@ -59,6 +59,21 @@ app.post('/test-message', async (req, res) => {
   }
 });
 
+// --- Test TTS: generate voice and send to user's WhatsApp ---
+app.post('/test-voice', async (req, res) => {
+  try {
+    const axios = require('axios');
+    const resp = await axios.post('http://localhost:8000/test-voice', {
+      user_id: req.body.userId,
+      text: req.body.text || 'Hello! Main Sam hoon, aapka personal assistant.',
+      voice_language: req.body.voice_language || 'hinglish',
+    }, { timeout: 30000 });
+    res.json(resp.data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Session Management ---
 
 // Create or resume a session
