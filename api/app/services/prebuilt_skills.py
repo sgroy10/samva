@@ -63,8 +63,10 @@ async def currency_convert(query: str, context: dict = None) -> str:
     amount = float(nums[0]) if nums else 1.0
 
     NAMES = {"DOLLAR": "USD", "DOLLARS": "USD", "RUPEE": "INR", "RUPEES": "INR",
-             "EURO": "EUR", "EUROS": "EUR", "POUND": "GBP", "POUNDS": "GBP",
-             "YEN": "JPY", "DIRHAM": "AED", "DIRHAMS": "AED", "RIYAL": "SAR"}
+             "RUPAYE": "INR", "EURO": "EUR", "EUROS": "EUR", "POUND": "GBP",
+             "POUNDS": "GBP", "YEN": "JPY", "DIRHAM": "AED", "DIRHAMS": "AED",
+             "RIYAL": "SAR", "BAHT": "THB", "YUAN": "CNY", "DINAR": "KWD",
+             "RINGGIT": "MYR", "PESO": "PHP", "TAKA": "BDT", "RUPIAH": "IDR"}
     CODES = {"USD", "EUR", "GBP", "INR", "AED", "SAR", "JPY", "CAD", "AUD",
              "SGD", "CHF", "CNY", "KWD", "BHD", "OMR", "QAR", "THB", "MYR",
              "IDR", "PHP", "BDT", "NPR", "LKR", "PKR"}
