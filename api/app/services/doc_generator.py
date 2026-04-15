@@ -369,7 +369,8 @@ vegetarian-friendly (Indian restaurants, pure veg places, South Indian, etc.).
 If they have kids, include kid-friendly activities.
 If budget is mentioned, respect it.
 
-Return JSON:
+You MUST return ONLY valid JSON. No explanation, no markdown, no code blocks.
+Return this exact JSON structure:
 {{
     "destination": "City/Place name",
     "duration": "X days",
@@ -394,7 +395,9 @@ Return JSON:
     )
 
     if not itinerary_data or "days" not in itinerary_data:
-        return ("", "")
+        # JSON parse failed — try generating as custom PDF instead
+        logger.warning(f"[{user_id}] Itinerary JSON failed, falling back to custom PDF")
+        return await _generate_custom_pdf(db, user_id, text, user_name, now)
 
     # Build PDF — simple, robust layout
     pdf = FPDF()
