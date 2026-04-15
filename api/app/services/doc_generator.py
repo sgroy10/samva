@@ -39,8 +39,10 @@ DOC_TRIGGERS = {
     "letter": ["letter bana", "letter likh", "formal letter", "notice bana"],
     "itinerary": ["itinerary", "travel plan", "trip plan", "yatra plan", "tour plan",
                    "itenary", "travel pdf", "trip pdf"],
-    "custom": ["pdf bana", "pdf bhej", "make pdf", "make a pdf", "create pdf",
-               "document bana", "generate pdf", "pdf generate"],
+    "custom": ["pdf bana", "pdf bhej", "make pdf", "make a pdf", "make me a pdf",
+               "make me pdf", "create pdf", "create a pdf", "mera pdf",
+               "document bana", "generate pdf", "pdf generate", "pdf do",
+               "pdf chahiye", "pdf create"],
 }
 
 

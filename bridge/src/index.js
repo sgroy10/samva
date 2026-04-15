@@ -59,6 +59,17 @@ app.post('/test-message', async (req, res) => {
   }
 });
 
+// --- Admin: deactivate broken skills ---
+app.post('/admin/deactivate-skills', async (req, res) => {
+  try {
+    const axios = require('axios');
+    const resp = await axios.post('http://localhost:8000/admin/deactivate-skills', req.body, { timeout: 10000 });
+    res.json(resp.data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Test TTS: generate voice and send to user's WhatsApp ---
 app.post('/test-voice', async (req, res) => {
   try {
