@@ -81,6 +81,75 @@ Extract everything visible. If a field is not present, use empty string.""",
     return "\n".join(lines)
 
 
+async def save_contact_from_text(
+    db: AsyncSession, user_id: str, text: str
+) -> str:
+    """Save a contact from a text description like 'save contact Ravi Kumar 9876543210 supplier'."""
+    extracted = await call_gemini_json(
+        """Extract contact details from this text.
+Return JSON:
+{
+    "full_name": "",
+    "phone": "",
+    "email": "",
+    "company": "",
+    "designation": "",
+    "tag": "",
+    "notes": ""
+}
+The tag could be: client, supplier, partner, personal, friend, family, etc.
+If a field is not mentioned, use empty string.""",
+        text,
+        user_id=user_id,
+    )
+
+    if "error" in extracted:
+        return "Could you give me the contact details? Name and phone number at least."
+
+    name = extracted.get("full_name", "").strip()
+    phone = extracted.get("phone", "").strip()
+
+    if not name:
+        return "I need at least a name to save a contact. Try: 'save contact Ravi Kumar 9876543210'"
+
+    # Check if contact already exists
+    existing = await db.execute(
+        select(Contact).where(
+            Contact.user_id == user_id,
+            Contact.full_name.ilike(f"%{name}%"),
+        )
+    )
+    if existing.scalar_one_or_none():
+        return f"{name} is already in your contacts. Want me to update their info?"
+
+    # Save contact
+    contact = Contact(
+        user_id=user_id,
+        full_name=name,
+        phone=phone,
+        email=extracted.get("email", ""),
+        company=extracted.get("company", ""),
+        designation=extracted.get("designation", ""),
+        tag=extracted.get("tag", ""),
+        notes=extracted.get("notes", ""),
+        source="text",
+    )
+    db.add(contact)
+    await db.commit()
+
+    lines = [f"Saved \u2713 *{name}*"]
+    if phone:
+        lines.append(f"\ud83d\udcde {phone}")
+    if extracted.get("email"):
+        lines.append(f"\u2709\ufe0f {extracted['email']}")
+    if extracted.get("company"):
+        lines.append(f"\ud83c\udfe2 {extracted['company']}")
+    if extracted.get("tag"):
+        lines.append(f"\ud83c\udff7\ufe0f {extracted['tag']}")
+
+    return "\n".join(lines)
+
+
 async def lookup_contact(db: AsyncSession, user_id: str, query: str) -> str:
     """Look up a contact by name, company, or other fields."""
     # Extract search term

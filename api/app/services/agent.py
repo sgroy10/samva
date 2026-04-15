@@ -77,6 +77,7 @@ Classify the user's message into ONE intent:
 - meeting_note: voice note or text describing a meeting/conversation they just had
 - reminder_set: wants to set a reminder or alarm
 - contact_lookup: looking up a saved contact
+- contact_save: wants to save/add a new contact (name, phone, etc.)
 - web_search: needs current/live information from the web
 - memory_update: telling Sam to remember something specific
 - image_general: sent a general image (not business card)
@@ -526,6 +527,9 @@ async def _route_skill(
 
         elif intent == "contact_lookup":
             return await contacts.lookup_contact(db, user_id, text)
+
+        elif intent == "contact_save":
+            return await contacts.save_contact_from_text(db, user_id, text)
 
         elif intent == "email_send":
             return await email_draft.draft_email(db, user_id, text)

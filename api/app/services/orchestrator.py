@@ -242,10 +242,12 @@ async def orchestrate(
     # ── LAYER 2: Intent keywords — BEFORE custom skills ──────────
     # These MUST go to agent.py's intent detection, not any skill
     intent_keywords = [
-        "remind", "yaad", "reminder", "set reminder",
+        "remind", "yaad", "yaad dila", "reminder", "set reminder",
         "email", "mail", "bhejo", "send email",
+        "email dikhao", "mail dikhao", "mail check",
         "meeting", "note", "meeting note", "just had a meeting", "met with",
         "contact", "number", "ka number", "phone number",
+        "save contact", "contact save",
         "business card", "scanned a card",
         "teach me", "learn a", "learn to", "word of the day", "practice ",
         "teach me a", "teach me one", "teach me basic", "teach me how",
@@ -281,7 +283,7 @@ async def orchestrate(
     if proposal_response:
         return proposal_response
 
-    confirm_words = {"haan", "ha", "yes", "send", "bhej", "bhejo", "ok", "theek", "sure"}
+    confirm_words = {"haan", "ha", "yes", "send", "bhej", "bhejo", "theek", "sure"}
     cancel_words = {"nahi", "nai", "no", "cancel", "mat", "ruk"}
 
     if text_lower.strip() in confirm_words:

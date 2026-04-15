@@ -1647,21 +1647,44 @@ async def bmi_calculator(query: str, context: dict = None) -> str:
     """Calculate BMI from height and weight."""
     import re
 
-    numbers = re.findall(r'[\d.]+', query)
-    if len(numbers) < 2:
-        return ""
+    # Try feet+inches pattern first: "5 feet 10 inch", "5'10", "5ft 10in"
+    feet_inch_match = re.search(
+        r'(\d+)\s*(?:feet|foot|ft|\')\s*(\d+)\s*(?:inch|inches|in|")?',
+        query, re.IGNORECASE
+    )
 
-    nums = sorted([float(n) for n in numbers[:2]])
-    # Heuristic: smaller is height (in feet or meters), larger is weight (kg)
-    height_val, weight = nums[0], nums[1]
+    height_m = None
+    weight = None
 
-    # Convert feet to meters if needed
-    if height_val < 3:
-        height_m = height_val  # Already meters
-    elif height_val < 10:
-        height_m = height_val * 0.3048  # Feet to meters
+    if feet_inch_match:
+        feet = float(feet_inch_match.group(1))
+        inches = float(feet_inch_match.group(2))
+        height_m = (feet * 12 + inches) * 0.0254  # Convert total inches to meters
+        # Find weight: the number NOT part of the feet/inch match
+        remaining = query[:feet_inch_match.start()] + query[feet_inch_match.end():]
+        weight_nums = re.findall(r'[\d.]+', remaining)
+        if weight_nums:
+            weight = float(weight_nums[0])
     else:
-        height_m = height_val / 100  # CM to meters
+        numbers = re.findall(r'[\d.]+', query)
+        if len(numbers) < 2:
+            return ""
+
+        nums = sorted([float(n) for n in numbers[:2]])
+        # Heuristic: smaller is height (in feet or meters), larger is weight (kg)
+        height_val = nums[0]
+        weight = nums[1]
+
+        # Convert feet to meters if needed
+        if height_val < 3:
+            height_m = height_val  # Already meters
+        elif height_val < 10:
+            height_m = height_val * 0.3048  # Feet to meters
+        else:
+            height_m = height_val / 100  # CM to meters
+
+    if not height_m or not weight:
+        return ""
 
     if height_m < 0.5 or weight < 10:
         return ""
@@ -2835,8 +2858,10 @@ SKILL_REGISTRY = [
     {
         "name": "jewelcraft_render",
         "description": "Render a jewelry design from text description",
-        "keywords": ["render", "design", "banao", "dikhao", "concept",
-                      "generate design", "jewelry design", "ring design"],
+        "keywords": ["render", "design banao", "design dikhao", "concept",
+                      "generate design", "jewelry design", "ring design",
+                      "ring banao", "necklace banao", "pendant banao",
+                      "bracelet banao", "jewellery banao", "jewelry banao"],
         "vertical": "jewelry",
         "execute": jewelcraft_render,
     },
@@ -2869,8 +2894,9 @@ SKILL_REGISTRY = [
     {
         "name": "daily_panchang",
         "description": "Today's Panchang — tithi, nakshatra, yoga, karana",
-        "keywords": ["panchang", "tithi", "nakshatra", "yoga", "karana",
-                      "aaj ka panchang", "hindu calendar", "panchangam"],
+        "keywords": ["panchang", "tithi", "nakshatra", "karana",
+                      "aaj ka panchang", "hindu calendar", "panchangam",
+                      "panchang yoga", "aaj ka yoga karana"],
         "vertical": "universal",
         "execute": daily_panchang,
     },
