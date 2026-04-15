@@ -2749,7 +2749,9 @@ SKILL_REGISTRY = [
         "name": "currency_convert",
         "description": "Convert any currency with amounts",
         "keywords": ["convert", "currency", "exchange rate", "AED", "USD", "EUR", "GBP",
-                      "to INR", "to USD", "kitne rupees", "dollars", "dirhams", "pounds"],
+                      "THB", "SGD", "JPY", "CAD", "AUD", "CNY", "SAR", "KWD",
+                      "to INR", "to USD", "kitne rupees", "dollars", "dirhams", "pounds",
+                      "baht", "yen", "yuan", "riyal", "dinar"],
         "vertical": "universal",
         "execute": currency_convert,
     },
@@ -3032,13 +3034,14 @@ async def find_and_execute(query: str, business_type: str, context: dict = None)
         # e.g. "emi" should not match inside "remind", "ad" not inside "bad"
         matched = False
         for kw in skill["keywords"]:
-            if len(kw) <= 4:
+            kw_lower = kw.lower()
+            if len(kw_lower) <= 4:
                 # Short keyword — require word boundary
-                if re.search(r'\b' + re.escape(kw) + r'\b', query_lower):
+                if re.search(r'\b' + re.escape(kw_lower) + r'\b', query_lower):
                     matched = True
                     break
             else:
-                if kw in query_lower:
+                if kw_lower in query_lower:
                     matched = True
                     break
         if matched:
