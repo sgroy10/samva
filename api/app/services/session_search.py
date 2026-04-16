@@ -136,19 +136,13 @@ async def smart_session_recall(
         if not raw_results or len(raw_results.strip()) < 10:
             return ""
 
-        # Summarize via cheap LLM
-        from .orchestrator import call_llm
-        summary = await call_llm(
-            model_key="flash",
-            system_prompt=(
-                "The user is asking about something from past conversations. "
-                "Summarize the relevant past context in 2-3 sentences. "
-                "Be specific about dates, people, and details mentioned."
-            ),
-            user_message=(
-                f"User's question: {query}\n\n"
-                f"Matching past conversations:\n{raw_results}"
-            ),
+        # Summarize via cheap LLM (use call_gemini directly)
+        from .llm import call_gemini
+        summary = await call_gemini(
+            "The user is asking about something from past conversations. "
+            "Summarize the relevant past context in 2-3 sentences. "
+            "Be specific about dates, people, and details mentioned.",
+            f"User's question: {query}\n\nMatching past conversations:\n{raw_results}",
             max_tokens=300,
             user_id=user_id,
         )

@@ -74,12 +74,11 @@ async def compress_context(db: AsyncSession, user_id: str, current_text: str) ->
 
         conversation_text = "\n".join(conv_lines)
 
-        # Call cheap LLM for compression
-        from .orchestrator import call_llm
-        summary = await call_llm(
-            model_key="flash",
-            system_prompt=COMPRESSION_PROMPT,
-            user_message=f"Conversation to summarize:\n{conversation_text}\n\nCurrent user question: {current_text}",
+        # Call cheap LLM for compression (use call_gemini directly — simpler, no circular import risk)
+        from .llm import call_gemini
+        summary = await call_gemini(
+            COMPRESSION_PROMPT,
+            f"Conversation to summarize:\n{conversation_text}\n\nCurrent user question: {current_text}",
             max_tokens=300,
             user_id=user_id,
         )
