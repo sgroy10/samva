@@ -96,30 +96,62 @@ async def health():
 
 @app.get("/debug/pdf")
 async def debug_pdf():
-    """Generate a minimal test PDF to diagnose fpdf2 issues."""
+    """Generate test PDFs with different fpdf2 approaches to find what works."""
     import base64, io
     from fpdf import FPDF
     import fpdf
 
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Helvetica", size=12)
-    pdf.write(10, "Hello World Test\n")
-    pdf.write(10, "This is a test PDF from Samva.\n")
-    pdf.write(10, "If you can read this, fpdf2 works.\n")
+    results = {"fpdf_version": fpdf.__version__}
 
-    buf = io.BytesIO()
-    pdf.output(buf)
-    raw = buf.getvalue()
+    # Test 1: write()
+    pdf1 = FPDF()
+    pdf1.add_page()
+    pdf1.set_font("Helvetica", size=12)
+    pdf1.write(10, "Hello write")
+    buf1 = io.BytesIO(); pdf1.output(buf1); r1 = buf1.getvalue()
+    results["write"] = {"size": len(r1), "has_BT": b"BT" in r1}
 
-    return {
-        "fpdf_version": fpdf.__version__,
-        "pdf_size": len(raw),
-        "has_BT": b"BT" in raw,
-        "has_text": b"Hello" in raw,
-        "starts_with": raw[:20].decode("latin-1"),
-        "pdf_b64": base64.b64encode(raw).decode()[:200],
-    }
+    # Test 2: cell()
+    pdf2 = FPDF()
+    pdf2.add_page()
+    pdf2.set_font("Helvetica", size=12)
+    pdf2.cell(text="Hello cell")
+    buf2 = io.BytesIO(); pdf2.output(buf2); r2 = buf2.getvalue()
+    results["cell"] = {"size": len(r2), "has_BT": b"BT" in r2}
+
+    # Test 3: multi_cell()
+    pdf3 = FPDF()
+    pdf3.add_page()
+    pdf3.set_font("Helvetica", size=12)
+    pdf3.multi_cell(w=0, text="Hello multi_cell")
+    buf3 = io.BytesIO(); pdf3.output(buf3); r3 = buf3.getvalue()
+    results["multi_cell"] = {"size": len(r3), "has_BT": b"BT" in r3}
+
+    # Test 4: text() — lowest level
+    pdf4 = FPDF()
+    pdf4.add_page()
+    pdf4.set_font("Helvetica", size=12)
+    pdf4.text(10, 20, "Hello text")
+    buf4 = io.BytesIO(); pdf4.output(buf4); r4 = buf4.getvalue()
+    results["text"] = {"size": len(r4), "has_BT": b"BT" in r4}
+
+    # Test 5: cell with explicit w/h
+    pdf5 = FPDF()
+    pdf5.add_page()
+    pdf5.set_font("Helvetica", size=12)
+    pdf5.cell(w=100, h=10, text="Hello cell explicit")
+    buf5 = io.BytesIO(); pdf5.output(buf5); r5 = buf5.getvalue()
+    results["cell_explicit"] = {"size": len(r5), "has_BT": b"BT" in r5}
+
+    # Test 6: old-style cell (positional args)
+    pdf6 = FPDF()
+    pdf6.add_page()
+    pdf6.set_font("Helvetica", size=12)
+    pdf6.cell(100, 10, "Hello cell old")
+    buf6 = io.BytesIO(); pdf6.output(buf6); r6 = buf6.getvalue()
+    results["cell_oldstyle"] = {"size": len(r6), "has_BT": b"BT" in r6}
+
+    return results
 
 
 @app.post("/message")
