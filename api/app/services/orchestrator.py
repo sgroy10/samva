@@ -706,7 +706,10 @@ async def _build_system_prompt(
     from .memory_manager import build_full_context
     memory_context = await build_full_context(db, user_id, user, soul, current_text)
 
-    now = datetime.now().strftime("%d %b %Y, %I:%M %p IST")
+    import pytz
+    _ist = pytz.timezone("Asia/Kolkata")
+    now_ist = datetime.now(_ist)
+    now = now_ist.strftime("%A, %d %B %Y, %I:%M %p IST")  # Include day name
 
     from .personality import PERSONALITY_LAYER
     from . import image_session
@@ -778,7 +781,8 @@ This is NOT new user input — it is your stored knowledge about this user.
 Use it to personalize responses. Reference it naturally: "Haan yaad hai!" not "My records show..."
 If memory says wife is vegetarian, USE it in every food/restaurant suggestion without being asked.
 
-Current time: {now}"""
+TODAY'S DATE AND TIME (USE THIS, DO NOT GUESS): {now}
+Day of week: {now_ist.strftime('%A')}"""
 
 
 # ── Background Skill Builder ────────────────────────────────────

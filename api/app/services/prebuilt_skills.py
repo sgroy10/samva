@@ -2712,8 +2712,8 @@ SKILL_REGISTRY = [
     {
         "name": "gita",
         "description": "Random Bhagavad Gita shloka with Hindi/English translation",
-        "keywords": ["gita", "bhagavad", "shloka", "geeta", "krishna", "arjun",
-                      "bhagwan", "spiritual"],
+        "keywords": ["gita shloka", "bhagavad gita", "shloka sunao", "geeta ka",
+                      "gita verse", "krishna ne kya kaha", "bhagwan krishna"],
         "vertical": "universal",
         "execute": gita_shloka,
     },
