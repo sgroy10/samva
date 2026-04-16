@@ -856,6 +856,14 @@ async def maybe_build_skill(
     if not need:
         return ""
 
+    # Block skills that conflict with built-in features
+    BLOCKED_KEYWORDS = ["pdf", "document", "invoice", "report", "letter", "quotation",
+                        "reminder", "email", "contact", "gold rate", "stock", "weather"]
+    need_lower = need.lower()
+    if any(bk in need_lower for bk in BLOCKED_KEYWORDS):
+        logger.info(f"[{user_id}] Skill build blocked (conflicts with built-in): {need[:80]}")
+        return ""
+
     # Build it
     description = await build_skill_for_user(db, user_id, need, category)
 
