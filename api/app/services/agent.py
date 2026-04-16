@@ -526,7 +526,10 @@ async def _build_system_prompt(
         [f"{c.role}: {c.content}" for c in reversed(list(conversations))]
     ) if conversations else "No recent conversation."
 
-    now = datetime.now().strftime("%d %b %Y, %I:%M %p IST")
+    import pytz
+    _ist = pytz.timezone("Asia/Kolkata")
+    now_ist = datetime.now(_ist)
+    now = now_ist.strftime("%A, %d %B %Y, %I:%M %p IST")
 
     return f"""You are Sam \u2014 a personal WhatsApp assistant for {name}.
 
@@ -548,7 +551,7 @@ YOUR MEMORY:
 RECENT CONVERSATION:
 {conv_text}
 
-Current time: {now}"""
+TODAY IS: {now} (USE THIS DATE, NEVER GUESS)"""
 
 
 async def _route_skill(
