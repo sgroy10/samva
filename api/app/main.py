@@ -94,6 +94,34 @@ async def health():
     return {"status": "ok", "service": "samva-api"}
 
 
+@app.get("/debug/pdf")
+async def debug_pdf():
+    """Generate a minimal test PDF to diagnose fpdf2 issues."""
+    import base64, io
+    from fpdf import FPDF
+    import fpdf
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    pdf.write(10, "Hello World Test\n")
+    pdf.write(10, "This is a test PDF from Samva.\n")
+    pdf.write(10, "If you can read this, fpdf2 works.\n")
+
+    buf = io.BytesIO()
+    pdf.output(buf)
+    raw = buf.getvalue()
+
+    return {
+        "fpdf_version": fpdf.__version__,
+        "pdf_size": len(raw),
+        "has_BT": b"BT" in raw,
+        "has_text": b"Hello" in raw,
+        "starts_with": raw[:20].decode("latin-1"),
+        "pdf_b64": base64.b64encode(raw).decode()[:200],
+    }
+
+
 @app.post("/message")
 async def handle_message(req: MessageRequest, db: AsyncSession = Depends(get_db)):
     """Main message handler — routes through agent."""
