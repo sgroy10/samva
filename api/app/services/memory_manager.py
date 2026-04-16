@@ -37,7 +37,7 @@ IST = pytz.timezone("Asia/Kolkata")
 async def build_core_memory(db: AsyncSession, user_id: str) -> str:
     """Tier 1: Always in prompt. User facts + immediate context."""
 
-    # User memories (facts)
+    # User memories (facts) — wrapped in context fence
     mem_result = await db.execute(
         select(UserMemory).where(
             UserMemory.user_id == user_id,
@@ -46,7 +46,8 @@ async def build_core_memory(db: AsyncSession, user_id: str) -> str:
     )
     memories = mem_result.scalars().all()
     if memories:
-        facts = "\n".join(f"- {m.key}: {m.value}" for m in memories[:20])  # Cap at 20
+        mem_lines = "\n".join(f"- {m.key}: {m.value}" for m in memories[:30])
+        facts = f"<memory-context>\n{mem_lines}\n</memory-context>"
     else:
         facts = "None saved yet."
 

@@ -396,15 +396,54 @@ async def process_message(
             return {"reply": HELP_TEXT, "actions": []}
 
         # ══════════════════════════════════════════════════════════
+        # SMART ROUTING: Skip heavy orchestrator for trivial messages
+        # ══════════════════════════════════════════════════════════
+        text_lower = (text or "").lower().strip()
+        words = text_lower.split()
+        is_simple = (
+            len(words) <= 3
+            and not image_base64
+            and not audio_base64
+            and not any(kw in text_lower for kw in [
+                "pdf", "remind", "email", "gold", "stock", "weather",
+                "translate", "emi", "bmi", "convert", "calculate",
+                "invoice", "itinerary", "kundli", "save contact",
+                "hospital", "doctor", "stressed", "sad",
+            ])
+        )
+
+        # Save user message
+        db.add(Conversation(user_id=user_id, role="user", content=text or "[media]"))
+        await db.commit()
+
+        if is_simple and text_lower:
+            # Fast path: direct LLM call with system prompt, skip all skill routing
+            try:
+                system = await _build_system_prompt(db, user_id, user, soul)
+                reply = await call_gemini(system, text, user_id=user_id, max_tokens=200)
+                if reply:
+                    logger.info(f"[{user_id}] Smart route: fast path for '{text_lower}'")
+                    db.add(Conversation(user_id=user_id, role="assistant", content=reply))
+                    await db.commit()
+                    if should_trigger_review(user_id):
+                        async def _run_review():
+                            try:
+                                recent = await get_recent_messages(user_id, limit=10)
+                                if recent:
+                                    await background_memory_review(user_id, recent)
+                            except Exception:
+                                pass
+                        asyncio.create_task(_run_review())
+                    return {"reply": reply, "actions": []}
+            except Exception:
+                pass  # Fall through to orchestrator
+
+        # ══════════════════════════════════════════════════════════
         # THE ORCHESTRATOR — routes everything
         # Prebuilt skills → custom skills → image routing → LLM chat
         # All invisible to the user. Sam just works.
         # ══════════════════════════════════════════════════════════
         from .orchestrator import orchestrate
-
-        # Save user message
-        db.add(Conversation(user_id=user_id, role="user", content=text or "[media]"))
-        await db.commit()
 
         # Orchestrate
         reply = await orchestrate(db, user_id, user, soul, text, message_type, image_base64)
