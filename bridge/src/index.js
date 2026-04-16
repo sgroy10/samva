@@ -59,6 +59,15 @@ app.post('/test-message', async (req, res) => {
   }
 });
 
+// --- Debug PDF ---
+app.get('/debug/pdf', async (req, res) => {
+  try {
+    const axios = require('axios');
+    const resp = await axios.get('http://localhost:8000/debug/pdf', { timeout: 10000 });
+    res.json(resp.data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // --- Admin: deactivate broken skills ---
 app.post('/admin/deactivate-skills', async (req, res) => {
   try {
