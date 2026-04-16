@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,7 @@ from . import gold, stocks, email_draft, meeting, contacts, reminders, web_searc
 from .confidence import tag_confidence
 from . import network as network_svc
 from . import skill_builder
+from .memory_review import should_trigger_review, background_memory_review, get_recent_messages
 
 logger = logging.getLogger("samva.agent")
 
@@ -418,6 +420,20 @@ async def process_message(
         # Save assistant reply
         db.add(Conversation(user_id=user_id, role="assistant", content=reply))
         await db.commit()
+
+        # ══ Background Memory Review (Hermes-style) ══════════════
+        # Every 5th user message, silently review conversation and
+        # save any new facts/preferences to UserMemory.
+        # NEVER blocks the user response — runs as background task.
+        if should_trigger_review(user_id):
+            async def _run_review():
+                try:
+                    recent = await get_recent_messages(user_id, limit=10)
+                    if recent:
+                        await background_memory_review(user_id, recent)
+                except Exception as e:
+                    logger.error(f"[memory-review] Background task error for {user_id}: {e}")
+            asyncio.create_task(_run_review())
 
         return {"reply": reply, "actions": []}
 
