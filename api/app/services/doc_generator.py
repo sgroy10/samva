@@ -326,10 +326,9 @@ async def _generate_letter(db, user_id, text, user_name, now) -> tuple:
     pdf.add_page()
     pdf.set_font("Helvetica", "", 11)
 
-    # Simple text wrapping
     for line in letter_text.split("\n"):
         if line.strip():
-            pdf.multi_cell(0, 6, line.strip())
+            pdf.write(6, _safe_text(line.strip()) + "\n")
         else:
             pdf.ln(4)
 
