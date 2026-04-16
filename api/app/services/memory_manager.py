@@ -67,15 +67,9 @@ async def build_core_memory(db: AsyncSession, user_id: str, current_text: str = 
         f"{c.role}: {c.content[:200]}" for c in reversed(list(recent))
     ) if recent else "First conversation."
 
-    # Compressed older context (Hermes-style)
+    # Compressed older context (Hermes-style) — disabled temporarily due to MissingGreenlet
+    # TODO: Move compression to a background task instead of inline
     compressed_section = ""
-    try:
-        from .context_compressor import compress_context
-        compressed = await compress_context(db, user_id, current_text)
-        if compressed:
-            compressed_section = f"\nPrevious context (summarized):\n{compressed}\n"
-    except Exception as e:
-        logger.warning(f"[{user_id}] Context compression skipped: {e}")
 
     # Active reminders
     now_utc = datetime.utcnow()

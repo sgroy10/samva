@@ -239,19 +239,9 @@ async def build_memory_context(db: AsyncSession, user_id: str, current_message: 
     inbox_results = await search_inbox(db, user_id, current_message)
     mem_results = await search_memories(db, user_id, current_message)
 
-    # Enhanced recall: use session search + smart recall for "remember when" queries
+    # Enhanced recall: session search disabled temporarily (MissingGreenlet with raw SQL)
+    # TODO: Fix by running FTS in a separate session or as background pre-fetch
     session_recall = ""
-    try:
-        from .session_search import smart_session_recall, search_past_sessions
-        if detect_memory_need(current_message):
-            session_recall = await smart_session_recall(db, user_id, current_message)
-        elif not conv_results:
-            # Fallback: FTS search if ILIKE-based search found nothing
-            fts_results = await search_past_sessions(db, user_id, current_message, limit=5)
-            if fts_results:
-                session_recall = fts_results
-    except Exception as e:
-        logger.warning(f"[{user_id}] Session search integration skipped: {e}")
 
     if not conv_results and not inbox_results and not mem_results and not session_recall:
         return ""
