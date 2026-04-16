@@ -148,7 +148,7 @@ async def call_gemini_json(
         user_id=user_id, max_tokens=max_tokens,
     )
 
-    # Strip markdown code blocks
+    # Strip markdown code blocks and any surrounding text
     text = raw.strip()
     if text.startswith("```json"):
         text = text[7:]
@@ -158,11 +158,39 @@ async def call_gemini_json(
         text = text[:-3]
     text = text.strip()
 
+    # Try parsing as-is first
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        logger.error(f"JSON parse error for {user_id}: {text[:200]}")
-        return {"error": "parse_error", "raw": raw}
+        pass
+
+    # Try extracting JSON from mixed text (LLM sometimes adds explanation before/after)
+    try:
+        # Find the first { and last }
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            candidate = text[start:end + 1]
+            return json.loads(candidate)
+    except json.JSONDecodeError:
+        pass
+
+    # Try fixing truncated JSON (add missing closing brackets)
+    try:
+        candidate = text
+        if candidate.count("{") > candidate.count("}"):
+            candidate += "}" * (candidate.count("{") - candidate.count("}"))
+        if candidate.count("[") > candidate.count("]"):
+            candidate += "]" * (candidate.count("[") - candidate.count("]"))
+        start = candidate.find("{")
+        end = candidate.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(candidate[start:end + 1])
+    except json.JSONDecodeError:
+        pass
+
+    logger.error(f"JSON parse error for {user_id}: {text[:200]}")
+    return {"error": "parse_error", "raw": raw}
 
 
 async def text_to_speech(text: str, user_id: str = "", voice_language: str = "auto") -> str:
