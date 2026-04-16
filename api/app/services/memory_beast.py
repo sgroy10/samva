@@ -239,7 +239,21 @@ async def build_memory_context(db: AsyncSession, user_id: str, current_message: 
     inbox_results = await search_inbox(db, user_id, current_message)
     mem_results = await search_memories(db, user_id, current_message)
 
-    if not conv_results and not inbox_results and not mem_results:
+    # Enhanced recall: use session search + smart recall for "remember when" queries
+    session_recall = ""
+    try:
+        from .session_search import smart_session_recall, search_past_sessions
+        if detect_memory_need(current_message):
+            session_recall = await smart_session_recall(db, user_id, current_message)
+        elif not conv_results:
+            # Fallback: FTS search if ILIKE-based search found nothing
+            fts_results = await search_past_sessions(db, user_id, current_message, limit=5)
+            if fts_results:
+                session_recall = fts_results
+    except Exception as e:
+        logger.warning(f"[{user_id}] Session search integration skipped: {e}")
+
+    if not conv_results and not inbox_results and not mem_results and not session_recall:
         return ""
 
     # Build context
@@ -261,6 +275,9 @@ async def build_memory_context(db: AsyncSession, user_id: str, current_message: 
         parts.append("\nSAVED MEMORIES:")
         for m in mem_results:
             parts.append(f"  {m['key']}: {m['value']}")
+
+    if session_recall:
+        parts.append(f"\nDEEP RECALL (from session search):\n  {session_recall}")
 
     context = "\n".join(parts)
     logger.info(f"[{user_id}] Memory Beast found {len(conv_results)} conversations, {len(inbox_results)} inbox, {len(mem_results)} memories")

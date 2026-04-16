@@ -421,7 +421,7 @@ async def orchestrate(
                       "weekend plan", "date plan", "menu plan"]
     is_planning = any(w in text_lower for w in planning_words)
 
-    system = await _build_system_prompt(db, user_id, user, soul)
+    system = await _build_system_prompt(db, user_id, user, soul, text)
     if memory_context:
         system += "\n" + memory_context
 
@@ -527,7 +527,7 @@ async def _handle_llm_signal(
 ) -> str:
     """Handle __LLM_*__ signals from prebuilt skills that need specialized LLM processing."""
 
-    system = await _build_system_prompt(db, user_id, user, soul)
+    system = await _build_system_prompt(db, user_id, user, soul, text)
 
     if signal == "__LLM_NUTRITION__":
         return await call_llm(
@@ -612,7 +612,7 @@ async def _handle_image(
     jewelry, screenshots, memes, documents — ANYTHING.
     Sam NEVER says "sorry I can't analyze this."
     """
-    system = await _build_system_prompt(db, user_id, user, soul)
+    system = await _build_system_prompt(db, user_id, user, soul, text or "")
     q = (text or "").lower()
 
     # If user gave specific instructions, honor them
@@ -697,14 +697,14 @@ async def _build_context(db: AsyncSession, user_id: str, image_base64: str = Non
 
 
 async def _build_system_prompt(
-    db: AsyncSession, user_id: str, user: User, soul: AgentSoul
+    db: AsyncSession, user_id: str, user: User, soul: AgentSoul, current_text: str = ""
 ) -> str:
     """Build the full system prompt — same as agent.py but accessible from orchestrator."""
     name = user.name or "this user"
 
     # Hierarchical memory — replaces raw conversation dump
     from .memory_manager import build_full_context
-    memory_context = await build_full_context(db, user_id, user, soul)
+    memory_context = await build_full_context(db, user_id, user, soul, current_text)
 
     now = datetime.now().strftime("%d %b %Y, %I:%M %p IST")
 

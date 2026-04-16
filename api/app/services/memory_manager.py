@@ -34,8 +34,12 @@ logger = logging.getLogger("samva.memory_manager")
 IST = pytz.timezone("Asia/Kolkata")
 
 
-async def build_core_memory(db: AsyncSession, user_id: str) -> str:
-    """Tier 1: Always in prompt. User facts + immediate context."""
+async def build_core_memory(db: AsyncSession, user_id: str, current_text: str = "") -> str:
+    """Tier 1: Always in prompt. User facts + immediate context.
+
+    Now includes Hermes-style context compression: recent 5 messages are
+    kept verbatim, while older messages (6-20) are compressed into a summary.
+    """
 
     # User memories (facts) — wrapped in context fence
     mem_result = await db.execute(
@@ -63,6 +67,16 @@ async def build_core_memory(db: AsyncSession, user_id: str) -> str:
         f"{c.role}: {c.content[:200]}" for c in reversed(list(recent))
     ) if recent else "First conversation."
 
+    # Compressed older context (Hermes-style)
+    compressed_section = ""
+    try:
+        from .context_compressor import compress_context
+        compressed = await compress_context(db, user_id, current_text)
+        if compressed:
+            compressed_section = f"\nPrevious context (summarized):\n{compressed}\n"
+    except Exception as e:
+        logger.warning(f"[{user_id}] Context compression skipped: {e}")
+
     # Active reminders
     now_utc = datetime.utcnow()
     rem_result = await db.execute(
@@ -85,7 +99,7 @@ async def build_core_memory(db: AsyncSession, user_id: str) -> str:
 
 User's saved facts:
 {facts}
-
+{compressed_section}
 Last messages (immediate thread):
 {thread}
 
@@ -168,11 +182,11 @@ async def build_working_memory(db: AsyncSession, user_id: str) -> str:
 {len(conversations)} messages exchanged in last 48 hours."""
 
 
-async def build_full_context(db: AsyncSession, user_id: str, user, soul) -> str:
+async def build_full_context(db: AsyncSession, user_id: str, user, soul, current_text: str = "") -> str:
     """Build the complete memory context for the system prompt.
     Replaces the old raw conversation dump."""
 
-    core = await build_core_memory(db, user_id)
+    core = await build_core_memory(db, user_id, current_text)
     working = await build_working_memory(db, user_id)
 
     # Diary context (from last night)
