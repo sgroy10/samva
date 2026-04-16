@@ -151,6 +151,17 @@ async def debug_pdf():
     buf6 = io.BytesIO(); pdf6.output(buf6); r6 = buf6.getvalue()
     results["cell_oldstyle"] = {"size": len(r6), "has_BT": b"BT" in r6}
 
+    # Test 7: Check if font is loaded, dump raw PDF content
+    pdf7 = FPDF()
+    pdf7.add_page()
+    pdf7.set_font("Helvetica", size=16)
+    pdf7.cell(100, 10, "VISIBLE TEXT")
+    buf7 = io.BytesIO(); pdf7.output(buf7); r7 = buf7.getvalue()
+    results["raw_pdf_sample"] = r7.decode("latin-1")[-500:]
+    results["font_loaded"] = "Helvetica" in r7.decode("latin-1")
+    results["has_Tf"] = b"Tf" in r7  # Font selection operator
+    results["has_Tj"] = b"Tj" in r7  # Text show operator
+
     return results
 
 
