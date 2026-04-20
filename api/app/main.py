@@ -89,9 +89,11 @@ class EnterpriseRequest(BaseModel):
 
 # --- Endpoints ---
 
+DEPLOY_VERSION = "2026-04-20-v1"  # UPDATE THIS EVERY DEPLOY
+
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "samva-api"}
+    return {"status": "ok", "service": "samva-api", "version": DEPLOY_VERSION}
 
 
 @app.get("/debug/pdf")
