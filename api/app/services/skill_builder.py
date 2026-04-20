@@ -840,6 +840,15 @@ async def maybe_build_skill(
     db: AsyncSession, user_id: str, text: str, reply: str, soul_prompt: str
 ):
     """
+    DISABLED: Auto skill building turned off. Was creating broken skills
+    that intercepted real queries with useless responses.
+    """
+    return ""
+
+async def _maybe_build_skill_disabled(
+    db: AsyncSession, user_id: str, text: str, reply: str, soul_prompt: str
+):
+    """
     Called after a chat reply with confidence < HIGH.
     Checks if Sam should build a new skill for this user.
     Runs the full build pipeline if yes.

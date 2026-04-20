@@ -3079,10 +3079,13 @@ async def find_and_execute(query: str, business_type: str, context: dict = None)
                     logger.info(f"Prebuilt skill matched: {skill['name']}")
                     return result
                 elif result and result.startswith("__"):
-                    # Signal for orchestrator — special handling needed
                     return result
+                else:
+                    # Skill matched but returned empty — log and continue to next layer
+                    logger.warning(f"Prebuilt skill {skill['name']} matched but returned empty for: {query[:50]}")
+                    continue
             except Exception as e:
-                logger.error(f"Prebuilt skill {skill['name']} failed: {e}")
+                logger.error(f"Prebuilt skill {skill['name']} crashed: {e}")
                 continue
 
     return ""

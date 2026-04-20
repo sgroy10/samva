@@ -11,6 +11,7 @@ This is what makes Sam actually learn and remember over time.
 import asyncio
 import json
 import logging
+import re
 from collections import defaultdict
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -91,20 +92,38 @@ async def background_memory_review(user_id: str, recent_messages: list[dict]):
             logger.info(f"[memory-review] Empty review for {user_id}")
             return
 
-        # Upsert each fact using a NEW db session
+        # Validate and upsert each fact using a NEW db session
+        VALID_KEY_PATTERN = re.compile(r'^[a-z][a-z0-9_]{2,50}$')
+        BLOCKED_KEYS = {"user_query", "current_topic", "last_message", "session_id",
+                        "temporary", "test", "debug", "unknown"}
+
         saved = []
         async with async_session() as db:
             try:
                 for item in items[:5]:  # Cap at 5
-                    key = item.get("key", "").strip()
+                    key = item.get("key", "").strip().lower().replace(" ", "_")
                     value = item.get("value", "")
 
                     if not key or not value:
                         continue
 
-                    # Ensure value is string
+                    # Validate key format
+                    if not VALID_KEY_PATTERN.match(key):
+                        logger.warning(f"[memory-review] Rejected invalid key: {key}")
+                        continue
+
+                    # Block temporary/test keys
+                    if key in BLOCKED_KEYS or key.startswith("_"):
+                        continue
+
+                    # Ensure value is string and not too long
                     if not isinstance(value, str):
                         value = json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+                    value = value[:500]  # Cap value length
+
+                    # Don't save vague/generic values
+                    if value.lower() in ("unknown", "not specified", "n/a", "none", "null"):
+                        continue
 
                     stmt = pg_insert(UserMemory).values(
                         user_id=user_id, key=key, value=value
