@@ -242,14 +242,14 @@ async def orchestrate(
     # ── LAYER 2: Intent keywords — BEFORE custom skills ──────────
     # These MUST go to agent.py's intent detection, not any skill
     intent_keywords = [
-        "remind", "yaad", "yaad dila", "reminder", "set reminder",
-        "email", "mail", "bhejo", "send email",
-        "email dikhao", "mail dikhao", "mail check",
-        "meeting", "note", "meeting note", "just had a meeting", "met with",
-        "contact", "number", "ka number", "phone number",
-        "save contact", "contact save",
+        "remind me", "yaad dila", "yaad rakh", "reminder set", "set reminder",
+        "remind karo", "remind kar",
+        "send email", "email bhej", "mail bhej",
+        "email dikhao", "mail dikhao", "mail check", "check email", "check mail",
+        "meeting note", "just had a meeting", "met with", "meeting hua",
+        "save contact", "contact save", "number save",
         "business card", "scanned a card",
-        "teach me", "learn a", "learn to", "word of the day", "practice ",
+        "teach me", "learn a", "learn to", "word of the day",
         "teach me a", "teach me one", "teach me basic", "teach me how",
         "sikhao", "seekho", "padhao",
     ]
