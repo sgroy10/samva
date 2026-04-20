@@ -856,9 +856,10 @@ async def maybe_build_skill(
     if not need:
         return ""
 
-    # Block skills that conflict with built-in features
+    # Block skills that conflict with built-in features or produce broken results
     BLOCKED_KEYWORDS = ["pdf", "document", "invoice", "report", "letter", "quotation",
-                        "reminder", "email", "contact", "gold rate", "stock", "weather"]
+                        "reminder", "email", "contact", "gold rate", "stock", "weather",
+                        "flight", "fly", "airline", "gst", "tax rate"]
     need_lower = need.lower()
     if any(bk in need_lower for bk in BLOCKED_KEYWORDS):
         logger.info(f"[{user_id}] Skill build blocked (conflicts with built-in): {need[:80]}")

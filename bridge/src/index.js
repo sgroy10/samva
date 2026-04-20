@@ -37,13 +37,15 @@ app.get('/contact', (req, res) => res.sendFile(path.join(webDir, 'contact.html')
 app.get('/admin', (req, res) => res.sendFile(path.join(webDir, 'admin.html')));
 
 // --- Health ---
-const DEPLOY_VERSION = '2026-04-20-v1'; // UPDATE EVERY DEPLOY
+const DEPLOY_VERSION = '2026-04-20-v2'; // UPDATE EVERY DEPLOY
+const DEPLOY_TIME = new Date().toISOString();
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     version: DEPLOY_VERSION,
+    deployed_at: DEPLOY_TIME,
     sessions: sessionManager.getActiveCount(),
-    uptime: process.uptime(),
+    uptime: Math.round(process.uptime()),
   });
 });
 
