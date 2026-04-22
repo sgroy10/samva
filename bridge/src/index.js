@@ -37,7 +37,7 @@ app.get('/contact', (req, res) => res.sendFile(path.join(webDir, 'contact.html')
 app.get('/admin', (req, res) => res.sendFile(path.join(webDir, 'admin.html')));
 
 // --- Health ---
-const DEPLOY_VERSION = '2026-04-22-v1'; // UPDATE EVERY DEPLOY
+const DEPLOY_VERSION = '2026-04-22-v2'; // UPDATE EVERY DEPLOY
 const DEPLOY_TIME = new Date().toISOString();
 app.get('/health', (req, res) => {
   res.json({

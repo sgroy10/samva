@@ -2667,9 +2667,8 @@ SKILL_REGISTRY = [
     # ── Cricket ──────────────────────────────────────────────
     {
         "name": "cricket",
-        "description": "Live cricket scores",
-        "keywords": ["cricket", "score", "ipl", "match", "batting", "bowling",
-                      "cricket score", "live score", "india match"],
+        "description": "Live cricket scores — DISABLED, routes to web search",
+        "keywords": [],  # Empty = never matches, web search handles it
         "vertical": "universal",
         "execute": cricket_score,
     },
@@ -2800,9 +2799,8 @@ SKILL_REGISTRY = [
     },
     {
         "name": "news",
-        "description": "Latest news search by topic",
-        "keywords": ["news", "latest news", "headlines", "khabar", "samachar",
-                      "what happened", "current events"],
+        "description": "Latest news — DISABLED, routes to web search",
+        "keywords": [],  # Empty = never matches, Perplexity handles it
         "vertical": "universal",
         "execute": news_search,
     },
