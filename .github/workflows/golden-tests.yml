@@ -1,0 +1,39 @@
+name: Golden Test Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  golden-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: pip install pytest pytest-asyncio httpx
+
+      - name: Run golden test suite
+        env:
+          SAMVA_TEST_URL: ${{ secrets.SAMVA_TEST_URL }}
+          SAMVA_TEST_USER_ID: ${{ secrets.SAMVA_TEST_USER_ID }}
+        run: python -m pytest tests/test_sam_golden.py -v
+
+      - name: Verify deploy version
+        env:
+          SAMVA_TEST_URL: ${{ secrets.SAMVA_TEST_URL }}
+        run: |
+          VERSION=$(curl -s ${SAMVA_TEST_URL:-https://romantic-generosity-production.up.railway.app}/health | python -c "import sys,json; print(json.loads(sys.stdin.read()).get('version','UNKNOWN'))")
+          echo "Deployed version: $VERSION"
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          echo "Commit SHA: $COMMIT_SHA"
+          echo "deploy_version=$VERSION" >> $GITHUB_OUTPUT
