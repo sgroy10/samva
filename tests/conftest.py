@@ -11,8 +11,8 @@ import pytest
 import httpx
 
 # Default to production — override with SAMVA_TEST_URL for staging
-BASE_URL = os.environ.get("SAMVA_TEST_URL", "https://romantic-generosity-production.up.railway.app")
-USER_ID = os.environ.get("SAMVA_TEST_USER_ID", "2348683f-abfb-4707-9149-80b8a8f05c03")
+BASE_URL = os.environ.get("SAMVA_TEST_URL") or "https://romantic-generosity-production.up.railway.app"
+USER_ID = os.environ.get("SAMVA_TEST_USER_ID") or "2348683f-abfb-4707-9149-80b8a8f05c03"
 
 
 @pytest.fixture
